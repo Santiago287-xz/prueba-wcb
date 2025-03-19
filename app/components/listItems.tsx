@@ -85,6 +85,18 @@ export default function ListItems() {
                     </Link>
                 </>
             )}
+            {(user?.role === "admin" || user?.role === "trainer") && (
+                <>
+                    <Link href="/booking" passHref>
+                        <ListItemButton title="Canchas">
+                            <ListItemIcon>
+                                <CalendarMonthIcon/>
+                            </ListItemIcon>
+                            <ListItemText primary="Canchas"/>
+                        </ListItemButton>
+                    </Link>
+                </>
+            )}
             <Divider sx={{my: 1}}/>
             <ListSubheader component="div" inset>
                 Manage

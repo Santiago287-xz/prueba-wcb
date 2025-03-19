@@ -79,7 +79,7 @@ export async function PATCH() {
   try {
     const session = await getSession();
     const sessionUser = session?.user as SessionUser;
-
+    
     if (!session) {
       return NextResponse.json(
         { error: "Unauthenticated" },
@@ -88,14 +88,12 @@ export async function PATCH() {
         }
       );
     }
-
+    
     const today = new Date();
-
+    
     const toDayHour = Number(today.getHours()) + 6;
-
-    const toDayMin = Number(today.getMinutes())
-
-
+    const toDayMin = Number(today.getMinutes());
+    
     const attendanceExist = await prisma.attendance.findFirst({
       where: {
         studentId: sessionUser.id,
@@ -103,7 +101,7 @@ export async function PATCH() {
         isPresent: false,
       },
     });
-
+    
     if (!attendanceExist) {
       return NextResponse.json(
         {
@@ -114,21 +112,24 @@ export async function PATCH() {
         }
       );
     }
-
+    
+    console.log(attendanceExist);
     const fTimeHour = Number(attendanceExist.fromTime.toString().split(":")[0]);
     const fTimeMin = Number(attendanceExist.fromTime.toString().split(":")[1]);
-
+    
     const tTimeHour = Number(attendanceExist.toTime.toString().split(":")[0]);
     const tTimeMin = Number(attendanceExist.toTime.toString().split(":")[1]);
-
-
-
-    if (
-      toDayHour < fTimeHour ||
-      (toDayHour === fTimeHour && toDayMin < fTimeMin) ||
-      toDayHour > tTimeHour ||
-      (toDayHour === tTimeHour && toDayMin > tTimeMin)
-    ) {
+    
+    // Convert all times to minutes for easier comparison
+    const currentTimeInMinutes = toDayHour * 60 + toDayMin;
+    const fromTimeInMinutes = fTimeHour * 60 + fTimeMin;
+    const toTimeInMinutes = tTimeHour * 60 + tTimeMin;
+    
+    // Allow 5 minutes early and 10 minutes late
+    const earliestAllowedTime = fromTimeInMinutes - 5;
+    const latestAllowedTime = toTimeInMinutes + 10;
+    
+    if (currentTimeInMinutes < earliestAllowedTime || currentTimeInMinutes > latestAllowedTime) {
       return NextResponse.json(
         {
           error: "You are not allowed to mark attendance at this time",
@@ -138,7 +139,7 @@ export async function PATCH() {
         }
       );
     }
-
+    
     const attendance = await prisma.attendance.update({
       where: {
         id: attendanceExist.id,
@@ -147,7 +148,7 @@ export async function PATCH() {
         isPresent: true,
       },
     });
-
+    
     return NextResponse.json(
       {
         data: attendance,

@@ -5,7 +5,7 @@ import prisma from "@/app/libs/prismadb";
 export async function POST(req: Request) {
   const body = await req.json();
 
-  const { name, email, image, password, role, gender } = body;
+  const { name, email, password, role, gender } = body;
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -13,7 +13,6 @@ export async function POST(req: Request) {
     data: {
       email,
       name,
-      image,
       role,
       hashedPassword,
       gender,

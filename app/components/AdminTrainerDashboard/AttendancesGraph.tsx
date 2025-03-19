@@ -7,7 +7,7 @@ const AttendanceGraph = ({attendanceData}: {
     attendanceData: Attendance[]
 }) => {
     // Process attendance data to create chart data
-
+    console.log(attendanceData)
     let timeSlots = [] as unknown as string[]
     attendanceData?.forEach(attendance => {
         if (!timeSlots.includes(attendance.date)) {

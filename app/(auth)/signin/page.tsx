@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Loader from "@/app/components/Loader/Loader";
 import { useSession, signIn } from "next-auth/react";
@@ -38,6 +38,7 @@ export default function SignInPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<FieldValues>({
     defaultValues: {
@@ -47,9 +48,17 @@ export default function SignInPage() {
   });
   const router = useRouter();
 
+  useEffect(() => {
+    if (testUser.email) {
+      setValue("email", testUser.email);
+    }
+    if (testUser.password) {
+      setValue("password", testUser.password);
+    }
+  }, [testUser, setValue]);
+
   const handleSignIn: SubmitHandler<FieldValues> = (data) => {
     setIsSubmitting(true);
-    console.log(data)
     signIn("credentials", {
       ...data,
       redirect: false,
@@ -103,7 +112,6 @@ export default function SignInPage() {
           >
             <TextField
               margin="normal"
-              value={testUser.email}
               required
               fullWidth
               id="email"
@@ -123,7 +131,6 @@ export default function SignInPage() {
 
             <TextField
               margin="normal"
-              value={testUser.password}
               required
               fullWidth
               label="Password"

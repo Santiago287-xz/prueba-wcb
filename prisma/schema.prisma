@@ -43,13 +43,12 @@ enum Level {
 }
 
 // User
-
 model User {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   name           String
   email          String   @unique
+  phone          Int?     @default(0)
   hashedPassword String
-  image          String?
   role           Role
   isActive       Boolean? @default(false)
   gender         Gender
@@ -63,9 +62,11 @@ model User {
   adminId   String? @map("adminId") @db.ObjectId
   trainer   User?   @relation("TrainerToUser", fields: [trainerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   trainerId String? @map("trainerId") @db.ObjectId
-
+  
   adminsForUsers   User[] @relation("AdminToUser")
   trainersForUsers User[] @relation("TrainerToUser")
+
+  courtReservations CourtReservation[] // Relación única con CourtReservation
 
   notifReceiver Notification[] @relation("userId")
   notifSender   Notification[] @relation("senderId")
@@ -148,8 +149,7 @@ model Fees {
   updatedAt     DateTime  @updatedAt
 }
 
-// exercise 
-
+// Exercise
 model ExerciseList {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   name      String
@@ -220,4 +220,28 @@ model Attendance {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Court
+model Court {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  name         String           // Ejemplo: "Cancha de Pádel 1", "Cancha de Fútbol 1"
+  type         String           // "padel" o "futbol"
+  reservations CourtReservation[] // Relación con las reservas
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+// CourtReservation
+model CourtReservation {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  courtId   String    @db.ObjectId
+  court     Court     @relation(fields: [courtId], references: [id])
+  userId    String    @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id])
+  startTime DateTime  // Fecha y hora de inicio
+  endTime   DateTime  // Fecha y hora de fin
+  status    String    @default("confirmed") // "confirmed", "cancelled", etc.
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }

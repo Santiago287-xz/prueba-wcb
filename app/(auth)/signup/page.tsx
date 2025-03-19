@@ -21,7 +21,6 @@ export default function SignUpPage() {
       name: "",
       email: "",
       password: "",
-      image: "",
       gender: "",
     },
   });
@@ -29,8 +28,6 @@ export default function SignUpPage() {
   const [imageBase64, setImageBase64] = useState<string>("");
 
   const handleSignUp: SubmitHandler<FieldValues> = async (data) => {
-    data.image = imageBase64;
-
     const res = await axios.post("/api/auth/register", data);
 
     if (res.status === 200) {
@@ -188,29 +185,6 @@ export default function SignUpPage() {
             typeof errors.gender.message === "string" && (
               <p className="text-red-500 text-xs italic">
                 {errors?.gender?.message}
-              </p>
-            )}
-        </div>
-
-        <div className="flex justify-center items-start flex-col">
-          <label
-            className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-            htmlFor="file_input"
-          >
-            Upload your profile picture
-          </label>
-          <input
-            className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
-            id="file_input"
-            type="file"
-            {...register("image", { required: true })}
-            onChange={handleImageChange}
-          />
-          {errors &&
-            errors.image &&
-            typeof errors.image.message === "string" && (
-              <p className="text-red-500 text-xs italic">
-                {errors?.image?.message}
               </p>
             )}
         </div>

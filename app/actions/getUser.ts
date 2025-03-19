@@ -23,7 +23,6 @@ export default async function getUser(params: IParams) {
             id: true,
             name: true,
             email: true,
-            image: true,
           },
         },
         trainer: {
@@ -31,7 +30,6 @@ export default async function getUser(params: IParams) {
             id: true,
             name: true,
             email: true,
-            image: true,
           },
         },
       },

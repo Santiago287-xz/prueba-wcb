@@ -3,35 +3,16 @@ const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 
-async function main() {
-  const hashedPassword = await bcrypt.hash('admin123', 10);
-  
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
-    update: {},
-    create: {
-      name: 'Admin',
-      email: 'admin@example.com',
-      hashedPassword,
-      role: 'admin',
-      isActive: true,
-      gender: 'male',
-      age: 30,
-      height: 175,
-      weight: 70,
-      goal: 'get_healthier',
-      level: 'advanced'
-    },
+async function seed() {
+  await prisma.court.createMany({
+    data: [
+      { name: "Cancha de Pádel 1", type: "padel" },
+      { name: "Cancha de Pádel 2", type: "padel" },
+      { name: "Cancha de Fútbol 1", type: "futbol" },
+      { name: "Cancha de Fútbol 2", type: "futbol" },
+    ],
   });
-  
-  console.log({ admin });
+  console.log("Canchas creadas");
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+seed().catch(console.error);

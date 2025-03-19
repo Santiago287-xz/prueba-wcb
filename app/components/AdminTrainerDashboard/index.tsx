@@ -27,6 +27,7 @@ const AdminTrainerDashboard = ({user}: { user: User }) => {
     const {data: users, isLoading: usersLoading, mutate} = useSWR("/api/users", fetcher, {
         refreshInterval: 10000
     })
+    console.log(users)
     const {data: attendances, isLoading: attendancesLoading} = useSWR("/api/attendance", fetcher);
 
     const router = useRouter()

@@ -121,6 +121,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    console.log(body)
 
     if (!body.email || !body.password) {
         return NextResponse.json(
@@ -162,7 +163,6 @@ export async function POST(req: Request) {
         data: {
             name: body?.name,
             email: body?.email!,
-            image: body?.image,
             role: body?.role,
             hashedPassword,
             gender: body?.gender,
@@ -171,6 +171,7 @@ export async function POST(req: Request) {
             level: body?.level,
             weight: body?.weight,
             height: body?.height,
+            phone: body?.phone,
             adminId: adminAccount?.id || null,
             trainerId: body?.trainerId || null,
         },
@@ -199,7 +200,7 @@ export async function PATCH(req: Request) {
 
 
         const body = await req.json();
-
+        console.log(body)
 
         if (sessionUser?.role === 'admin' && body.trainerId && body.userId && body.trainerId !== body.userId) {
 
@@ -261,12 +262,6 @@ export async function PATCH(req: Request) {
                 }, {
                     status: 400
                 })
-            } else if (body.role) {
-                return NextResponse.json({
-                    error: "You can't update the role",
-                } , {
-                    status: 400
-                })
             }
 
             const user = await prisma.user.findUnique({
@@ -296,12 +291,12 @@ export async function PATCH(req: Request) {
                 },
                 data: {
                     name: body.name !== "" ? body.name : user.name,
-                    image: body.image !== "" ? body.image : user.image,
                     age: body.age !== "" ? body.age : user.age,
                     weight: body.weight !== "" ? body.weight : user.weight,
                     height: body.height !== "" ? body.height : user.height,
                     goal: body.goal !== "" ? body.goal : user.goal,
                     level: body.level !== "" ? body.level :  user.level,
+                    phone: body.phone !== "" ? body.phone : user.phone,
                     hashedPassword,
                     isActive: body.isActive
                 }

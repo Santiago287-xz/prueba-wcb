@@ -8,17 +8,22 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import TableSortLabel from "@mui/material/TableSortLabel";
-import { TablePagination, Typography } from "@mui/material";
+import { TablePagination, Typography, useMediaQuery, useTheme } from "@mui/material";
 import { User } from "@prisma/client";
 import useStudentsStore from "@/app/hooks/useStudentsStore";
 import Loading from "@/app/loading";
-import Link from "next/link";
+import EditIcon from "@mui/icons-material/Edit";
+import { useRouter } from "next/navigation";
 
 const StudentsPage: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState(0); // 0-based indexing
+  const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [orderBy, setOrderBy] = useState<keyof User>("name");
   const [order, setOrder] = useState<"asc" | "desc">("asc");
+  
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const router = useRouter();
 
   const { loading, students, fetchStudents } = useStudentsStore();
 
@@ -26,21 +31,19 @@ const StudentsPage: React.FC = () => {
     fetchStudents();
   }, [fetchStudents]);
 
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1) {
-      setCurrentPage(newPage);
-    }
-  };
-
-  // Handler for rows per page change in pagination
   const handleRowsPerPageChange = (newRowsPerPage: number) => {
     setRowsPerPage(newRowsPerPage);
-    setCurrentPage(1); // Reset page to the first page when the number of rows per page changes
+    setCurrentPage(0);
   };
+
   const handleSortChange = (property: keyof User) => () => {
     const isAsc = orderBy === property && order === "asc";
     setOrder(isAsc ? "desc" : "asc");
     setOrderBy(property);
+  };
+
+  const handleRowClick = (userId: string) => {
+    router.push(`/students/${userId}`);
   };
 
   const sortedData = useMemo(() => {
@@ -75,7 +78,7 @@ const StudentsPage: React.FC = () => {
     <>
       <Typography variant="h2">Students</Typography>
       <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="simple table">
+        <Table sx={{ minWidth: isMobile ? 300 : 650 }} aria-label="students table">
           <TableHead>
             <TableRow>
               <TableCell></TableCell>
@@ -88,30 +91,51 @@ const StudentsPage: React.FC = () => {
                   Name
                 </TableSortLabel>
               </TableCell>
+              {!isMobile && (
+                <TableCell>
+                  <TableSortLabel
+                    active={orderBy === "email"}
+                    direction={order}
+                    onClick={handleSortChange("email")}
+                  >
+                    Email
+                  </TableSortLabel>
+                </TableCell>
+              )}
               <TableCell>
                 <TableSortLabel
-                  active={orderBy === "email"}
+                  active={orderBy === "phone"}
                   direction={order}
-                  onClick={handleSortChange("email")}
+                  onClick={handleSortChange("phone")}
                 >
-                  Email
+                  Phone
                 </TableSortLabel>
               </TableCell>
-              <TableCell>Details</TableCell>
+              <TableCell align="center">Edit</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sortedData
               .slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage)
               .map((user: User, index: number) => (
-                <TableRow key={user?.id}>
+                <TableRow 
+                  key={user?.id}
+                  hover
+                  onClick={() => handleRowClick(user?.id)}
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    }
+                  }}
+                >
                   <TableCell>{currentPage * rowsPerPage + index + 1}</TableCell>
                   <TableCell>{user?.name}</TableCell>
-                  <TableCell>{user?.email}</TableCell>
-                  <TableCell>
-                    <Link href={`/students/${user?.id}`}>View</Link>
+                  {!isMobile && <TableCell>{user?.email}</TableCell>}
+                  <TableCell>{user?.phone}</TableCell>
+                  <TableCell align="center">
+                    <EditIcon color="primary" fontSize="small" />
                   </TableCell>
-                  {/* Display other user data here */}
                 </TableRow>
               ))}
           </TableBody>

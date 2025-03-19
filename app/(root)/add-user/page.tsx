@@ -8,7 +8,6 @@ import Grid from "@mui/material/Grid";
 import { LoadingButton } from "@mui/lab";
 import Container from "@mui/material/Container";
 import TextField from "@mui/material/TextField";
-import ImageUpload from "@/app/components/ImageUpload";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { Box, CssBaseline, MenuItem, Select } from "@mui/material/";
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form";
@@ -23,28 +22,25 @@ const AddMemberPage: React.FC = () => {
   const router = useRouter();
   const {
     register,
-    watch,
     setValue,
     reset,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FieldValues & { age: number; weight: number; height: number }>({
+  } = useForm<FieldValues & { age: number; weight: number; height: number; phone: number }>({
     defaultValues: {
       role: "",
       name: "",
       email: "",
       password: "",
-      image: "",
       age: 18,
       weight: 50,
       height: 100,
       gender: "",
       goal: "",
       level: "",
+      phone: 0,
     },
   });
-
-  const image = watch("image");
 
   const onSubmit: SubmitHandler<FieldValues> = async (data) => {
     try {
@@ -117,9 +113,6 @@ const AddMemberPage: React.FC = () => {
                 <MenuItem value="user">Student</MenuItem>
               </Select>
             </Grid>
-            <Grid item xs={12}>
-              <ImageUpload setValue={setValue} value={image} />
-            </Grid>
 
             <Grid item xs={12}>
               <TextField
@@ -142,6 +135,31 @@ const AddMemberPage: React.FC = () => {
                     value: /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}$/,
                     message: "Invalid email address",
                   },
+                })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                type="number"
+                autoComplete="tel"
+                required
+                fullWidth
+                id="phone"
+                label="Phone Number"
+                autoFocus
+                error={!!errors?.phone?.message}
+                helperText={
+                  errors.phone && typeof errors.phone.message === "string"
+                    ? errors.phone.message
+                    : null
+                }
+                {...register("phone", {
+                  required: true,
+                  pattern: {
+                    value: /^[0-9]+$/,
+                    message: "Phone must be a number",
+                  },
+                  setValueAs: (value) => parseInt(value),
                 })}
               />
             </Grid>

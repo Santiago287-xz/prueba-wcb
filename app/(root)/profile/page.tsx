@@ -10,22 +10,18 @@ import {
     TableRow,
     Table,
     TableContainer,
-    Paper, Skeleton, Box, MenuItem, Select, IconButton
+    Paper, Box, MenuItem, Select
 } from "@mui/material";
 import axios from "axios";
 import useSWR from "swr";
 import Loader from "@/app/components/Loader/Loader"
 import Empty from "@/app/components/Empty"
-import Image from "next/image";
 import {FieldValues, SubmitHandler, useForm} from "react-hook-form";
 import {TextField} from "@mui/material/";
 import {LoadingButton} from "@mui/lab";
-import {useState} from "react";
-import ImageUpload from "@/app/components/ImageUpload";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import {useState, useEffect} from "react";
 import toast from "react-hot-toast";
 import { useSession } from "next-auth/react";
-
 
 const defaultTheme = createTheme();
 
@@ -36,36 +32,51 @@ const fetcher = async (...args: Parameters<typeof axios>) => {
 export default function ProfilePage() {
     const {update, data: session, status} = useSession()
     const {data, isLoading, error, mutate} = useSWR('/api/user/profile', fetcher);
-    const [updateImage, setUpdateImage] = useState<boolean>(false);
     const [passwordsMatch, setPasswordsMatch] = useState<boolean>(true);
 
     const user = data?.data;
+    
+    // Verificar si el email es de Gmail
+    const isGmailAccount = user?.email ? user.email.endsWith('@gmail.com') : false;
+    
+    useEffect(() => {
+        if (user?.email && !isGmailAccount) {
+            toast.error("Solo se permiten cuentas de Gmail");
+        }
+    }, [user?.email, isGmailAccount]);
 
     const {
         register,
-        watch,
         setValue,
         getValues,
         handleSubmit,
         reset,
         formState: {errors, isSubmitting},
-    } = useForm<FieldValues & { age: number; weight: number; height: number }>({
+    } = useForm<FieldValues & { age: number; weight: number; height: number; phone: number }>({
         defaultValues: {
             name: user?.name,
-            image: user?.image ?? "",
+            role: user?.role,
+            gender: user?.gender,
             age: user?.age ?? 18,
             weight: user?.weight ?? 50,
             height: user?.height ?? 150,
+            phone: user?.phone ?? 0,
             goal: user?.goal ?? "",
             level: user?.level ?? "",
+            password: "",
+            confirmPassword: ""
         },
+        mode: "onChange"
     });
-
-
-    const image = watch("image");
 
     const onSubmit: SubmitHandler<FieldValues> = async (data) => {
         try {
+            // Verificar si el email es de Gmail
+            if (user?.email && !user.email.endsWith('@gmail.com')) {
+                toast.error("Solo se permiten cuentas de Gmail");
+                return;
+            }
+            
             const res = await axios.patch('/api/users', data, {
                 headers: {
                     'Content-Type': 'application/json'
@@ -79,7 +90,6 @@ export default function ProfilePage() {
                    ...session,
                     user: {
                         ...session?.user,
-                        image: data.image !== "" ? data.image : user.image
                     }
                 })
                 reset();
@@ -87,8 +97,8 @@ export default function ProfilePage() {
 
         } catch (err: Error | any) {
             console.log(err)
+            toast.error(err.response?.data?.error || "An error occurred during update");
         }
-
     }
 
 
@@ -109,58 +119,12 @@ export default function ProfilePage() {
                      sx={{mt: 3}}
                 >
                     <Grid container spacing={4}>
-                        <Grid item xs={12} md={6} sx={{
-                            position: 'relative',
-                        }}>
-                            {/* Use Next.js Image component */}
-                            {!user?.image ? <Skeleton
-                                    animation="wave"
-                                    variant="rounded"
-                                    sx={{
-                                        width: "100%",
-                                        height: {
-                                            xs: 200,
-                                            sm: 300,
-                                        },
-                                    }}
-                                /> :
-                                <Image
-                                    src={user?.image || ""}
-                                    alt={user?.name}
-                                    layout="responsive" // Make the image responsive
-                                    width={400}
-                                    height={300}
-                                    loading="lazy"
-                                    style={{
-                                        borderRadius: "13px",
-                                        width: "100%",
-                                    }}
-                                />}
-                            <IconButton sx={{
-                                position: 'absolute',
-                                top: 35,
-                                left: 35,
-                                color: "invert"
-                            }}
-                                        onClick={() => setUpdateImage(!updateImage)}
-                                        aria-label="update image">
-
-                                <CloudUploadIcon/>
-                            </IconButton>
-
-                            {updateImage && <Box sx={{
-                                mt: 3
-                            }}>
-                                <ImageUpload setValue={setValue} value={image}/>
-                            </Box>}
-                        </Grid>
-                        <Grid item xs={12} md={6} sx={{
+                        <Grid item xs={12} md={12} sx={{
                             mt: {xs: 3, md: 0}
                         }}>
                             <TableContainer component={Paper}>
                                 <Table>
                                     <TableBody>
-
                                         {user?.name && <TableRow sx={{textAlign: "center"}}>
                                             <TableCell>Name</TableCell>
                                             <TableCell>
@@ -185,17 +149,83 @@ export default function ProfilePage() {
                                         </TableRow>}
                                         {user?.email && <TableRow sx={{textAlign: "center"}}>
                                             <TableCell>Email</TableCell>
-                                            <TableCell>
-                                                {user?.email}
-                                            </TableCell>
+                                            <TableCell>{user?.email}</TableCell>
                                         </TableRow>}
+                                        <TableRow sx={{textAlign: "center"}}>
+                                            <TableCell>Phone</TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    size={"small"}
+                                                    fullWidth
+                                                    defaultValue={user?.phone && user?.phone !== 0 ? user?.phone : ""}
+                                                    placeholder="Ingresar teléfono"
+                                                    type="number"
+                                                    id="phone"
+                                                    autoComplete="tel"
+                                                    autoFocus
+                                                    inputProps={{ 
+                                                        maxLength: 15,
+                                                        pattern: "[0-9]*"
+                                                    }}
+                                                    {...register("phone", {
+                                                        pattern: {
+                                                            value: /^[0-9]+$/,
+                                                            message: "El teléfono debe ser un número",
+                                                        },
+                                                        maxLength: {
+                                                            value: 15,
+                                                            message: "Número de teléfono demasiado largo"
+                                                        },
+                                                        setValueAs: (value) => value === "" ? 0 : parseInt(value),
+                                                    })}
+                                                    error={!!errors?.phone?.message}
+                                                    helperText={
+                                                        errors?.phone && typeof errors?.phone?.message === "string"
+                                                            ? errors?.phone?.message
+                                                            : null
+                                                    }
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        if (value.length > 15) {
+                                                            e.target.value = value.slice(0, 15);
+                                                        }
+                                                        setValue("phone", e.target.value, { shouldValidate: true });
+                                                    }}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
                                         {user?.role && <TableRow sx={{textAlign: "center"}}>
                                             <TableCell>Role</TableCell>
-                                            <TableCell>{user?.role}</TableCell>
+                                            <TableCell>
+                                                <Select
+                                                    size={'small'}
+                                                    fullWidth
+                                                    autoFocus
+                                                    defaultValue={user?.role}
+                                                    {...register("role")}
+                                                    displayEmpty
+                                                >
+                                                    <MenuItem value="user">Student</MenuItem>
+                                                    <MenuItem value="trainer">Trainer</MenuItem>
+                                                    <MenuItem value="admin">Admin</MenuItem>
+                                                </Select>
+                                            </TableCell>
                                         </TableRow>}
                                         {user?.gender && <TableRow sx={{textAlign: "center"}}>
                                             <TableCell>Gender</TableCell>
-                                            <TableCell>{user?.gender}</TableCell>
+                                            <TableCell>
+                                                <Select
+                                                    size={'small'}
+                                                    fullWidth
+                                                    autoFocus
+                                                    defaultValue={user?.gender ?? "male"}
+                                                    {...register("gender")}
+                                                    displayEmpty
+                                                >
+                                                    <MenuItem value="male">Male</MenuItem>
+                                                    <MenuItem value="female">Female</MenuItem>
+                                                </Select>
+                                            </TableCell>
                                         </TableRow>}
 
                                         <TableRow>
@@ -207,17 +237,24 @@ export default function ProfilePage() {
                                                     type="number"
                                                     autoComplete="age"
                                                     fullWidth
-                                                    min={18}
                                                     id="age"
                                                     autoFocus
+                                                    inputProps={{ 
+                                                        min: 12,
+                                                        max: 120
+                                                    }}
                                                     {...register("age", {
                                                         min: {
-                                                            value: 18,
-                                                            message: "Age must be greater than 18",
+                                                            value: 12,
+                                                            message: "La edad debe ser mayor a 12 años",
+                                                        },
+                                                        max: {
+                                                            value: 120,
+                                                            message: "La edad debe ser menor a 120 años",
                                                         },
                                                         pattern: {
                                                             value: /^[0-9]+$/,
-                                                            message: "Age must be a number",
+                                                            message: "La edad debe ser un número",
                                                         },
                                                         setValueAs: (value) => parseInt(value),
                                                     })}
@@ -227,6 +264,9 @@ export default function ProfilePage() {
                                                             : null
                                                     }
                                                     error={!!errors?.age?.message}
+                                                    onChange={(e) => {
+                                                        setValue("age", e.target.value, { shouldValidate: true });
+                                                    }}
                                                 />
                                             </TableCell>
                                         </TableRow>
@@ -242,14 +282,22 @@ export default function ProfilePage() {
                                                     fullWidth
                                                     id="weight"
                                                     autoFocus
+                                                    inputProps={{ 
+                                                        min: 0,
+                                                        max: 400
+                                                    }}
                                                     {...register("weight", {
                                                         min: {
                                                             value: 0,
-                                                            message: "Weight must be greater than 0",
+                                                            message: "El peso debe ser mayor que 0",
+                                                        },
+                                                        max: {
+                                                            value: 400,
+                                                            message: "El peso no puede superar los 400 kg",
                                                         },
                                                         pattern: {
                                                             value: /^[0-9]+$/,
-                                                            message: "Weight must be a number",
+                                                            message: "El peso debe ser un número",
                                                         },
                                                         setValueAs: (value) => parseInt(value),
                                                     })}
@@ -259,6 +307,9 @@ export default function ProfilePage() {
                                                             : null
                                                     }
                                                     error={!!errors?.weight?.message}
+                                                    onChange={(e) => {
+                                                        setValue("weight", e.target.value, { shouldValidate: true });
+                                                    }}
                                                 />
                                             </TableCell>
                                         </TableRow>
@@ -272,17 +323,24 @@ export default function ProfilePage() {
                                                     type="number"
                                                     autoComplete="height"
                                                     fullWidth
-                                                    min={0}
-                                                    label=""
+                                                    id="height"
                                                     autoFocus
+                                                    inputProps={{ 
+                                                        min: 0,
+                                                        max: 250
+                                                    }}
                                                     {...register("height", {
                                                         min: {
                                                             value: 0,
-                                                            message: "Height must be greater than 0",
+                                                            message: "La altura debe ser mayor que 0",
+                                                        },
+                                                        max: {
+                                                            value: 250,
+                                                            message: "La altura no puede superar los 2.5m (250 cm)",
                                                         },
                                                         pattern: {
                                                             value: /^[0-9]+$/,
-                                                            message: "Height must be a number",
+                                                            message: "La altura debe ser un número",
                                                         },
                                                         setValueAs: (value) => parseInt(value),
                                                     })}
@@ -292,6 +350,9 @@ export default function ProfilePage() {
                                                             : null
                                                     }
                                                     error={!!errors?.height?.message}
+                                                    onChange={(e) => {
+                                                        setValue("height", e.target.value, { shouldValidate: true });
+                                                    }}
                                                 />
                                             </TableCell>
                                         </TableRow>
@@ -346,81 +407,80 @@ export default function ProfilePage() {
                                             <TableCell>
                                                 Password
                                             </TableCell>
-                                            <TableCell>Disabled for demo</TableCell>
-                                            {/*    <TextField*/}
-                                            {/*        size={'small'}*/}
-                                            {/*        type="password"*/}
-                                            {/*        fullWidth*/}
-                                            {/*        id="password"*/}
-                                            {/*        label="Enter Password"*/}
-                                            {/*        autoFocus*/}
-                                            {/*        error={!!errors?.password?.message}*/}
-                                            {/*        helperText={*/}
-                                            {/*            errors?.password && typeof errors?.password?.message === "string"*/}
-                                            {/*                ? errors?.password?.message*/}
-                                            {/*                : null*/}
-                                            {/*        }*/}
-                                            {/*        {...register("password", {*/}
-                                            {/*            minLength: {*/}
-                                            {/*                value: 8,*/}
-                                            {/*                message: "Password must have at least 8 characters",*/}
-                                            {/*            },*/}
-                                            {/*            maxLength: {*/}
-                                            {/*                value: 20,*/}
-                                            {/*                message: "Password must have at most 20 characters",*/}
-                                            {/*            },*/}
-                                            {/*            pattern: {*/}
-                                            {/*                value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,20}$/,*/}
-                                            {/*                message:*/}
-                                            {/*                    "Password must contain at least one uppercase letter, one lowercase letter and one number",*/}
-                                            {/*            },*/}
-                                            {/*        })}*/}
-                                            {/*        onChange={(e) => {*/}
-                                            {/*            setValue("password", e.target.value);*/}
-                                            {/*            if (getValues("confirmPassword") === e.target.value) {*/}
-                                            {/*                setPasswordsMatch(true);*/}
-                                            {/*            } else {*/}
-                                            {/*                setPasswordsMatch(false);*/}
-                                            {/*            }*/}
-                                            {/*        }}*/}
-                                            {/*    />*/}
-                                            {/*</TableCell>*/}
+                                            <TableCell>
+                                                <TextField
+                                                    size={'small'}
+                                                    type="password"
+                                                    fullWidth
+                                                    id="password"
+                                                    placeholder="Enter new password"
+                                                    autoFocus
+                                                    error={!!errors?.password?.message}
+                                                    helperText={
+                                                        errors?.password && typeof errors?.password?.message === "string"
+                                                            ? errors?.password?.message
+                                                            : null
+                                                    }
+                                                    {...register("password", {
+                                                        minLength: {
+                                                            value: 8,
+                                                            message: "Password must have at least 8 characters",
+                                                        },
+                                                        maxLength: {
+                                                            value: 20,
+                                                            message: "Password must have at most 20 characters",
+                                                        },
+                                                        pattern: {
+                                                            value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,20}$/,
+                                                            message:
+                                                                "Password must contain at least one uppercase letter, one lowercase letter and one number",
+                                                        },
+                                                    })}
+                                                    onChange={(e) => {
+                                                        setValue("password", e.target.value);
+                                                        if (getValues("confirmPassword") === e.target.value) {
+                                                            setPasswordsMatch(true);
+                                                        } else {
+                                                            setPasswordsMatch(false);
+                                                        }
+                                                    }}
+                                                />
+                                            </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell>
                                                 Confirm Password
                                             </TableCell>
-                                            <TableCell>Disabled for demo</TableCell>
-                                            {/*<TableCell>*/}
-                                            {/*    <TextField*/}
-                                            {/*        size={'small'}*/}
-                                            {/*        type="password"*/}
-                                            {/*        fullWidth*/}
-                                            {/*        id="confirm-password"*/}
-                                            {/*        label="Re-enter Password"*/}
-                                            {/*        autoFocus*/}
-                                            {/*        error={!!errors?.confirmPassword?.message || !passwordsMatch}*/}
-                                            {/*        helperText={*/}
-                                            {/*            !passwordsMatch*/}
-                                            {/*                ? "Passwords do not match"*/}
-                                            {/*                : (errors?.confirmPassword && typeof errors?.confirmPassword?.message === "string"*/}
-                                            {/*                    ? errors?.confirmPassword?.message*/}
-                                            {/*                    : null)*/}
-                                            {/*        }*/}
-                                            {/*        {...register("confirmPassword", {*/}
-                                            {/*            validate: (value) =>*/}
-                                            {/*                value === getValues("password") || "Passwords do not match",*/}
-                                            {/*        })}*/}
-                                            {/*        onChange={(e) => {*/}
-                                            {/*            setValue("confirmPassword", e.target.value);*/}
-                                            {/*            if (getValues("password") === e.target.value) {*/}
-                                            {/*                setPasswordsMatch(true);*/}
-                                            {/*            } else {*/}
-                                            {/*                setPasswordsMatch(false);*/}
-                                            {/*            }*/}
-                                            {/*        }}*/}
-                                            {/*    />*/}
-                                            {/*</TableCell>*/}
+                                            <TableCell>
+                                                <TextField
+                                                    size={'small'}
+                                                    type="password"
+                                                    fullWidth
+                                                    id="confirm-password"
+                                                    placeholder="Re-enter password"
+                                                    autoFocus
+                                                    error={!!errors?.confirmPassword?.message || !passwordsMatch}
+                                                    helperText={
+                                                        !passwordsMatch
+                                                            ? "Passwords do not match"
+                                                            : (errors?.confirmPassword && typeof errors?.confirmPassword?.message === "string"
+                                                                ? errors?.confirmPassword?.message
+                                                                : null)
+                                                    }
+                                                    {...register("confirmPassword", {
+                                                        validate: (value) =>
+                                                            value === getValues("password") || "Passwords do not match",
+                                                    })}
+                                                    onChange={(e) => {
+                                                        setValue("confirmPassword", e.target.value);
+                                                        if (getValues("password") === e.target.value) {
+                                                            setPasswordsMatch(true);
+                                                        } else {
+                                                            setPasswordsMatch(false);
+                                                        }
+                                                    }}
+                                                />
+                                            </TableCell>
                                         </TableRow>
                                     </TableBody>
                                 </Table>
