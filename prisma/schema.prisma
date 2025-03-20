@@ -16,6 +16,7 @@ enum Role {
   admin
   trainer
   user
+  employee // Añadido el nuevo rol
 }
 
 enum Gender {
@@ -42,6 +43,23 @@ enum Level {
   professional
 }
 
+enum PaymentMethod {
+  transfer
+  cash
+  pending
+}
+
+enum Location {
+  main_warehouse
+  post_1
+  post_2
+}
+
+enum SalePaymentMethod {
+  cash
+  mercado_pago
+}
+
 // User
 model User {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -57,6 +75,7 @@ model User {
   weight         Int?     @default(50)
   goal           Goal     @default(lose_weight)
   level          Level    @default(beginner)
+  post           String?  // "post_1" o "post_2" (solo para empleados)
 
   admin     User?   @relation("AdminToUser", fields: [adminId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   adminId   String? @map("adminId") @db.ObjectId
@@ -66,7 +85,7 @@ model User {
   adminsForUsers   User[] @relation("AdminToUser")
   trainersForUsers User[] @relation("TrainerToUser")
 
-  courtReservations CourtReservation[] // Relación única con CourtReservation
+  courtReservations CourtReservation[]
 
   notifReceiver Notification[] @relation("userId")
   notifSender   Notification[] @relation("senderId")
@@ -74,6 +93,9 @@ model User {
   attendanceTrack Attendance[] @relation("attendance_track")
 
   PasswordResetToken PasswordResetToken[]
+
+  stockMovements StockMovement[] // Relación con movimientos de stock
+  sales         Sale[]          // Relación con ventas
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -189,6 +211,7 @@ enum NotificationType {
   reminder
   message
   present
+  stock_alert // Añadido para las alertas de stock
 }
 
 model Notification {
@@ -224,24 +247,108 @@ model Attendance {
 
 // Court
 model Court {
-  id           String           @id @default(auto()) @map("_id") @db.ObjectId
-  name         String           // Ejemplo: "Cancha de Pádel 1", "Cancha de Fútbol 1"
-  type         String           // "padel" o "futbol"
+  id           String             @id @default(auto()) @map("_id") @db.ObjectId
+  name         String             // Ejemplo: "Cancha de Pádel 1", "Cancha de Fútbol 1"
+  type         String             // "padel" o "futbol"
   reservations CourtReservation[] // Relación con las reservas
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 }
 
-// CourtReservation
+// CourtReservation (única definición, con los nuevos campos)
 model CourtReservation {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  courtId         String        @db.ObjectId
+  court           Court         @relation(fields: [courtId], references: [id])
+  userId          String?       @db.ObjectId
+  user            User?         @relation(fields: [userId], references: [id])
+  guestName       String?
+  guestPhone      String?
+  startTime       DateTime
+  endTime         DateTime
+  status          String        @default("confirmed")
+  paymentMethod   PaymentMethod @default(pending)
+  isRecurring     Boolean       @default(false)
+  recurrenceEnd   DateTime?
+  // Payment tracking
+  paidSessions    Int?          // Number of paid sessions for recurring reservations
+  lastPaymentDate DateTime?     // Date of the last payment
+  paymentNotes    String?       // Additional notes about payment
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+// Modelo para eventos (como cumpleaños)
+model Event {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String   // Ejemplo: "Cumpleaños de Juan"
+  courtType String   // "futbol" (para bloquear todas las canchas de fútbol)
+  date      DateTime // Fecha del evento
+  startTime DateTime // Hora de inicio (12:00)
+  endTime   DateTime // Hora de fin (17:00)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Categoría (solo "Bebidas" por ahora)
+model Category {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  courtId   String    @db.ObjectId
-  court     Court     @relation(fields: [courtId], references: [id])
-  userId    String    @db.ObjectId
-  user      User      @relation(fields: [userId], references: [id])
-  startTime DateTime  // Fecha y hora de inicio
-  endTime   DateTime  // Fecha y hora de fin
-  status    String    @default("confirmed") // "confirmed", "cancelled", etc.
+  name      String    // Ejemplo: "Bebidas"
+  products  Product[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+// Producto
+model Product {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  name          String         // Ejemplo: "Agua", "Cerveza"
+  description   String?        // Descripción del producto
+  categoryId    String         @db.ObjectId
+  category      Category       @relation(fields: [categoryId], references: [id])
+  price         Float          // Precio de venta
+  image         String?        // URL de la imagen (ruta en el servidor)
+  stocks        Stock[]        // Relación con el stock en diferentes ubicaciones
+  sales         Sale[]         // Relación con las ventas
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+// Stock (para manejar el inventario en diferentes ubicaciones)
+model Stock {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  productId     String         @db.ObjectId
+  product       Product        @relation(fields: [productId], references: [id])
+  location      Location       // "main_warehouse", "post_1", "post_2"
+  quantity      Int            // Cantidad en stock
+  minStock      Int            @default(10) // Nivel mínimo de stock (10 unidades)
+  movements     StockMovement[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+// Movimientos de stock (entradas y salidas)
+model StockMovement {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  stockId   String    @db.ObjectId
+  stock     Stock     @relation(fields: [stockId], references: [id])
+  quantity  Int       // Positivo para entradas, negativo para salidas
+  type      String    // "entry" o "exit"
+  userId    String    @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id])
+  createdAt DateTime  @default(now())
+}
+
+// Ventas
+model Sale {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  productId     String           @db.ObjectId
+  product       Product          @relation(fields: [productId], references: [id])
+  quantity      Int              // Cantidad vendida
+  total         Float            // Total de la venta (precio * cantidad)
+  paymentMethod SalePaymentMethod // "cash" o "mercado_pago"
+  location      Location         // "post_1" o "post_2"
+  userId        String           @db.ObjectId
+  user          User             @relation(fields: [userId], references: [id])
+  createdAt     DateTime         @default(now())
 }

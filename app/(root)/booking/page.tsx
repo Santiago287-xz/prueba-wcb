@@ -1,10 +1,10 @@
-import BookingCalendar from "@/app/components/BookingCalendar";
+import WeeklyBookingCalendar from "@/app/components/WeeklyBookingCalendar";
 
 export default function BookingsPage() {
   return (
-    <div className="flex gap-2">
-      <BookingCalendar courtType="padel" />
-      <BookingCalendar courtType="futbol" />
+    <div>
+      <h1 className="text-3xl font-bold p-6">Sistema de Reservas</h1>
+      <WeeklyBookingCalendar />
     </div>
   );
 }

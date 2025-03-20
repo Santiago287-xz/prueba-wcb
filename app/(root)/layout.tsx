@@ -1,349 +1,392 @@
 "use client";
 
+import React, { useState, useRef, useEffect, Suspense } from "react";
 import Link from "next/link";
-import React, {useState} from "react";
-
-import CssBaseline from "@mui/material/CssBaseline";
-import {createTheme, styled, ThemeProvider} from "@mui/material/styles";
-import MuiAppBar, {AppBarProps as MuiAppBarProps} from "@mui/material/AppBar";
-
-
-import Logout from "@mui/icons-material/Logout";
-import {signOut, useSession} from "next-auth/react";
-
-import MuiDrawer from "@mui/material/Drawer";
-import MenuIcon from "@mui/icons-material/Menu";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import NotificationsIcon from "@mui/icons-material/Notifications";
-
-import ListItems from "@/app/components/listItems";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { signOut, useSession } from "next-auth/react";
 import axios from "axios";
 import useSWR from "swr";
+import { useRouter } from "next/navigation";
 import Loading from "../loading";
+import { handleActiveStatus } from "@/utils";
+import { debounce } from "lodash";
 
-import {Notification} from "@prisma/client";
-import {Container,
-    Typography,
-    IconButton,
-    ListItemIcon, Box,
-    List,
-    Menu,
-    Badge,
-    Avatar,
-    Tooltip,
-    Divider,
-    Toolbar,
-    MenuItem} from "@mui/material";
-import {handleActiveStatus} from "@/utils";
-import {useRouter} from "next/navigation";
+// Dynamic imports
+import dynamic from 'next/dynamic';
 
-const drawerWidth: number = 240;
+const ListItems = dynamic(() => import("@/app/components/listItems"), {
+  loading: () => (
+    <div className="flex flex-col w-full p-2">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="h-12 bg-gray-200 my-2 rounded-lg animate-pulse"></div>
+      ))}
+    </div>
+  ),
+  ssr: false
+});
 
-interface AppBarProps extends MuiAppBarProps {
-    open?: boolean;
+// Importar solo íconos necesarios
+import {
+  FaBars,
+  FaTimes,
+  FaBell,
+  FaSignOutAlt
+} from "react-icons/fa";
+
+// Tipos para notificaciones
+interface Notification {
+  id: string;
+  notification_text: string;
+  read: boolean;
+  pathName: string;
+  createdAt: string;
 }
 
-const AppBar = styled(MuiAppBar, {
-    shouldForwardProp: (prop) => prop !== "open",
-})<AppBarProps>(({theme, open}) => ({
-    zIndex: theme.zIndex.drawer + 1,
-    transition: theme.transitions.create(["width", "margin"], {
-        easing: theme.transitions.easing.sharp,
-        duration: theme.transitions.duration.leavingScreen,
-    }),
-    ...(open && {
-        marginLeft: drawerWidth,
-        width: `calc(100% - ${drawerWidth}px)`,
-        transition: theme.transitions.create(["width", "margin"], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-        }),
-    }),
-}));
+interface NotificationsData {
+  data: Notification[];
+  unRead: number;
+}
 
-const Drawer = styled(MuiDrawer, {
-    shouldForwardProp: (prop) => prop !== "open",
-})(({theme, open}) => ({
-    "& .MuiDrawer-paper": {
-        position: "relative",
-        whiteSpace: "nowrap",
-        width: drawerWidth,
-        transition: theme.transitions.create("width", {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-        }),
-        boxSizing: "border-box",
-        ...(!open && {
-            overflowX: "hidden",
-            transition: theme.transitions.create("width", {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.leavingScreen,
-            }),
-            width: theme.spacing(7),
-            [theme.breakpoints.up("sm")]: {
-                width: theme.spacing(9),
-            },
-        }),
+interface ApiResponse {
+  data: NotificationsData;
+}
+
+// Crear tema una sola vez
+const defaultTheme = createTheme({
+  components: {
+    MuiButtonBase: {
+      defaultProps: {
+        disableRipple: true,
+      },
     },
-}));
+  },
+});
 
-interface DashboardLayoutProps {
-    children: React.ReactNode;
-}
-
-const defaultTheme = createTheme();
-
-const fetcher = async (...args: Parameters<typeof axios>) => {
-    const res = await axios(...args);
-    return res;
+// Fetcher optimizado
+const fetcher = async (url: string): Promise<ApiResponse> => {
+  const res = await axios.get(url, {
+    headers: {
+      'Cache-Control': 'max-age=30'
+    }
+  });
+  return res as unknown as ApiResponse;
 };
 
-const DashboardLayout = ({children}: DashboardLayoutProps) => {
-    const {data} = useSession();
-    const router = useRouter()
-
-    const {
-        data: notifyData,
-        isLoading,
-        mutate
-    } = useSWR("/api/notification", fetcher);
-
-
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [showNotifications, setShowNotifications] =
-        useState<null | HTMLElement>(null);
-
-    const [open, setOpen] = useState<boolean>(true);
-    const toggleDrawer = () => {
-        setOpen(!open);
-    };
-
-    const menuOpen = Boolean(anchorEl);
-    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-        setAnchorEl(event.currentTarget);
-    };
-    const handleClose = () => {
-        setAnchorEl(null);
-    };
-
-    const handleRead = async (notificationId: string) => {
-        try {
-            const res = await axios.patch(`/api/notification/${notificationId}`);
-
-            if (res.status === 201) {
-                await mutate("/api/notification")
-            }
-        } catch (error) {
-        }
-    };
-
-    const notificationsOpen = Boolean(showNotifications);
-    const handleNotificationsClick = (event: React.MouseEvent<HTMLElement>) => {
-        setShowNotifications(event.currentTarget);
-    };
-    const handleNotificationsClose = () => {
-        setShowNotifications(null);
-    };
-
-    const handleLogout = async () => {
-        await handleActiveStatus(router, "offline")
-        await signOut();
-    }
-
-
-    if (isLoading) {
-        return <Loading/>;
-    }
-
+// Componente de Notificaciones
+const NotificationsPanel: React.FC<{
+  notifications: Notification[];
+  onRead: (id: string) => Promise<void>;
+  unreadCount: number;
+}> = ({ notifications, onRead, unreadCount }) => {
+  if (!notifications || notifications.length === 0) {
     return (
-        <ThemeProvider theme={defaultTheme}>
-            <Box sx={{display: "flex"}}>
-                <CssBaseline/>
-                <AppBar position="absolute" open={open}>
-                    <Toolbar
-                        sx={{
-                            pr: "24px", // keep right padding when drawer closed
-                        }}
-                    >
-                        <IconButton
-                            edge="start"
-                            color="inherit"
-                            aria-label="open drawer"
-                            onClick={toggleDrawer}
-                            sx={{
-                                marginRight: "36px",
-                                ...(open && {display: "none"}),
-                            }}
-                        >
-                            <MenuIcon/>
-                        </IconButton>
-                        <Typography
-                            component="h1"
-                            variant="h6"
-                            color="inherit"
-                            noWrap
-                            sx={{flexGrow: 1}}
-                        >
-                           Policenter MH
-                        </Typography>
-                        <Box>
-                            <Tooltip title="Notifications">
-                                <IconButton
-                                    color="inherit"
-                                    onClick={handleNotificationsClick}
-                                    size="small"
-                                    sx={{ml: 2}}
-                                    aria-controls={
-                                        notificationsOpen ? "notification-menu" : undefined
-                                    }
-                                    aria-haspopup="true"
-                                    aria-expanded={notificationsOpen ? "true" : undefined}
-                                >
-                                    <Badge
-                                        badgeContent={notifyData ? notifyData?.data?.unRead : 0}
-                                        color="secondary"
-                                    >
-                                        <NotificationsIcon/>
-                                    </Badge>
-                                </IconButton>
-                            </Tooltip>
-
-
-
-                            <Menu
-                                anchorEl={showNotifications}
-                                id="notification-menu"
-                                open={notificationsOpen}
-                                onClose={handleNotificationsClose}
-                                onClick={handleNotificationsClose}
-
-                                transformOrigin={{horizontal: "right", vertical: "top"}}
-                                anchorOrigin={{horizontal: "right", vertical: "bottom"}}
-                            >
-                                {notifyData &&
-                                    notifyData?.data?.data?.filter((n: Notification) => !n.read)?.sort((a: Notification, b: Notification) => (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                                    ).map((notification: Notification) => (
-                                        <Link
-                                            key={notification.id}
-                                            href={notification?.pathName}
-                                            onClick={() => handleRead(notification.id)}
-                                            passHref
-                                        >
-                                            <MenuItem onClick={handleClose}>
-                                                {notification?.notification_text.slice(0, 25)}
-                                            </MenuItem>
-                                        </Link>
-                                    ))}
-                                <Divider/>
-                                <Link href="/notifications" passHref>
-                                    <MenuItem
-                                        sx={{
-                                            display: "flex",
-                                            justifyContent: "center",
-                                            alignItems: "center",
-                                        }}
-                                    >
-                                        View all notifications
-                                    </MenuItem>
-                                </Link>
-                            </Menu>
-
-                            <Tooltip title="Account settings">
-                                <IconButton
-                                    onClick={handleClick}
-                                    size="small"
-                                    sx={{ml: 2}}
-                                    aria-controls={menuOpen ? "account-menu" : undefined}
-                                    aria-haspopup="true"
-                                    aria-expanded={menuOpen ? "true" : undefined}
-                                >
-                                    <Avatar
-                                        sx={{width: 32, height: 32}}
-                                        src={data?.user?.image ? data?.user?.image : undefined}
-                                        alt={data?.user?.name ? data?.user?.name : undefined}
-                                    />
-                                </IconButton>
-                            </Tooltip>
-                            <Menu
-                                anchorEl={anchorEl}
-                                id="account-menu"
-                                open={menuOpen}
-                                onClose={handleClose}
-                                onClick={handleClose}
-                                sx={{
-                                    overflow: "visible",
-                                    filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
-                                    mt: 1.5,
-                                    "& .MuiAvatar-root": {
-                                        width: 32,
-                                        height: 32,
-                                        ml: -0.5,
-                                        mr: 1,
-                                    },
-
-                                }}
-                                transformOrigin={{horizontal: "right", vertical: "top"}}
-                                anchorOrigin={{horizontal: "right", vertical: "bottom"}}
-                            >
-                                <Link href="/profile" passHref>
-                                    <MenuItem onClick={handleClose}>
-                                        <Avatar
-                                            src={data?.user?.image ? data?.user?.image : undefined}
-                                            alt={data?.user?.name ? data?.user?.name : undefined}
-                                        /> Profile
-                                    </MenuItem>
-                                </Link>
-
-                                <Divider/>
-
-                                <MenuItem onClick={handleLogout}>
-                                    <ListItemIcon>
-                                        <Logout fontSize="small"/>
-                                    </ListItemIcon>
-                                    Logout
-                                </MenuItem>
-                            </Menu>
-                        </Box>
-                    </Toolbar>
-                </AppBar>
-                <Drawer variant="permanent" open={open}>
-                    <Toolbar
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "flex-end",
-                            px: [1],
-                        }}
-                    >
-                        <IconButton onClick={toggleDrawer}>
-                            <ChevronLeftIcon/>
-                        </IconButton>
-                    </Toolbar>
-                    <Divider/>
-                    <List component="nav">
-                        <ListItems/>
-                    </List>
-                </Drawer>
-                <Box
-                    component="main"
-                    sx={{
-                        backgroundColor: (theme) =>
-                            theme.palette.mode === "light"
-                                ? theme.palette.grey[100]
-                                : theme.palette.grey[900],
-                        flexGrow: 1,
-                        height: "100vh",
-                        overflow: "auto",
-                    }}
-                >
-                    <Toolbar/>
-                    <Container maxWidth="lg" sx={{mt: 4, mb: 4}}>
-                        {children}
-                    </Container>
-                </Box>
-            </Box>
-        </ThemeProvider>
+      <div className="absolute top-12 right-0 w-64 max-w-[calc(100vw-32px)] bg-white shadow-lg rounded-md overflow-hidden z-40">
+        <div className="p-3 font-medium border-b border-gray-200">
+          Notifications
+        </div>
+        <div className="p-3 text-center text-sm text-gray-500">
+          Sin notificaciones
+        </div>
+        <div className="p-2 border-t border-gray-200">
+          <Link 
+            href="/notifications" 
+            className="block p-2 text-center text-sm text-blue-600 hover:bg-blue-50 rounded"
+          >
+            View all notifications
+          </Link>
+        </div>
+      </div>
     );
+  }
+  
+  return (
+    <div className="absolute top-12 right-0 w-64 max-w-[calc(100vw-32px)] bg-white shadow-lg rounded-md overflow-hidden z-40">
+      <div className="p-3 font-medium border-b border-gray-200">
+        Notifications {unreadCount > 0 && `(${unreadCount})`}
+      </div>
+      <div className="max-h-[70vh] overflow-y-auto">
+        {notifications
+          .filter(n => !n.read)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5)
+          .map(notification => (
+            <Link
+              key={notification.id}
+              href={notification.pathName}
+              onClick={() => onRead(notification.id)}
+              className="block p-3 hover:bg-gray-50 text-gray-700 text-sm border-b border-gray-100"
+            >
+              {notification.notification_text.slice(0, 25)}
+              {notification.notification_text.length > 25 && "..."}
+            </Link>
+          ))}
+        
+        {notifications.filter(n => !n.read).length === 0 && (
+          <div className="p-3 text-center text-sm text-gray-500">
+            Sin notificaciones
+          </div>
+        )}
+      </div>
+      <div className="p-2 border-t border-gray-200">
+        <Link 
+          href="/notifications" 
+          className="block p-2 text-center text-sm text-blue-600 hover:bg-blue-50 rounded"
+        >
+          View all notifications
+        </Link>
+      </div>
+    </div>
+  );
 };
 
-export default DashboardLayout;
+// Componente de Menú de Usuario
+const UserMenu: React.FC<{
+  user: any;
+  onLogout: () => Promise<void>;
+}> = ({ user, onLogout }) => (
+  <div className="absolute top-12 right-0 w-48 max-w-[calc(100vw-32px)] bg-white shadow-lg rounded-md overflow-hidden z-40">
+    <div className="p-3 font-medium border-b border-gray-200 truncate">
+      {user?.name || "User"}
+    </div>
+    <div>
+      <Link 
+        href="/profile" 
+        className="block p-3 hover:bg-gray-50 text-gray-700"
+      >
+        Profile
+      </Link>
+    </div>
+    <div className="border-t border-gray-200">
+      <button 
+        className="flex w-full items-center p-3 text-red-600 hover:bg-red-50"
+        onClick={onLogout}
+      >
+        <FaSignOutAlt className="mr-2" />
+        <span>Logout</span>
+      </button>
+    </div>
+  </div>
+);
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { data: sessionData } = useSession();
+  const router = useRouter();
+  
+  // Usar SWR con opciones optimizadas
+  const {
+    data: notifyData,
+    isLoading,
+    mutate
+  } = useSWR<ApiResponse>("/api/notification", fetcher, {
+    revalidateOnFocus: false,
+    refreshInterval: 60000,
+    dedupingInterval: 10000,
+    errorRetryCount: 3
+  });
+  
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  
+  // Cerrar menús al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+      
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+  
+  // Cierre de menú en cambio de tamaño
+  useEffect(() => {
+    const handleResize = debounce(() => {
+      if (window.innerWidth > 768 && menuOpen) {
+        setMenuOpen(false);
+      }
+    }, 150);
+    
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      handleResize.cancel();
+    };
+  }, [menuOpen]);
+  
+  const toggleMenu = () => {
+    setMenuOpen(!menuOpen);
+  };
+  
+  const toggleUserMenu = () => {
+    setUserMenuOpen(!userMenuOpen);
+    if (notificationsOpen) setNotificationsOpen(false);
+  };
+  
+  const toggleNotifications = () => {
+    setNotificationsOpen(!notificationsOpen);
+    if (userMenuOpen) setUserMenuOpen(false);
+  };
+  
+  // Función para cerrar el menú móvil
+  const handleCloseMenu = () => {
+    setMenuOpen(false);
+  };
+  
+  // Marcar notificaciones como leídas
+  const handleRead = async (notificationId: string) => {
+    try {
+      await axios.patch(`/api/notification/${notificationId}`);
+      mutate();
+      setNotificationsOpen(false); // Cerrar panel de notificaciones
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+  
+  const handleLogout = async () => {
+    try {
+      await handleActiveStatus(router, "offline");
+      await signOut();
+    } catch (error) {
+      console.error("Error logging out:", error);
+      await signOut();
+    }
+  };
+  
+  if (isLoading) {
+    return <Loading />;
+  }
+  
+  // Datos seguros con verificaciones de tipo
+  const unreadCount = notifyData?.data?.unRead || 0;
+  const notifications = notifyData?.data?.data || [];
+  
+  return (
+    <ThemeProvider theme={defaultTheme}>
+      <div className="flex flex-col min-h-screen bg-gray-50 overflow-x-hidden">
+        {/* Navbar fijo */}
+        <header className="fixed top-0 left-0 right-0 h-16 bg-blue-500 shadow-sm z-30 w-screen max-w-full">
+          <div className="h-16 flex items-center justify-between px-4">
+            <div className="flex items-center">
+              <button 
+                className="md:hidden flex items-center justify-center w-10 h-10 mr-3 text-white hover:bg-blue-600 rounded-full"
+                onClick={toggleMenu}
+                aria-label={menuOpen ? "Close menu" : "Open menu"}
+              >
+                {menuOpen ? (
+                  <FaTimes className="text-xl" />
+                ) : (
+                  <FaBars className="text-xl" />
+                )}
+              </button>
+              <h1 className="text-xl font-medium text-white truncate">Policenter MH</h1>
+            </div>
+          
+            <div className="flex items-center gap-3">
+              {/* Notifications */}
+              <div className="relative" ref={notificationsRef}>
+                <button 
+                  className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-blue-600"
+                  onClick={toggleNotifications}
+                  aria-label="Notifications"
+                >
+                  <FaBell className="text-white text-lg" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                
+                {notificationsOpen && (
+                  <Suspense fallback={<div className="absolute top-12 right-0 w-64 bg-white shadow-lg rounded-md p-3">Cargando...</div>}>
+                    <NotificationsPanel
+                      notifications={notifications}
+                      onRead={handleRead}
+                      unreadCount={unreadCount}
+                    />
+                  </Suspense>
+                )}
+              </div>
+              
+              {/* User menu */}
+              <div className="relative" ref={userMenuRef}>
+                <button 
+                  className="flex items-center justify-center w-9 h-9 rounded-full overflow-hidden border border-gray-300 hover:border-gray-400 focus:outline-none bg-blue-600"
+                  onClick={toggleUserMenu}
+                  aria-label="User menu"
+                >
+                  <div className="w-full h-full text-white flex items-center justify-center font-medium">
+                    {sessionData?.user?.name?.charAt(0) || "U"}
+                  </div>
+                </button>
+                
+                {userMenuOpen && (
+                  <Suspense fallback={<div className="absolute top-12 right-0 w-48 bg-white shadow-lg rounded-md p-3">Cargando...</div>}>
+                    <UserMenu
+                      user={sessionData?.user}
+                      onLogout={handleLogout}
+                    />
+                  </Suspense>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+        
+        {/* Menú móvil optimizado - lazy load y cierre al hacer clic */}
+        <div 
+          className={`fixed top-16 left-0 right-0 bg-white shadow-md z-20 transition-transform duration-300 ease-in-out transform ${
+            menuOpen ? "translate-y-0" : "-translate-y-full"
+          } md:hidden overflow-y-auto`}
+          style={{ height: menuOpen ? 'calc(100vh - 64px)' : '0' }}
+        >
+          {menuOpen && (
+            <div className="p-3">
+              <Suspense fallback={
+                <div className="flex flex-col w-full p-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-12 bg-gray-200 my-2 rounded-lg animate-pulse"></div>
+                  ))}
+                </div>
+              }>
+                <ListItems isMobile={true} onItemClick={handleCloseMenu} />
+              </Suspense>
+            </div>
+          )}
+        </div>
+        
+        {/* Desktop sidebar */}
+        <aside className="hidden md:block fixed top-0 left-0 w-16 h-screen bg-white shadow-md z-10">
+          <div className="pt-16 h-full overflow-y-auto">
+            <Suspense fallback={
+              <div className="flex flex-col w-full p-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-10 bg-gray-200 my-1 rounded-lg animate-pulse"></div>
+                ))}
+              </div>
+            }>
+              <ListItems />
+            </Suspense>
+          </div>
+        </aside>
+        
+        {/* Main content */}
+        <main className="flex-1 p-4 pt-20 md:pl-20 md:pt-20">
+          {children}
+        </main>
+      </div>
+    </ThemeProvider>
+  );
+}

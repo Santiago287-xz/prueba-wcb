@@ -27,7 +27,7 @@ const AttendanceGraph = ({attendanceData}: {
         present: presentCounts[index],
         absent: absentCounts[index],
     }));
-
+    
     return (
         <React.Fragment>
             <Typography variant="h6" sx={{mb: 2}}>
