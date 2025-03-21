@@ -295,13 +295,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Falta ID de reserva" }, { status: 400 });
     }
 
-    await prisma.courtReservation.update({
+    await prisma.courtReservation.delete({
       where: { id: reservationId },
-      data: { status: "cancelled" },
     });
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ error: "Error al cancelar la reserva" }, { status: 500 });
+    return NextResponse.json({ error: "Error al eliminar el recordatorio" }, { status: 500 });
   }
 }

@@ -16,7 +16,8 @@ enum Role {
   admin
   trainer
   user
-  employee // Añadido el nuevo rol
+  employee
+  court_manager
 }
 
 enum Gender {
