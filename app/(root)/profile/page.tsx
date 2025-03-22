@@ -97,7 +97,6 @@ export default function ProfilePage() {
             }
 
         } catch (err: Error | any) {
-            console.log(err)
             toast.error(err.response?.data?.error || "An error occurred during update");
         }
     }

@@ -22,20 +22,39 @@ export default function SalesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "mercado_pago">("cash");
-
+  console.log("Session user:", session?.user); // Añade este console.log para depurar
   useEffect(() => {
     fetchProducts();
   }, []);
 
   const fetchProducts = async () => {
-    const res = await fetch("/api/inventory/products");
-    const data = await res.json();
-    setProducts(data);
+    try {
+      const res = await fetch("/api/inventory/products");
+      if (!res.ok) {
+        throw new Error("Error al obtener los productos");
+      }
+      const data = await res.json();
+      console.log("Productos obtenidos:", data);
+      setProducts(data);
+    } catch (error) {
+      console.error("Error al obtener productos:", error);
+      setProducts([]);
+    }
   };
 
   const addToCart = (product: Product) => {
+    console.log("Añadiendo al carrito, producto:", product);
+    console.log("Ubicación del usuario (post):", session?.user?.post);
+
     const stock = product.stocks.find((s) => s.location === session?.user?.post);
-    if (!stock || stock.quantity <= 0) {
+    console.log("Stock encontrado:", stock);
+
+    if (!stock) {
+      alert("No se encontró stock para este producto en tu ubicación");
+      return;
+    }
+
+    if (stock.quantity <= 0) {
       alert("No hay stock disponible");
       return;
     }
@@ -73,26 +92,29 @@ export default function SalesPage() {
       return;
     }
 
-    const res = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: cart, paymentMethod }),
-    });
+    try {
+      const res = await fetch("/api/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: cart, paymentMethod }),
+      });
 
-    if (res.ok) {
-      setCart([]);
-      fetchProducts();
-      alert("Venta registrada con éxito");
-    } else {
+      if (res.ok) {
+        setCart([]);
+        fetchProducts();
+        alert("Venta registrada con éxito");
+      } else {
+        const errorData = await res.json();
+        alert(`Error al registrar la venta: ${errorData.error}`);
+      }
+    } catch (error) {
+      console.error("Error al registrar la venta:", error);
       alert("Error al registrar la venta");
     }
   };
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  if (!session?.user || session.user.role !== "employee") {
-    return <div>No autorizado</div>;
-  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -101,24 +123,29 @@ export default function SalesPage() {
       {/* Lista de productos */}
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-4">Productos Disponibles</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {products.map((product) => {
-            const stock = product.stocks.find((s) => s.location === session.user.post);
-            return (
-              <div key={product.id} className="border p-4 rounded">
-                <h3 className="text-lg font-semibold">{product.name}</h3>
-                <p>Precio: ${product.price}</p>
-                <p>Stock: {stock?.quantity || 0}</p>
-                <button
-                  onClick={() => addToCart(product)}
-                  className="bg-green-500 text-white p-2 rounded mt-2"
-                >
-                  Agregar al Carrito
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        {products.length === 0 ? (
+          <p>No hay productos disponibles.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {products.map((product) => {
+              const stock = product.stocks.find((s) => s.location === session.user.post);
+              return (
+                <div key={product.id} className="border p-4 rounded">
+                  <h3 className="text-lg font-semibold">{product.name}</h3>
+                  <p>Precio: ${product.price}</p>
+                  <p>Stock: {stock?.quantity || 0}</p>
+                  <button
+                    onClick={() => addToCart(product)}
+                    className="bg-green-500 text-white p-2 rounded mt-2"
+                    disabled={!stock || stock.quantity <= 0}
+                  >
+                    Agregar al Carrito
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Carrito */}

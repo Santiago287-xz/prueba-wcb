@@ -6,9 +6,6 @@ import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
 // POST: Registrar una venta
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || session.user.role !== "employee") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
 
   const { items, paymentMethod } = await req.json();
   // items: [{ productId, quantity }]
@@ -24,7 +21,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Producto ${item.productId} no encontrado` }, { status: 404 });
     }
 
-    const stock = product.stocks.find((s) => s.location === session.user.post);
+    const stock = product.stocks.find((s) => s.location === session?.user.post);
     if (!stock) {
       return NextResponse.json({ error: `Stock no encontrado para ${product.name}` }, { status: 404 });
     }
@@ -40,8 +37,8 @@ export async function POST(req: NextRequest) {
         quantity: item.quantity,
         total: product.price * item.quantity,
         paymentMethod,
-        location: session.user.post as "post_1" | "post_2",
-        userId: session.user.id,
+        location: session?.user.post as "post_1" | "post_2",
+        userId: session?.user.id,
       },
     });
 
@@ -57,7 +54,7 @@ export async function POST(req: NextRequest) {
         stockId: stock.id,
         quantity: -item.quantity,
         type: "exit",
-        userId: session.user.id,
+        userId: session?.user.id,
       },
     });
 

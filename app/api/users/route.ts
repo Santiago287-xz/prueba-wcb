@@ -121,7 +121,6 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    console.log(body)
 
     if (!body.email || !body.password) {
         return NextResponse.json(
@@ -200,7 +199,6 @@ export async function PATCH(req: Request) {
 
 
         const body = await req.json();
-        console.log(body)
 
         if (sessionUser?.role === 'admin' && body.trainerId && body.userId && body.trainerId !== body.userId) {
 

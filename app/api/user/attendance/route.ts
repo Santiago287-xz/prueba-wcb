@@ -113,7 +113,6 @@ export async function PATCH() {
       );
     }
     
-    console.log(attendanceExist);
     const fTimeHour = Number(attendanceExist.fromTime.toString().split(":")[0]);
     const fTimeMin = Number(attendanceExist.fromTime.toString().split(":")[1]);
     

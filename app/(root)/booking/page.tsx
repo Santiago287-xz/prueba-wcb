@@ -5,8 +5,7 @@ import { BookingCalendar } from "@/app/components/Booking/calendar";
 
 export default async function BookingsPage() {
   const session = await getServerSession(authOptions);
-  
-  if (!session || !['admin', 'court_manager'].includes(session.user.role)) {
+  if (!session || !['admin', 'court_manager'].includes(session.user?.role)) {
     redirect('/unauthorized');
   }
   
