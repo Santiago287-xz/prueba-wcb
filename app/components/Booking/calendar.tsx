@@ -1,3 +1,4 @@
+// calendar.tsx (modificado)
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -9,20 +10,26 @@ import { MobileCalendar } from "./MobileCalendar";
 import { BookingModal } from "./modal";
 import { useCachedFetch } from "../../hooks/useCachedFetch";
 import { Court, CourtData, Reservation, Event, ModalDataType } from "../../types/bookings/types";
+import BookingInvoiceModal from "../Transactions/BookingInvoiceModal";
+import EventModal from "./EventModal";
 
 interface BookingCalendarProps {
   initialCourts: Court[];
 }
 
 export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
-  // Core state
+  // Estados originales
   const [courts, setCourts] = useState<Court[]>(initialCourts);
   const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Default modal data
+  // Estados adicionales para modales
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);  
+  
   const defaultModalData = useMemo(() => ({
     isOpen: false,
     type: 'create' as const,
@@ -36,25 +43,19 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
     recurrenceEnd: ''
   }), []);
   
-  // Modal state
   const [modalData, setModalData] = useState<ModalDataType>(defaultModalData);
 
-  // Fetch API URL memo
   const apiUrl = useMemo(() => {
     if (!selectedCourt) return null;
     return `/api/bookings?weekStart=${format(weekStart, "yyyy-MM-dd")}&weekEnd=${format(endOfWeek(weekStart, { weekStartsOn: 1 }), "yyyy-MM-dd")}&courtId=${selectedCourt.id}`;
   }, [selectedCourt, weekStart]);
 
-  // Fetching data with cache
   const { data, isLoading, mutate } = useCachedFetch(apiUrl);
   
-  // Fetch courts only once if initial data not provided
   const fetchCourtsData = useCallback(async () => {
     try {
       const res = await fetch("/api/courts");
-      if (!res.ok) {
-        throw new Error("Error al cargar las canchas");
-      }
+      if (!res.ok) throw new Error("Error al cargar las canchas");
       const data = await res.json();
       setCourts(data);
     } catch (error) {
@@ -63,17 +64,13 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
   }, []);
 
   useEffect(() => {
-    if (courts.length === 0) {
-      fetchCourtsData();
-    }
+    if (courts.length === 0) fetchCourtsData();
   }, [courts.length, fetchCourtsData]);
 
-  // Clear error when changing court or week
   useEffect(() => {
     setError(null);
   }, [selectedCourt, weekStart]);
 
-  // Extract data from fetch results - memoized
   const { courtData, isBlocked, event } = useMemo(() => {
     return {
       courtData: data?.blocked ? null : data?.court as CourtData | null,
@@ -82,8 +79,9 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
     };
   }, [data]);
 
-  // Validate reservation data
+  // Validación de reservas
   const validateReservationData = useCallback((): boolean => {
+    // Código original de validación...
     if (!modalData.name || modalData.name.trim() === '') {
       setError("El nombre es obligatorio");
       return false;
@@ -122,7 +120,19 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
     return true;
   }, [modalData]);
 
-  // Modal handlers
+  // Función para abrir el modal de facturación
+  const openInvoiceModal = useCallback((reservation: Reservation) => {
+    console.log(reservation)
+    setSelectedReservation(reservation);
+    setIsInvoiceModalOpen(true);
+  }, []);
+
+  // Función para abrir el modal de eventos
+  const openEventModal = useCallback(() => {
+    setIsEventModalOpen(true);
+  }, []);
+
+  // Modal handlers originales
   const openModal = useCallback((type: 'create' | 'edit' | 'view', data: {reservation?: Reservation, day?: Date, hour?: number}) => {
     setError(null);
     
@@ -163,15 +173,15 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
     setModalData(defaultModalData);
   }, [defaultModalData]);
 
-  // API handlers
+  // API handlers originales
   const handleBooking = useCallback(async () => {
+    // Código original del handleBooking...
     if (isLoading || !selectedCourt || !modalData.selectedDay || modalData.selectedHour === undefined) {
       return;
     }
     
     setError(null);
     
-    // Validar datos
     if (!validateReservationData()) {
       return;
     }
@@ -212,7 +222,7 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
       
       await res.json();
       closeModal();
-      mutate(); // Refresh data
+      mutate();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Error al crear la reserva");
     } finally {
@@ -221,6 +231,7 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
   }, [isLoading, selectedCourt, modalData, validateReservationData, closeModal, mutate]);
 
   const handleCancel = useCallback(async (id: string) => {
+    // Código original del handleCancel...
     if (isLoading || !selectedCourt) return;
     
     setLoading(true);
@@ -239,7 +250,7 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
       }
       
       closeModal();
-      mutate(); // Refresh data
+      mutate();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Error al cancelar la reserva");
     } finally {
@@ -248,12 +259,12 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
   }, [isLoading, selectedCourt, closeModal, mutate]);
 
   const handleUpdatePayment = useCallback(async () => {
+    // Código original del handleUpdatePayment...
     if (isLoading || !modalData.reservation || !selectedCourt) return;
     
     setLoading(true);
     setError(null);
     
-    // Validar datos
     if (!validateReservationData()) {
       setLoading(false);
       return;
@@ -279,7 +290,7 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
       }
       
       closeModal();
-      mutate(); // Refresh data
+      mutate();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Error al actualizar la reserva");
     } finally {
@@ -287,20 +298,39 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
     }
   }, [isLoading, modalData, selectedCourt, validateReservationData, closeModal, mutate]);
 
-  // Memoize handlers to pass to components
+  // Handler para procesar pagos desde el modal de facturación
+  const handleInvoiceSuccess = useCallback(() => {
+    setIsInvoiceModalOpen(false);
+    mutate();
+  }, [mutate]);
+
+  // Handler para eventos creados con éxito
+  const handleEventSuccess = useCallback(() => {
+    setIsEventModalOpen(false);
+    mutate();
+  }, [mutate]);
+
+  // Props para los calendarios
   const calendarProps = useMemo(() => ({
     loading: isLoading || loading,
     isBlocked,
     event,
     courtData,
     weekStart,
-    openModal
-  }), [isLoading, loading, isBlocked, event, courtData, weekStart, openModal]);
+    openModal,
+    openInvoiceModal
+  }), [isLoading, loading, isBlocked, event, courtData, weekStart, openModal, openInvoiceModal]);
 
   return (
     <div className="max-w-full md:max-w-5xl mx-auto bg-white rounded shadow">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b flex justify-between items-center">
         <h1 className="text-xl font-bold text-gray-800">Sistema de Reservas</h1>
+        <button
+          onClick={openEventModal}
+          className="px-4 py-2 bg-green-600 text-white rounded"
+        >
+          Crear Evento
+        </button>
       </div>
       
       <div className="p-4 border-b bg-gray-50">
@@ -322,7 +352,6 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
         </div>
       </div>
 
-      {/* Error message */}
       {error && (
         <div className="p-3 my-2 mx-4 bg-red-100 text-red-700 rounded border border-red-200">
           {error}
@@ -331,19 +360,16 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
 
       {selectedCourt && (
         <>
-          {/* Desktop calendar */}
           <div className="hidden md:block overflow-x-auto">
             <DesktopCalendar {...calendarProps} />
           </div>
 
-          {/* Mobile calendar */}
           <div className="block md:hidden">
             <MobileCalendar {...calendarProps} />
           </div>
         </>
       )}
       
-      {/* Modal */}
       {modalData.isOpen && (
         <BookingModal 
           modalData={modalData}
@@ -355,6 +381,26 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
           handleUpdatePayment={handleUpdatePayment}
           error={error}
           setError={setError}
+        />
+      )}
+
+      {isInvoiceModalOpen && selectedReservation && (
+        <BookingInvoiceModal
+          reservationId={selectedReservation.id || selectedReservation.virtualId || ''}
+          courtName={courtData?.name || ''}
+          startTime={selectedReservation.startTime as string}
+          endTime={selectedReservation.endTime as string}
+          clientName={selectedReservation.name || ''}
+          onClose={() => setIsInvoiceModalOpen(false)}
+          onSuccess={handleInvoiceSuccess}
+        />
+      )}
+
+      {isEventModalOpen && (
+        <EventModal
+          courts={courts}
+          onClose={() => setIsEventModalOpen(false)}
+          onSuccess={handleEventSuccess}
         />
       )}
     </div>

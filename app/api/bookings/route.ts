@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
       if (prisma.event) {
         event = await prisma.event.findFirst({
           where: {
-            courtType: court.type,
+            courtIds: { has: courtId },  // Verificar si el ID de la cancha está en la lista
             date: { 
               gte: startDate,
               lte: endDate 
@@ -121,14 +121,14 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             name: true,
-            courtType: true,
+            courtIds: true,  // Incluir courtIds en lugar de courtType
             date: true,
             startTime: true,
             endTime: true
           }
         });
         
-        if (event && court.type === "futbol") {
+        if (event) {
           isBlocked = true;
           return NextResponse.json({ blocked: true, event }, { status: 200 });
         }

@@ -137,10 +137,10 @@ model CourtReservation {
 model Event {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   name      String
-  courtType String
   date      DateTime
   startTime DateTime
   endTime   DateTime
+  courtIds  String[] @db.ObjectId  // Nueva forma - lista de IDs de canchas
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

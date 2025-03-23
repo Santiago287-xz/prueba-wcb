@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Product {
   id: string;
@@ -18,44 +20,66 @@ interface CartItem {
 }
 
 export default function SalesPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "mercado_pago">("cash");
-  console.log("Session user:", session?.user); // Añade este console.log para depurar
+  const [loading, setLoading] = useState(true);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
+    if (status === "loading") return;
+    
+    if (status === "unauthenticated") {
+      router.push("/signin");
+      return;
+    }
+    
+    if (session?.user?.role !== "employee" || !session?.user?.post) {
+      setError("No tienes permisos para acceder a esta página o no tienes un puesto asignado");
+      setLoading(false);
+      return;
+    }
+    
     fetchProducts();
-  }, []);
+  }, [session, status, router]);
 
   const fetchProducts = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
       const res = await fetch("/api/inventory/products");
       if (!res.ok) {
-        throw new Error("Error al obtener los productos");
+        throw new Error(`Error: ${res.status} - ${res.statusText}`);
       }
       const data = await res.json();
-      console.log("Productos obtenidos:", data);
       setProducts(data);
     } catch (error) {
       console.error("Error al obtener productos:", error);
-      setProducts([]);
+      setError("Error al cargar los productos. Por favor, intenta nuevamente.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const addToCart = (product: Product) => {
-    console.log("Añadiendo al carrito, producto:", product);
-    console.log("Ubicación del usuario (post):", session?.user?.post);
+    if (!session?.user?.post) {
+      setError("No tienes un puesto asignado");
+      return;
+    }
 
-    const stock = product.stocks.find((s) => s.location === session?.user?.post);
-    console.log("Stock encontrado:", stock);
-
+    const stock = product.stocks.find((s) => s.location === session.user.post);
+    
     if (!stock) {
-      alert("No se encontró stock para este producto en tu ubicación");
+      setError(`No se encontró stock para ${product.name} en tu ubicación`);
       return;
     }
 
     if (stock.quantity <= 0) {
-      alert("No hay stock disponible");
+      setError(`No hay stock disponible para ${product.name}`);
       return;
     }
 
@@ -63,7 +87,7 @@ export default function SalesPage() {
       const existingItem = prev.find((item) => item.productId === product.id);
       if (existingItem) {
         if (existingItem.quantity + 1 > stock.quantity) {
-          alert("No hay suficiente stock");
+          setError(`Stock insuficiente para ${product.name}`);
           return prev;
         }
         return prev.map((item) =>
@@ -72,6 +96,9 @@ export default function SalesPage() {
       }
       return [...prev, { productId: product.id, name: product.name, quantity: 1, price: product.price }];
     });
+    
+    // Clear any previous error
+    setError(null);
   };
 
   const removeFromCart = (productId: string) => {
@@ -88,9 +115,12 @@ export default function SalesPage() {
 
   const handleSale = async () => {
     if (cart.length === 0) {
-      alert("El carrito está vacío");
+      setError("El carrito está vacío");
       return;
     }
+
+    setProcessingPayment(true);
+    setError(null);
 
     try {
       const res = await fetch("/api/sales", {
@@ -99,26 +129,101 @@ export default function SalesPage() {
         body: JSON.stringify({ items: cart, paymentMethod }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setCart([]);
         fetchProducts();
         alert("Venta registrada con éxito");
       } else {
-        const errorData = await res.json();
-        alert(`Error al registrar la venta: ${errorData.error}`);
+        setError(`Error: ${data.error || "No se pudo procesar la venta"}`);
       }
     } catch (error) {
       console.error("Error al registrar la venta:", error);
-      alert("Error al registrar la venta");
+      setError("Error de conexión. Por favor, intenta nuevamente.");
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+  // Loading state
+  if (status === "loading" || (loading && !error)) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Cargando...</p>
+      </div>
+    );
+  }
+
+  // Handle different error states separately
+  if (!session?.user) {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-bold text-red-600 mb-4">No autorizado</h1>
+        <p>Debes iniciar sesión para acceder a esta página.</p>
+        <button 
+          onClick={() => router.push("/signin")}
+          className="mt-4 bg-primary text-white p-2 rounded"
+        >
+          Iniciar sesión
+        </button>
+      </div>
+    );
+  }
+  
+  if (session.user.role !== "employee") {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-bold text-red-600 mb-4">No autorizado</h1>
+        <p>Solo los empleados pueden acceder al sistema de ventas.</p>
+        <p className="mt-2">Tu rol actual es: <span className="font-semibold">{session.user.role}</span></p>
+        <button 
+          onClick={() => router.push("/")}
+          className="mt-4 bg-primary text-white p-2 rounded"
+        >
+          Volver al inicio
+        </button>
+      </div>
+    );
+  }
+  
+  if (!session.user.post) {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-bold text-amber-600 mb-4">Puesto no asignado</h1>
+        <p>No tienes un puesto de trabajo asignado. Contacta con un administrador para que te asigne a:</p>
+        <div className="mt-4 flex flex-col gap-2 items-center">
+          <div className="border border-amber-200 bg-amber-50 rounded p-3 w-60">
+            <p className="font-semibold">Puesto 1 (post_1)</p>
+            <p className="text-sm">Ventas del Puesto 1</p>
+          </div>
+          <div className="border border-amber-200 bg-amber-50 rounded p-3 w-60">
+            <p className="font-semibold">Puesto 2 (post_2)</p>
+            <p className="text-sm">Ventas del Puesto 2</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => router.push("/")}
+          className="mt-6 bg-primary text-white p-2 rounded"
+        >
+          Volver al inicio
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Ventas - {session.user.post}</h1>
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
 
       {/* Lista de productos */}
       <div className="mb-6">
@@ -130,13 +235,13 @@ export default function SalesPage() {
             {products.map((product) => {
               const stock = product.stocks.find((s) => s.location === session.user.post);
               return (
-                <div key={product.id} className="border p-4 rounded">
+                <div key={product.id} className="border p-4 rounded shadow-sm hover:shadow-md transition-shadow">
                   <h3 className="text-lg font-semibold">{product.name}</h3>
-                  <p>Precio: ${product.price}</p>
+                  <p>Precio: ${product.price.toFixed(2)}</p>
                   <p>Stock: {stock?.quantity || 0}</p>
                   <button
                     onClick={() => addToCart(product)}
-                    className="bg-green-500 text-white p-2 rounded mt-2"
+                    className="bg-green-500 hover:bg-green-600 text-white p-2 rounded mt-2 transition-colors"
                     disabled={!stock || stock.quantity <= 0}
                   >
                     Agregar al Carrito
@@ -149,57 +254,71 @@ export default function SalesPage() {
       </div>
 
       {/* Carrito */}
-      <div className="mb-6 p-4 bg-gray-100 rounded">
+      <div className="mb-6 p-4 bg-gray-100 rounded shadow">
         <h2 className="text-xl font-semibold mb-4">Carrito</h2>
         {cart.length === 0 ? (
           <p>El carrito está vacío</p>
         ) : (
           <>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-200">
-                  <th className="border p-2">Producto</th>
-                  <th className="border p-2">Cantidad</th>
-                  <th className="border p-2">Precio Unitario</th>
-                  <th className="border p-2">Total</th>
-                  <th className="border p-2">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cart.map((item) => (
-                  <tr key={item.productId}>
-                    <td className="border p-2">{item.name}</td>
-                    <td className="border p-2">{item.quantity}</td>
-                    <td className="border p-2">${item.price}</td>
-                    <td className="border p-2">${item.price * item.quantity}</td>
-                    <td className="border p-2">
-                      <button
-                        onClick={() => removeFromCart(item.productId)}
-                        className="bg-red-500 text-white p-1 rounded"
-                      >
-                        Quitar
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-200">
+                    <th className="border p-2">Producto</th>
+                    <th className="border p-2">Cantidad</th>
+                    <th className="border p-2">Precio Unitario</th>
+                    <th className="border p-2">Total</th>
+                    <th className="border p-2">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {cart.map((item) => (
+                    <tr key={item.productId}>
+                      <td className="border p-2">{item.name}</td>
+                      <td className="border p-2">{item.quantity}</td>
+                      <td className="border p-2">${item.price.toFixed(2)}</td>
+                      <td className="border p-2">${(item.price * item.quantity).toFixed(2)}</td>
+                      <td className="border p-2">
+                        <button
+                          onClick={() => removeFromCart(item.productId)}
+                          className="bg-red-500 hover:bg-red-600 text-white p-1 rounded transition-colors"
+                        >
+                          Quitar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div className="mt-4">
-              <h3 className="text-lg font-semibold">Total: ${total}</h3>
-              <label className="block mt-2">Método de Pago:</label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as "cash" | "mercado_pago")}
-                className="border p-2 rounded"
-              >
-                <option value="cash">Efectivo</option>
-                <option value="mercado_pago">Mercado Pago</option>
-              </select>
+              <h3 className="text-lg font-semibold">Total: ${total.toFixed(2)}</h3>
+              <div className="mt-2">
+                <label className="block">Método de Pago:</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as "cash" | "mercado_pago")}
+                  className="border p-2 rounded w-full md:w-auto mt-1"
+                >
+                  <option value="cash">Efectivo</option>
+                  <option value="mercado_pago">Mercado Pago</option>
+                </select>
+              </div>
               <button
                 onClick={handleSale}
-                className="bg-green-500 text-white p-2 rounded mt-4"
+                disabled={processingPayment}
+                className={`${
+                  processingPayment ? "bg-gray-400" : "bg-green-500 hover:bg-green-600"
+                } text-white p-2 rounded mt-4 transition-colors flex items-center justify-center`}
               >
-                Confirmar Venta
+                {processingPayment ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Procesando...
+                  </>
+                ) : (
+                  "Confirmar Venta"
+                )}
               </button>
             </div>
           </>
