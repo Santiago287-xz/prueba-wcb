@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { es } from 'date-fns/locale';
 import { ModalDataType } from "../../types/bookings/types";
+import { useEffect, useRef } from "react";
 
 interface BookingModalProps {
   modalData: ModalDataType;
@@ -10,6 +11,8 @@ interface BookingModalProps {
   handleBooking: () => Promise<void>;
   handleCancel: (id: string) => Promise<void>;
   handleUpdatePayment: () => Promise<void>;
+  error: string | null;
+  setError: (error: string | null) => void;
 }
 
 export function BookingModal({
@@ -19,8 +22,95 @@ export function BookingModal({
   closeModal,
   handleBooking,
   handleCancel,
-  handleUpdatePayment
+  handleUpdatePayment,
+  error,
+  setError
 }: BookingModalProps) {
+  // Use refs to track previous values and avoid unnecessary validations
+  const prevName = useRef(modalData.name);
+  const prevPhone = useRef(modalData.phone);
+  const prevRecurrenceEnd = useRef(modalData.recurrenceEnd);
+  
+  // Validation effects - moved out of render cycle
+  useEffect(() => {
+    if (prevName.current !== modalData.name) {
+      prevName.current = modalData.name;
+      
+      if (modalData.name.length > 50) {
+        setError("El nombre no puede exceder los 50 caracteres");
+      } else if (error && error.includes("nombre")) {
+        setError(null);
+      }
+    }
+  }, [modalData.name, error, setError]);
+
+  useEffect(() => {
+    if (prevPhone.current !== modalData.phone) {
+      prevPhone.current = modalData.phone;
+      
+      if (modalData.phone.length > 0 && (modalData.phone.length < 3 || modalData.phone.length > 20)) {
+        setError("El teléfono debe tener entre 3 y 20 caracteres");
+      } else if (error && error.includes("teléfono")) {
+        setError(null);
+      }
+    }
+  }, [modalData.phone, error, setError]);
+
+  useEffect(() => {
+    if (prevRecurrenceEnd.current !== modalData.recurrenceEnd) {
+      prevRecurrenceEnd.current = modalData.recurrenceEnd;
+      
+      if (modalData.isRecurring && modalData.recurrenceEnd) {
+        const endDate = new Date(modalData.recurrenceEnd);
+        const startDate = modalData.selectedDay || new Date();
+        
+        if (endDate <= startDate) {
+          setError("La fecha de finalización debe ser posterior a la fecha de inicio");
+        } else if (error && error.includes("fecha de finalización")) {
+          setError(null);
+        }
+      }
+    }
+  }, [modalData.recurrenceEnd, modalData.isRecurring, modalData.selectedDay, error, setError]);
+
+  // Clean handlers that don't update state during render
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setModalData({...modalData, name: e.target.value});
+  };
+  
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setModalData({...modalData, phone: e.target.value});
+  };
+  
+  const handleRecurrenceEndChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setModalData({...modalData, recurrenceEnd: e.target.value});
+  };
+
+  const handlePaymentMethodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setModalData({...modalData, paymentMethod: e.target.value});
+  };
+
+  const handlePaymentNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setModalData({...modalData, paymentNotes: e.target.value});
+  };
+
+  const handlePaidSessionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setModalData({...modalData, paidSessions: parseInt(e.target.value) || 0});
+  };
+
+  const handleRecurringChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setModalData({...modalData, isRecurring: e.target.checked});
+    if (error && (error.includes("recurrente") || error.includes("finalización"))) {
+      setError(null);
+    }
+  };
+
+  // Simple validation functions that don't update state
+  const isNameValid = modalData.name.trim() !== '' && modalData.name.length <= 50;
+  const isPhoneValid = modalData.phone.trim() !== '' && modalData.phone.length >= 3 && modalData.phone.length <= 20;
+  const isRecurrenceEndValid = !modalData.isRecurring || (modalData.recurrenceEnd && new Date(modalData.recurrenceEnd) > (modalData.selectedDay || new Date()));
+  const isFormValid = isNameValid && isPhoneValid && isRecurrenceEndValid;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white p-4 rounded max-w-md w-full shadow-lg">
@@ -39,6 +129,13 @@ export function BookingModal({
             </svg>
           </button>
         </div>
+        
+        {/* Mostrar error si existe */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded border border-red-200">
+            {error}
+          </div>
+        )}
         
         {modalData.selectedDay && modalData.selectedHour !== undefined && (
           <div className="mb-4 p-2 bg-blue-50 rounded">
@@ -63,30 +160,44 @@ export function BookingModal({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre
+              Nombre <span className="text-red-500">*</span>
             </label>
             <input 
               type="text" 
-              value={modalData.guestName} 
-              onChange={e => setModalData({...modalData, guestName: e.target.value})} 
-              className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500" 
-              placeholder="Nombre del cliente"
+              value={modalData.name} 
+              onChange={handleNameChange}
+              className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${
+                !isNameValid && modalData.name.length > 0 ? 'border-red-500' : ''
+              }`} 
+              placeholder="Nombre del cliente (máx. 50 caracteres)"
               disabled={loading || modalData.type === 'view'}
+              maxLength={50}
+              required
             />
+            <div className="text-xs text-gray-500 mt-1">
+              {modalData.name.length}/50 caracteres
+            </div>
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Teléfono
+              Teléfono <span className="text-red-500">*</span>
             </label>
             <input 
               type="text" 
-              value={modalData.guestPhone} 
-              onChange={e => setModalData({...modalData, guestPhone: e.target.value})} 
-              className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500" 
-              placeholder="Número de teléfono"
+              value={modalData.phone} 
+              onChange={handlePhoneChange}
+              className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${
+                !isPhoneValid && modalData.phone.length > 0 ? 'border-red-500' : ''
+              }`} 
+              placeholder="Número de teléfono (entre 3 y 20 caracteres)"
               disabled={loading || modalData.type === 'view'}
+              maxLength={20}
+              required
             />
+            <div className="text-xs text-gray-500 mt-1">
+              {modalData.phone.length}/20 caracteres
+            </div>
           </div>
           
           <div>
@@ -95,7 +206,7 @@ export function BookingModal({
             </label>
             <select 
               value={modalData.paymentMethod} 
-              onChange={e => setModalData({...modalData, paymentMethod: e.target.value})} 
+              onChange={handlePaymentMethodChange}
               className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 appearance-none"
               disabled={loading || modalData.type === 'view'}
             >
@@ -110,7 +221,7 @@ export function BookingModal({
               <input 
                 type="checkbox" 
                 checked={modalData.isRecurring} 
-                onChange={e => setModalData({...modalData, isRecurring: e.target.checked})} 
+                onChange={handleRecurringChange}
                 className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 mr-2"
                 disabled={loading || modalData.type === 'view'}
               />
@@ -122,14 +233,18 @@ export function BookingModal({
             <div className="pl-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fecha final
+                  Fecha final <span className="text-red-500">*</span>
                 </label>
                 <input 
                   type="date" 
                   value={modalData.recurrenceEnd} 
-                  onChange={e => setModalData({...modalData, recurrenceEnd: e.target.value})} 
-                  className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+                  onChange={handleRecurrenceEndChange}
+                  className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${
+                    !isRecurrenceEndValid && modalData.recurrenceEnd ? 'border-red-500' : ''
+                  }`}
                   disabled={loading || modalData.type === 'view'}
+                  min={modalData.selectedDay ? format(new Date(modalData.selectedDay), 'yyyy-MM-dd') : undefined}
+                  required
                 />
               </div>
               
@@ -140,9 +255,10 @@ export function BookingModal({
                 <input 
                   type="number" 
                   value={modalData.paidSessions} 
-                  onChange={e => setModalData({...modalData, paidSessions: parseInt(e.target.value)})} 
+                  onChange={handlePaidSessionsChange}
                   className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500" 
                   placeholder="0"
+                  min="0"
                   disabled={loading || modalData.type === 'view'}
                 />
               </div>
@@ -155,12 +271,16 @@ export function BookingModal({
             </label>
             <textarea 
               value={modalData.paymentNotes} 
-              onChange={e => setModalData({...modalData, paymentNotes: e.target.value})} 
+              onChange={handlePaymentNotesChange}
               className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500" 
               placeholder="Notas adicionales sobre el pago"
               rows={2}
               disabled={loading || modalData.type === 'view'}
+              maxLength={255}
             />
+            <div className="text-xs text-gray-500 mt-1">
+              {modalData.paymentNotes.length}/255 caracteres
+            </div>
           </div>
         </div>
         
@@ -171,7 +291,7 @@ export function BookingModal({
               disabled={loading}
               className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 mr-auto"
             >
-              Cancelar Reserva
+              {loading ? 'Cancelando...' : 'Cancelar Reserva'}
             </button>
           )}
           
@@ -186,8 +306,8 @@ export function BookingModal({
           {modalData.type === 'create' && (
             <button 
               onClick={handleBooking}
-              disabled={loading}
-              className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={loading || !isFormValid}
+              className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed"
             >
               {loading ? 'Guardando...' : 'Guardar Reserva'}
             </button>
@@ -196,8 +316,8 @@ export function BookingModal({
           {modalData.type === 'edit' && (
             <button 
               onClick={handleUpdatePayment}
-              disabled={loading}
-              className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={loading || !isNameValid || !isPhoneValid}
+              className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed"
             >
               {loading ? 'Actualizando...' : 'Actualizar Reserva'}
             </button>

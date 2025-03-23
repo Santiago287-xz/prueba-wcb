@@ -52,8 +52,8 @@ export function BookingSlot({ day, hour, courtData, openModal }: BookingSlotProp
         onClick={() => openModal(isPastTime ? 'view' : 'edit', { reservation })}
       >
         <div className="hidden md:block">
-          <div className="font-medium">{reservation.guestName}</div>
-          <div className="text-xs text-gray-600">{reservation.guestPhone}</div>
+          <div className="font-medium">{reservation.name}</div>
+          <div className="text-xs text-gray-600">{reservation.phone}</div>
           {reservation.isRecurring && (
             <div className="mt-1 text-xs">
               <span className="bg-blue-500 text-white px-1 rounded">Fijo</span>
@@ -70,7 +70,7 @@ export function BookingSlot({ day, hour, courtData, openModal }: BookingSlotProp
           </div>
         </div>
         <div className="md:hidden block m-auto">
-          <div className="font-medium">{reservation.guestName} - {reservation.guestPhone}</div>
+          <div className="font-medium">{reservation.name} - {reservation.phone}</div>
         </div>
       </div>
     );

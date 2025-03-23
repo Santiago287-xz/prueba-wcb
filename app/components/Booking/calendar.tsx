@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { CourtsSelector } from "./CourtsSelector";
 import { WeekSelector } from "./WeekSelector";
@@ -20,51 +20,112 @@ export function BookingCalendar({ initialCourts }: BookingCalendarProps) {
   const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   
-  // Modal state
-  const [modalData, setModalData] = useState<ModalDataType>({
+  // Default modal data
+  const defaultModalData = useMemo(() => ({
     isOpen: false,
-    type: 'create',
+    type: 'create' as const,
     reservation: null,
     paidSessions: 0,
     paymentMethod: 'pending',
     paymentNotes: '',
-    guestName: '',
-    guestPhone: '',
+    name: '',
+    phone: '',
     isRecurring: false,
     recurrenceEnd: ''
-  });
+  }), []);
+  
+  // Modal state
+  const [modalData, setModalData] = useState<ModalDataType>(defaultModalData);
+
+  // Fetch API URL memo
+  const apiUrl = useMemo(() => {
+    if (!selectedCourt) return null;
+    return `/api/bookings?weekStart=${format(weekStart, "yyyy-MM-dd")}&weekEnd=${format(endOfWeek(weekStart, { weekStartsOn: 1 }), "yyyy-MM-dd")}&courtId=${selectedCourt.id}`;
+  }, [selectedCourt, weekStart]);
 
   // Fetching data with cache
-  const { data, isLoading, error, mutate } = useCachedFetch(
-    selectedCourt ? `/api/bookings?weekStart=${format(weekStart, "yyyy-MM-dd")}&weekEnd=${format(endOfWeek(weekStart, { weekStartsOn: 1 }), "yyyy-MM-dd")}&courtId=${selectedCourt.id}` : null
-  );
+  const { data, isLoading, mutate } = useCachedFetch(apiUrl);
   
-  // Fetch courts if initial data not provided
-  // Fix for Function declarations not allowed inside blocks
-const fetchCourtsData = async () => {
-  try {
-    const res = await fetch("/api/courts");
-    const data = await res.json();
-    setCourts(data);
-  } catch (error) {
-    console.error("Failed to fetch courts:", error);
-  }
-};
+  // Fetch courts only once if initial data not provided
+  const fetchCourtsData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/courts");
+      if (!res.ok) {
+        throw new Error("Error al cargar las canchas");
+      }
+      const data = await res.json();
+      setCourts(data);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Error al cargar las canchas");
+    }
+  }, []);
 
-useEffect(() => {
-  if (courts.length === 0) {
-    fetchCourtsData();
-  }
-}, [courts.length]);
+  useEffect(() => {
+    if (courts.length === 0) {
+      fetchCourtsData();
+    }
+  }, [courts.length, fetchCourtsData]);
 
-  // Extract data from fetch results
-  const courtData = data?.blocked ? null : data?.court as CourtData | null;
-  const isBlocked = data?.blocked || false;
-  const event = data?.event as Event | null;
+  // Clear error when changing court or week
+  useEffect(() => {
+    setError(null);
+  }, [selectedCourt, weekStart]);
+
+  // Extract data from fetch results - memoized
+  const { courtData, isBlocked, event } = useMemo(() => {
+    return {
+      courtData: data?.blocked ? null : data?.court as CourtData | null,
+      isBlocked: data?.blocked || false,
+      event: data?.event as Event | null
+    };
+  }, [data]);
+
+  // Validate reservation data
+  const validateReservationData = useCallback((): boolean => {
+    if (!modalData.name || modalData.name.trim() === '') {
+      setError("El nombre es obligatorio");
+      return false;
+    }
+
+    if (modalData.name.length > 50) {
+      setError("El nombre no puede exceder los 50 caracteres");
+      return false;
+    }
+
+    if (!modalData.phone || modalData.phone.trim() === '') {
+      setError("El teléfono es obligatorio");
+      return false;
+    }
+
+    if (modalData.phone.length < 3 || modalData.phone.length > 20) {
+      setError("El teléfono debe tener entre 3 y 20 caracteres");
+      return false;
+    }
+
+    if (modalData.isRecurring && !modalData.recurrenceEnd) {
+      setError("La fecha de finalización es obligatoria para reservas recurrentes");
+      return false;
+    }
+
+    if (modalData.isRecurring && modalData.recurrenceEnd) {
+      const recurrenceEndDate = new Date(modalData.recurrenceEnd);
+      const startDate = modalData.selectedDay || new Date();
+      
+      if (recurrenceEndDate <= startDate) {
+        setError("La fecha de finalización debe ser posterior a la fecha de inicio");
+        return false;
+      }
+    }
+
+    return true;
+  }, [modalData]);
 
   // Modal handlers
-  const openModal = (type: 'create' | 'edit' | 'view', data: {reservation?: Reservation, day?: Date, hour?: number}) => {
+  const openModal = useCallback((type: 'create' | 'edit' | 'view', data: {reservation?: Reservation, day?: Date, hour?: number}) => {
+    setError(null);
+    
     if (type === 'create' && data.day && data.hour !== undefined) {
       setModalData({
         isOpen: true,
@@ -72,8 +133,8 @@ useEffect(() => {
         reservation: null,
         selectedDay: data.day,
         selectedHour: data.hour,
-        guestName: '',
-        guestPhone: '',
+        name: '',
+        phone: '',
         paymentMethod: 'pending',
         isRecurring: false,
         recurrenceEnd: '',
@@ -88,41 +149,35 @@ useEffect(() => {
         paidSessions: data.reservation.paidSessions || 0,
         paymentMethod: data.reservation.paymentMethod || 'pending',
         paymentNotes: data.reservation.paymentNotes || '',
-        guestName: data.reservation.guestName || '',
-        guestPhone: data.reservation.guestPhone || '',
+        name: data.reservation.name || '',
+        phone: data.reservation.phone || '',
         isRecurring: data.reservation.isRecurring || false,
         recurrenceEnd: data.reservation.recurrenceEnd ? 
           format(new Date(data.reservation.recurrenceEnd as string), 'yyyy-MM-dd') : ''
       });
     }
-  };
+  }, []);
 
-  const closeModal = () => {
-    setModalData({
-      isOpen: false,
-      type: 'create',
-      reservation: null,
-      paidSessions: 0,
-      paymentMethod: 'pending',
-      paymentNotes: '',
-      guestName: '',
-      guestPhone: '',
-      isRecurring: false,
-      recurrenceEnd: ''
-    });
-  };
+  const closeModal = useCallback(() => {
+    setError(null);
+    setModalData(defaultModalData);
+  }, [defaultModalData]);
 
   // API handlers
-  const handleBooking = async () => {
-    if (isLoading || !selectedCourt || !modalData.selectedDay || modalData.selectedHour === undefined) return;
+  const handleBooking = useCallback(async () => {
+    if (isLoading || !selectedCourt || !modalData.selectedDay || modalData.selectedHour === undefined) {
+      return;
+    }
     
-    const { guestName, guestPhone, paymentMethod, isRecurring, recurrenceEnd, paidSessions, paymentNotes } = modalData;
+    setError(null);
     
-    if (!guestName || !guestPhone) {
-      alert("Por favor, ingresa nombre y teléfono");
+    // Validar datos
+    if (!validateReservationData()) {
       return;
     }
 
+    const { name, phone, paymentMethod, isRecurring, recurrenceEnd, paidSessions, paymentNotes } = modalData;
+    
     const startTime = new Date(modalData.selectedDay);
     startTime.setHours(modalData.selectedHour, 0, 0);
     const endTime = new Date(startTime);
@@ -132,8 +187,8 @@ useEffect(() => {
       courtId: selectedCourt.id,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
-      guestName,
-      guestPhone,
+      name,
+      phone,
       paymentMethod,
       isRecurring: isRecurring || false,
       ...(isRecurring && recurrenceEnd ? { recurrenceEnd: new Date(recurrenceEnd).toISOString() } : {}),
@@ -159,16 +214,17 @@ useEffect(() => {
       closeModal();
       mutate(); // Refresh data
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Error al crear la reserva");
+      setError(error instanceof Error ? error.message : "Error al crear la reserva");
     } finally {
       setLoading(false);
     }
-  };
+  }, [isLoading, selectedCourt, modalData, validateReservationData, closeModal, mutate]);
 
-  const handleCancel = async (id: string) => {
+  const handleCancel = useCallback(async (id: string) => {
     if (isLoading || !selectedCourt) return;
     
     setLoading(true);
+    setError(null);
     
     try {
       const res = await fetch("/api/bookings", {
@@ -178,22 +234,30 @@ useEffect(() => {
       });
       
       if (!res.ok) {
-        throw new Error("Error al cancelar la reserva");
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error al cancelar la reserva");
       }
       
       closeModal();
       mutate(); // Refresh data
     } catch (error) {
-      alert("Error al cancelar la reserva");
+      setError(error instanceof Error ? error.message : "Error al cancelar la reserva");
     } finally {
       setLoading(false);
     }
-  };
+  }, [isLoading, selectedCourt, closeModal, mutate]);
 
-  const handleUpdatePayment = async () => {
+  const handleUpdatePayment = useCallback(async () => {
     if (isLoading || !modalData.reservation || !selectedCourt) return;
     
     setLoading(true);
+    setError(null);
+    
+    // Validar datos
+    if (!validateReservationData()) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const res = await fetch("/api/bookings", {
@@ -201,6 +265,8 @@ useEffect(() => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reservationId: modalData.reservation.id,
+          name: modalData.name,
+          phone: modalData.phone,
           paidSessions: modalData.paidSessions,
           paymentMethod: modalData.paymentMethod,
           paymentNotes: modalData.paymentNotes
@@ -208,17 +274,28 @@ useEffect(() => {
       });
       
       if (!res.ok) {
-        throw new Error("Error al actualizar el pago");
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error al actualizar la reserva");
       }
       
       closeModal();
       mutate(); // Refresh data
     } catch (error) {
-      alert("Error al actualizar el pago");
+      setError(error instanceof Error ? error.message : "Error al actualizar la reserva");
     } finally {
       setLoading(false);
     }
-  };
+  }, [isLoading, modalData, selectedCourt, validateReservationData, closeModal, mutate]);
+
+  // Memoize handlers to pass to components
+  const calendarProps = useMemo(() => ({
+    loading: isLoading || loading,
+    isBlocked,
+    event,
+    courtData,
+    weekStart,
+    openModal
+  }), [isLoading, loading, isBlocked, event, courtData, weekStart, openModal]);
 
   return (
     <div className="max-w-full md:max-w-5xl mx-auto bg-white rounded shadow">
@@ -245,30 +322,23 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* Error message */}
+      {error && (
+        <div className="p-3 my-2 mx-4 bg-red-100 text-red-700 rounded border border-red-200">
+          {error}
+        </div>
+      )}
+
       {selectedCourt && (
         <>
           {/* Desktop calendar */}
           <div className="hidden md:block overflow-x-auto">
-            <DesktopCalendar 
-              loading={isLoading || loading}
-              isBlocked={isBlocked}
-              event={event}
-              courtData={courtData}
-              weekStart={weekStart}
-              openModal={openModal}
-            />
+            <DesktopCalendar {...calendarProps} />
           </div>
 
           {/* Mobile calendar */}
           <div className="block md:hidden">
-            <MobileCalendar 
-              loading={isLoading || loading}
-              isBlocked={isBlocked}
-              event={event}
-              courtData={courtData}
-              weekStart={weekStart}
-              openModal={openModal}
-            />
+            <MobileCalendar {...calendarProps} />
           </div>
         </>
       )}
@@ -283,6 +353,8 @@ useEffect(() => {
           handleBooking={handleBooking}
           handleCancel={handleCancel}
           handleUpdatePayment={handleUpdatePayment}
+          error={error}
+          setError={setError}
         />
       )}
     </div>
