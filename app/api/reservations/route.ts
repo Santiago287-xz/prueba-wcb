@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { useSession } from "next-auth/react";
 import { PrismaClient } from "@prisma/client";
 import { parseISO, isValid, isBefore } from "date-fns";
 

@@ -42,6 +42,7 @@ enum Level {
 enum PaymentMethod {
   transfer
   cash
+  card
   pending
 }
 
@@ -77,6 +78,7 @@ model User {
   PasswordResetToken PasswordResetToken[]
   stockMovements     StockMovement[]
   sales              Sale[]
+  transactions  Transaction[]
 }
 
 model PasswordResetToken {
@@ -129,6 +131,7 @@ model CourtReservation {
   paymentNotes    String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  transactions  Transaction[]
 }
 
 model Event {
@@ -198,4 +201,33 @@ model Sale {
   userId        String           @db.ObjectId
   user          User             @relation(fields: [userId], references: [id])
   createdAt     DateTime         @default(now())
+  transactions  Transaction[]
+}
+
+enum TransactionType {
+  income
+  expense
+}
+
+model Transaction {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  type          TransactionType
+  category      String
+  amount        Float
+  description   String?
+  paymentMethod PaymentMethod
+  location      Location?
+  
+  // Referencias opcionales
+  userId        String?          @db.ObjectId
+  user          User?            @relation(fields: [userId], references: [id])
+  
+  saleId        String?          @db.ObjectId
+  sale          Sale?            @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  
+  reservationId String?          @db.ObjectId
+  reservation   CourtReservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 }

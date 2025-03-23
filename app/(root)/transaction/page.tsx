@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import TransactionModal from '@/components/transactions/TransactionModal';
+import TransactionModal from '@/app/components/Transactions/TransactionModal';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 interface Transaction {
@@ -74,7 +74,7 @@ export default function TransactionsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transaction)
       });
-      
+      console.log(response)
       if (!response.ok) throw new Error('Error al guardar la transacción');
       
       fetchTransactions();
