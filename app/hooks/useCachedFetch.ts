@@ -46,6 +46,5 @@ export function useCachedFetch(url: string | null) {
     
     return true;
   };
-  console.log(data)
   return { data, error, isLoading, mutate };
 }

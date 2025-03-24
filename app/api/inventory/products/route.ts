@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
     const priceStr = formData.get("price") as string;
     const categoryId = formData.get("categoryId") as string;
     const file = formData.get("image") as File | null;
+    
+    // Obtener valores de stock
+    const mainWarehouseStock = parseInt(formData.get("mainWarehouseStock") as string) || 0;
+    const post1Stock = parseInt(formData.get("post1Stock") as string) || 0;
+    const post2Stock = parseInt(formData.get("post2Stock") as string) || 0;
 
     // Validate inputs
     if (!name || name.trim() === "") {
@@ -92,19 +97,93 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Crear stock inicial en las tres ubicaciones
-      await tx.stock.createMany({
-        data: [
-          { productId: product.id, location: "main_warehouse", quantity: 0, minStock: 5 },
-          { productId: product.id, location: "post_1", quantity: 0, minStock: 3 },
-          { productId: product.id, location: "post_2", quantity: 0, minStock: 3 },
-        ],
-      });
+      // Crear stock en las ubicaciones con las cantidades especificadas
+      const stockLocations = [];
+      
+      if (mainWarehouseStock > 0) {
+        const mainStock = await tx.stock.create({
+          data: {
+            productId: product.id,
+            location: "main_warehouse",
+            quantity: mainWarehouseStock,
+            minStock: 5
+          }
+        });
+        
+        // Registrar el movimiento de stock inicial
+        await tx.stockMovement.create({
+          data: {
+            stockId: mainStock.id,
+            quantity: mainWarehouseStock,
+            type: "initial_stock",
+            userId: session.user.id
+          }
+        });
+        
+        stockLocations.push(mainStock);
+      } else {
+        // Crear registro de stock con cantidad 0 para el almacén principal
+        const mainStock = await tx.stock.create({
+          data: {
+            productId: product.id,
+            location: "main_warehouse",
+            quantity: 0,
+            minStock: 5
+          }
+        });
+        stockLocations.push(mainStock);
+      }
+      
+      if (post1Stock > 0) {
+        const post1StockRecord = await tx.stock.create({
+          data: {
+            productId: product.id,
+            location: "post_1",
+            quantity: post1Stock,
+            minStock: 3
+          }
+        });
+        
+        // Registrar el movimiento de stock inicial
+        await tx.stockMovement.create({
+          data: {
+            stockId: post1StockRecord.id,
+            quantity: post1Stock,
+            type: "initial_stock",
+            userId: session.user.id
+          }
+        });
+        
+        stockLocations.push(post1StockRecord);
+      }
+      
+      if (post2Stock > 0) {
+        const post2StockRecord = await tx.stock.create({
+          data: {
+            productId: product.id,
+            location: "post_2",
+            quantity: post2Stock,
+            minStock: 3
+          }
+        });
+        
+        // Registrar el movimiento de stock inicial
+        await tx.stockMovement.create({
+          data: {
+            stockId: post2StockRecord.id,
+            quantity: post2Stock,
+            type: "initial_stock",
+            userId: session.user.id
+          }
+        });
+        
+        stockLocations.push(post2StockRecord);
+      }
 
-      return product;
+      return { product, stockLocations };
     });
 
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json(result.product, { status: 201 });
   } catch (error) {
     console.error("Error al crear producto:", error);
     return NextResponse.json({ error: "Error al crear producto" }, { status: 500 });
@@ -126,6 +205,11 @@ export async function PUT(req: NextRequest) {
     const priceStr = formData.get("price") as string;
     const categoryId = formData.get("categoryId") as string | null;
     const file = formData.get("image") as File | null;
+    
+    // Obtener valores de stock
+    const mainWarehouseStock = parseInt(formData.get("mainWarehouseStock") as string) || 0;
+    const post1Stock = parseInt(formData.get("post1Stock") as string) || 0;
+    const post2Stock = parseInt(formData.get("post2Stock") as string) || 0;
 
     if (!id) {
       return NextResponse.json({ error: "ID del producto es requerido" }, { status: 400 });
@@ -134,6 +218,9 @@ export async function PUT(req: NextRequest) {
     // Verify product exists
     const productExists = await prisma.product.findUnique({
       where: { id },
+      include: {
+        stocks: true
+      }
     });
 
     if (!productExists) {
@@ -176,12 +263,148 @@ export async function PUT(req: NextRequest) {
       updateData.image = imagePath;
     }
 
-    const product = await prisma.product.update({
-      where: { id },
-      data: updateData,
+    // Actualizar el producto y su stock en una transacción
+    const result = await prisma.$transaction(async (tx) => {
+      // Actualizar datos del producto
+      const product = await tx.product.update({
+        where: { id },
+        data: updateData,
+      });
+      
+      // Actualizar cantidades de stock
+      // Para cada ubicación, verificamos si existe el registro
+      const mainWarehouseStockExists = productExists.stocks.find(
+        s => s.location === "main_warehouse"
+      );
+      
+      if (mainWarehouseStockExists) {
+        const oldQuantity = mainWarehouseStockExists.quantity;
+        if (oldQuantity !== mainWarehouseStock) {
+          await tx.stock.update({
+            where: { id: mainWarehouseStockExists.id },
+            data: { quantity: mainWarehouseStock },
+          });
+          
+          // Registrar el movimiento de stock si hay cambio
+          await tx.stockMovement.create({
+            data: {
+              stockId: mainWarehouseStockExists.id,
+              quantity: mainWarehouseStock - oldQuantity,
+              type: "admin_adjustment",
+              userId: session.user.id
+            }
+          });
+        }
+      } else {
+        const newStock = await tx.stock.create({
+          data: { 
+            productId: id, 
+            location: "main_warehouse", 
+            quantity: mainWarehouseStock, 
+            minStock: 5 
+          },
+        });
+        
+        if (mainWarehouseStock > 0) {
+          await tx.stockMovement.create({
+            data: {
+              stockId: newStock.id,
+              quantity: mainWarehouseStock,
+              type: "initial_stock",
+              userId: session.user.id
+            }
+          });
+        }
+      }
+      
+      const post1StockExists = productExists.stocks.find(
+        s => s.location === "post_1"
+      );
+      
+      if (post1StockExists) {
+        const oldQuantity = post1StockExists.quantity;
+        if (oldQuantity !== post1Stock) {
+          await tx.stock.update({
+            where: { id: post1StockExists.id },
+            data: { quantity: post1Stock },
+          });
+          
+          // Registrar el movimiento de stock si hay cambio
+          await tx.stockMovement.create({
+            data: {
+              stockId: post1StockExists.id,
+              quantity: post1Stock - oldQuantity,
+              type: "admin_adjustment",
+              userId: session.user.id
+            }
+          });
+        }
+      } else if (post1Stock > 0) {
+        const newStock = await tx.stock.create({
+          data: { 
+            productId: id, 
+            location: "post_1", 
+            quantity: post1Stock, 
+            minStock: 3 
+          },
+        });
+        
+        await tx.stockMovement.create({
+          data: {
+            stockId: newStock.id,
+            quantity: post1Stock,
+            type: "initial_stock",
+            userId: session.user.id
+          }
+        });
+      }
+      
+      const post2StockExists = productExists.stocks.find(
+        s => s.location === "post_2"
+      );
+      
+      if (post2StockExists) {
+        const oldQuantity = post2StockExists.quantity;
+        if (oldQuantity !== post2Stock) {
+          await tx.stock.update({
+            where: { id: post2StockExists.id },
+            data: { quantity: post2Stock },
+          });
+          
+          // Registrar el movimiento de stock si hay cambio
+          await tx.stockMovement.create({
+            data: {
+              stockId: post2StockExists.id,
+              quantity: post2Stock - oldQuantity,
+              type: "admin_adjustment",
+              userId: session.user.id
+            }
+          });
+        }
+      } else if (post2Stock > 0) {
+        const newStock = await tx.stock.create({
+          data: { 
+            productId: id, 
+            location: "post_2", 
+            quantity: post2Stock, 
+            minStock: 3 
+          },
+        });
+        
+        await tx.stockMovement.create({
+          data: {
+            stockId: newStock.id,
+            quantity: post2Stock,
+            type: "initial_stock",
+            userId: session.user.id
+          }
+        });
+      }
+      
+      return product;
     });
 
-    return NextResponse.json(product, { status: 200 });
+    return NextResponse.json(result, { status: 200 });
   } catch (error) {
     console.error("Error al actualizar producto:", error);
     return NextResponse.json({ error: "Error al actualizar producto" }, { status: 500 });
@@ -204,12 +427,29 @@ export async function DELETE(req: NextRequest) {
 
     // Use transaction to ensure all related records are deleted
     await prisma.$transaction(async (tx) => {
-      // Delete related stock records first
+      // Get all stocks for this product to delete related movements
+      const stocks = await tx.stock.findMany({
+        where: { productId: id }
+      });
+      
+      // Delete stock movements for each stock
+      for (const stock of stocks) {
+        await tx.stockMovement.deleteMany({
+          where: { stockId: stock.id }
+        });
+      }
+      
+      // Delete related stock records
       await tx.stock.deleteMany({
         where: { productId: id },
       });
       
-      // Then delete the product
+      // Delete related sales (if any)
+      await tx.sale.deleteMany({
+        where: { productId: id }
+      });
+      
+      // Finally delete the product
       await tx.product.delete({
         where: { id },
       });

@@ -111,7 +111,7 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
 
       {isEmployee && (
         <>
-          <MenuItem href="/inventory" title="Inventory" icon={FaWarehouse} onItemClick={onItemClick} />
+          <MenuItem href="/sales/report" title="Products" icon={FaShoppingCart} onItemClick={onItemClick} />
           <MenuItem href="/products" title="Products" icon={FaShoppingCart} onItemClick={onItemClick} />
           <MenuItem href="/sales" title="Sales" icon={FaChartLine} onItemClick={onItemClick} />
         </>

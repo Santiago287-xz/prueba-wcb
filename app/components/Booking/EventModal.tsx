@@ -31,8 +31,8 @@ export default function EventModal({
     date: format(today, 'yyyy-MM-dd'),
     startTime: format(today, 'HH:mm'),
     endTime: format(endTime, 'HH:mm'),
-    selectedFutbolCourts: futbolCourts.slice(0, 2).map(c => c.id),
-    selectedPadelCourts: padelCourts.slice(0, 1).map(c => c.id)
+    selectedFutbolCourts: futbolCourts.slice(0, Math.min(2, futbolCourts.length)).map(c => c.id),
+    selectedPadelCourts: padelCourts.slice(0, Math.min(1, padelCourts.length)).map(c => c.id)
   });
   
   const [loading, setLoading] = useState(false);
@@ -94,19 +94,25 @@ export default function EventModal({
     setLoading(true);
     setError(null);
     
+    // Combine all selected courts
+    const allSelectedCourtIds = [
+      ...formData.selectedFutbolCourts,
+      ...formData.selectedPadelCourts
+    ];
+    
     try {
       const response = await fetch('/api/events', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
         },
         body: JSON.stringify({
           name: formData.name,
           date: formData.date,
           startTime: `${formData.date}T${formData.startTime}:00`,
           endTime: `${formData.date}T${formData.endTime}:00`,
-          futbolCourtIds: formData.selectedFutbolCourts,
-          padelCourtIds: formData.selectedPadelCourts
+          courtIds: allSelectedCourtIds
         })
       });
       

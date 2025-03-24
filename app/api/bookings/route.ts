@@ -130,7 +130,14 @@ export async function GET(req: NextRequest) {
         
         if (event) {
           isBlocked = true;
-          return NextResponse.json({ blocked: true, event }, { status: 200 });
+          return NextResponse.json({ blocked: true, event }, { 
+            status: 200,
+            headers: {
+              'Cache-Control': 'no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          });
         }
       }
     } catch (err) {
@@ -220,7 +227,14 @@ export async function GET(req: NextRequest) {
           end: endDate.toISOString()
         }
       }, 
-      { status: 200 }
+      { 
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
     );
   } catch (error) {
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
@@ -257,8 +271,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "El teléfono es obligatorio" }, { status: 400 });
     }
 
-    if (name.length > 50) {
-      return NextResponse.json({ error: "El nombre no puede exceder los 50 caracteres" }, { status: 400 });
+    if (name.length < 3 || name.length > 50) {
+      return NextResponse.json({ error: "El nombre debe tener entre 3 y 50 caracteres" }, { status: 400 });
     }
 
     if (phone.length < 3 || phone.length > 20) {
@@ -448,7 +462,19 @@ export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
     
-    const { reservationId, name, phone, paidSessions, paymentMethod, paymentNotes } = body;
+    const { 
+      reservationId, 
+      startTime, 
+      endTime, 
+      name, 
+      phone, 
+      courtId,
+      paidSessions, 
+      paymentMethod, 
+      paymentNotes,
+      isRecurring,
+      recurrenceEnd
+    } = body;
 
     if (!reservationId) {
       return NextResponse.json({ error: "Falta ID de reserva" }, { status: 400 });
@@ -459,8 +485,8 @@ export async function PUT(req: NextRequest) {
       if (name.trim() === '') {
         return NextResponse.json({ error: "El nombre no puede estar vacío" }, { status: 400 });
       }
-      if (name.length > 50) {
-        return NextResponse.json({ error: "El nombre no puede exceder los 50 caracteres" }, { status: 400 });
+      if (name.length < 3 || name.length > 50) {
+        return NextResponse.json({ error: "El nombre debe tener entre 3 y 50 caracteres" }, { status: 400 });
       }
     }
 
@@ -473,26 +499,63 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Construir el objeto data para la actualización (solo campos necesarios)
-    const updateData: any = {};
-    
-    if (name !== undefined) updateData.name = name;
-    if (phone !== undefined) updateData.phone = phone;
-    if (paidSessions !== undefined) updateData.paidSessions = paidSessions;
-    if (paymentMethod !== undefined) updateData.paymentMethod = paymentMethod;
-    if (paymentMethod !== undefined && paymentMethod !== "pending") updateData.lastPaymentDate = new Date();
-    if (paymentNotes !== undefined) updateData.paymentNotes = paymentNotes;
-    
     // Verificar si la reserva existe antes de intentar actualizarla
     const existingReservation = await prisma.courtReservation.findUnique({
       where: { id: reservationId },
-      select: { id: true }
+      select: { 
+        id: true,
+        startTime: true,
+        endTime: true,
+        courtId: true
+      }
     });
     
     if (!existingReservation) {
       return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
     }
 
+    // Verificar conflictos si se cambia la fecha/hora o cancha
+    if ((startTime && endTime) || courtId) {
+      const newStartTime = startTime ? new Date(startTime) : new Date(existingReservation.startTime);
+      const newEndTime = endTime ? new Date(endTime) : new Date(existingReservation.endTime);
+      const newCourtId = courtId || existingReservation.courtId;
+      
+      // No verificar conflicto consigo mismo
+      const conflictingReservation = await prisma.courtReservation.findFirst({
+        where: {
+          id: { not: reservationId },
+          courtId: newCourtId,
+          status: "confirmed",
+          OR: [
+            {
+              isRecurring: false,
+              startTime: { lt: newEndTime },
+              endTime: { gt: newStartTime }
+            }
+          ]
+        }
+      });
+      
+      if (conflictingReservation) {
+        return NextResponse.json({ error: "El nuevo horario ya está reservado" }, { status: 409 });
+      }
+    }
+
+    // Construir el objeto data para la actualización (solo campos necesarios)
+    const updateData: any = {};
+    
+    if (startTime !== undefined) updateData.startTime = new Date(startTime);
+    if (endTime !== undefined) updateData.endTime = new Date(endTime);
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (courtId !== undefined) updateData.court = { connect: { id: courtId } };
+    if (paidSessions !== undefined) updateData.paidSessions = paidSessions;
+    if (paymentMethod !== undefined) updateData.paymentMethod = paymentMethod;
+    if (paymentMethod !== undefined && paymentMethod !== "pending") updateData.lastPaymentDate = new Date();
+    if (paymentNotes !== undefined) updateData.paymentNotes = paymentNotes;
+    if (isRecurring !== undefined) updateData.isRecurring = isRecurring;
+    if (recurrenceEnd !== undefined) updateData.recurrenceEnd = new Date(recurrenceEnd);
+    
     // Actualizar la reserva
     const updatedReservation = await prisma.courtReservation.update({
       where: { id: reservationId },
