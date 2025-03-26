@@ -48,7 +48,7 @@ export interface ModalDataType {
   type: 'create' | 'edit' | 'view';
   reservation: Reservation | null;
   selectedDay: Date | null;
-  selectedHour?: number;
+  selectedHour?: string |number;
   courtId?: string;
   paidSessions: number;
   paymentMethod: string;

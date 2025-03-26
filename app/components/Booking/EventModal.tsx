@@ -1,21 +1,17 @@
-// EventModal.tsx
 import { useState } from 'react';
-import { format, addHours } from 'date-fns';
-
-interface Court {
-  id: string;
-  name: string;
-  type: string;
-}
+import { format, addHours, parseISO, isValid } from 'date-fns';
+import { Court, Reservation } from "../../types/bookings/types";
 
 interface EventModalProps {
   courts: Court[];
+  initialEvent?: Reservation | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export default function EventModal({
   courts,
+  initialEvent,
   onClose,
   onSuccess
 }: EventModalProps) {
@@ -26,13 +22,120 @@ export default function EventModal({
   today.setHours(12, 0, 0, 0);
   const endTime = addHours(today, 5);
   
+  const isEditMode = Boolean(initialEvent);
+  
+  const getEventId = () => {
+    if (!initialEvent) return null;
+    
+    if ((initialEvent as any).originalId && typeof (initialEvent as any).originalId === 'string') {
+      const originalId = (initialEvent as any).originalId;
+      
+      if (originalId.startsWith('event-')) {
+        const parts = originalId.split('-');
+        
+        if (parts.length >= 3 && parts[0] === 'event' && parts[1] === 'event') {
+          return parts[2];
+        }
+        
+        if (parts.length >= 2 && parts[0] === 'event') {
+          return parts[1];
+        }
+      }
+      
+      return originalId;
+    }
+    
+    const id = initialEvent.id || (initialEvent as any).virtualId;
+    if (!id) return null;
+    
+    if (typeof id === 'string' && id.includes('event-')) {
+      const parts = id.split('-');
+      
+      if (parts.length >= 3 && parts[0] === 'event' && parts[1] === 'event') {
+        return parts[2];
+      }
+      
+      if (parts.length >= 2 && parts[0] === 'event') {
+        return parts[1];
+      }
+    }
+    
+    return id;
+  };
+  
+  const eventId = getEventId();
+  const isVirtualEvent = !eventId || !isEditMode;
+  
+  const safeFormat = (dateStr: string | null | undefined, formatStr: string, defaultValue: string): string => {
+    if (!dateStr) return defaultValue;
+    
+    try {
+      const date = parseISO(dateStr);
+      if (!isValid(date)) return defaultValue;
+      return format(date, formatStr);
+    } catch (error) {
+      return defaultValue;
+    }
+  };
+  
+  const getInitialCourts = () => {
+    if (!initialEvent) {
+      return {
+        futbol: futbolCourts.slice(0, Math.min(2, futbolCourts.length)).map(c => c.id),
+        padel: padelCourts.slice(0, Math.min(1, padelCourts.length)).map(c => c.id)
+      };
+    }
+    
+    try {
+      const courtIds = initialEvent.courtId ? [initialEvent.courtId] : [];
+      
+      if ((initialEvent as any).courts && Array.isArray((initialEvent as any).courts)) {
+        const courtNames = (initialEvent as any).courts;
+        
+        futbolCourts.forEach(court => {
+          if (courtNames.includes(court.name) && !courtIds.includes(court.id)) {
+            courtIds.push(court.id);
+          }
+        });
+        
+        padelCourts.forEach(court => {
+          if (courtNames.includes(court.name) && !courtIds.includes(court.id)) {
+            courtIds.push(court.id);
+          }
+        });
+      }
+      
+      return {
+        futbol: futbolCourts.filter(c => courtIds.includes(c.id)).map(c => c.id),
+        padel: padelCourts.filter(c => courtIds.includes(c.id)).map(c => c.id)
+      };
+    } catch (error) {
+      return {
+        futbol: [],
+        padel: []
+      };
+    }
+  };
+  
+  const initialCourtSelection = getInitialCourts();
+  
+  const defaultDate = format(today, 'yyyy-MM-dd');
+  const defaultStartTime = format(today, 'HH:mm');
+  const defaultEndTime = format(endTime, 'HH:mm');
+  
   const [formData, setFormData] = useState({
-    name: '',
-    date: format(today, 'yyyy-MM-dd'),
-    startTime: format(today, 'HH:mm'),
-    endTime: format(endTime, 'HH:mm'),
-    selectedFutbolCourts: futbolCourts.slice(0, Math.min(2, futbolCourts.length)).map(c => c.id),
-    selectedPadelCourts: padelCourts.slice(0, Math.min(1, padelCourts.length)).map(c => c.id)
+    name: initialEvent?.name || '',
+    date: initialEvent && initialEvent.startTime 
+      ? safeFormat(initialEvent.startTime as string, 'yyyy-MM-dd', defaultDate)
+      : defaultDate,
+    startTime: initialEvent && initialEvent.startTime 
+      ? safeFormat(initialEvent.startTime as string, 'HH:mm', defaultStartTime)
+      : defaultStartTime,
+    endTime: initialEvent && initialEvent.endTime 
+      ? safeFormat(initialEvent.endTime as string, 'HH:mm', defaultEndTime)
+      : defaultEndTime,
+    selectedFutbolCourts: initialCourtSelection.futbol,
+    selectedPadelCourts: initialCourtSelection.padel
   });
   
   const [loading, setLoading] = useState(false);
@@ -94,31 +197,53 @@ export default function EventModal({
     setLoading(true);
     setError(null);
     
-    // Combine all selected courts
     const allSelectedCourtIds = [
       ...formData.selectedFutbolCourts,
       ...formData.selectedPadelCourts
     ];
     
     try {
+      const method = isVirtualEvent || !eventId ? 'POST' : 'PUT';
+      
+      const body = {
+        name: formData.name,
+        date: formData.date,
+        startTime: `${formData.date}T${formData.startTime}:00`,
+        endTime: `${formData.date}T${formData.endTime}:00`,
+        courtIds: allSelectedCourtIds,
+        ...(eventId && method === 'PUT' && { id: eventId })
+      };
+      
       const response = await fetch('/api/events', {
-        method: 'POST',
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-cache'
         },
-        body: JSON.stringify({
-          name: formData.name,
-          date: formData.date,
-          startTime: `${formData.date}T${formData.startTime}:00`,
-          endTime: `${formData.date}T${formData.endTime}:00`,
-          courtIds: allSelectedCourtIds
-        })
+        body: JSON.stringify(body)
       });
       
+      let result;
+      try {
+        const text = await response.text();
+        
+        try {
+          result = JSON.parse(text);
+        } catch (err) {
+          if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+          }
+          result = { success: true };
+        }
+      } catch (err) {
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        result = { success: true };
+      }
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al crear el evento');
+        throw new Error(result?.error || `Error ${response.status}: ${response.statusText}`);
       }
       
       onSuccess();
@@ -129,14 +254,63 @@ export default function EventModal({
     }
   };
 
+  const handleDelete = async () => {
+    if (!eventId) {
+      setError('No se puede eliminar un evento que no existe en la base de datos');
+      return;
+    }
+    
+    if (!confirm('¿Está seguro de que desea eliminar este evento? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/events', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify({ eventId })
+      });
+      
+      let result;
+      try {
+        result = await response.json();
+      } catch (err) {
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        result = { success: true };
+      }
+      
+      if (!response.ok) {
+        throw new Error(result.error || `Error ${response.status}: ${response.statusText}`);
+      }
+      
+      onSuccess();
+      onClose();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white p-4 rounded max-w-md w-full shadow-lg">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white p-5 rounded max-w-md w-full shadow-lg my-8">
         <div className="flex justify-between items-center mb-4">
-          <div className="font-bold text-lg">Crear Evento</div>
+          <div className="font-bold text-xl">
+            {isEditMode && !isVirtualEvent ? 'Editar Evento' : 'Crear Evento'}
+          </div>
           <button 
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
+            type="button"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -255,22 +429,38 @@ export default function EventModal({
             </div>
           </div>
           
-          <div className="flex justify-end gap-2 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="px-4 py-2 border border-gray-300 rounded shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-green-300 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Creando...' : 'Crear Evento'}
-            </button>
+          <div className="flex justify-between mt-6">
+            {isEditMode && eventId && !isVirtualEvent && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={loading}
+                className="px-4 py-2 border border-red-600 text-red-600 hover:bg-red-50 rounded shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Eliminar
+              </button>
+            )}
+            
+            <div className={`flex gap-2 ${isEditMode && eventId && !isVirtualEvent ? '' : 'ml-auto'}`}>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="px-4 py-2 border border-gray-300 rounded shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-green-300 disabled:cursor-not-allowed"
+              >
+                {loading ? 
+                  (isEditMode && !isVirtualEvent ? 'Actualizando...' : 'Creando...') : 
+                  (isEditMode && !isVirtualEvent ? 'Actualizar Evento' : 'Crear Evento')
+                }
+              </button>
+            </div>
           </div>
         </form>
       </div>

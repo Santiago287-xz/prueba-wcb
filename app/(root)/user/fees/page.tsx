@@ -18,7 +18,6 @@ import {
 } from "@mui/material";
 
 import { Fees } from "@prisma/client";
-import Loading from "@/app/loading";
 import Empty from "@/app/components/Empty";
 
 import getStripe from "@/app/libs/getStripe";
@@ -107,10 +106,6 @@ const MyFeesPage = () => {
       setPaymentId("");
     }
   };
-
-  if (isLoading) {
-    return <Loading />;
-  }
 
   return (
     <Box>

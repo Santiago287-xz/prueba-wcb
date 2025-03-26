@@ -19,7 +19,6 @@ import {
 } from "@mui/material";
 import axios from "axios";
 import toast from "react-hot-toast";
-import Loading from "@/app/loading";
 import { PuffLoader } from "react-spinners";
 import { ExerciseList } from "@prisma/client";
 import { useEffect, useMemo, useState } from "react";
@@ -132,10 +131,6 @@ const ManageExercisePage: React.FC = () => {
       setDeletingId("");
     }
   };
-
-  if (loading) {
-    return <Loading />;
-  }
 
   return (
     <ThemeProvider theme={defaultTheme}>

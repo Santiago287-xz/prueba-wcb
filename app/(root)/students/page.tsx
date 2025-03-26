@@ -11,7 +11,6 @@ import TableSortLabel from "@mui/material/TableSortLabel";
 import { TablePagination, Typography, useMediaQuery, useTheme } from "@mui/material";
 import { User } from "@prisma/client";
 import useStudentsStore from "@/app/hooks/useStudentsStore";
-import Loading from "@/app/loading";
 import EditIcon from "@mui/icons-material/Edit";
 import { useRouter } from "next/navigation";
 
@@ -69,10 +68,6 @@ const StudentsPage: React.FC = () => {
     }
     return [];
   }, [students, orderBy, order]);
-
-  if (loading) {
-    return <Loading />;
-  }
 
   return (
     <>

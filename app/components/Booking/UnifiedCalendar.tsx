@@ -6,7 +6,6 @@ import { es } from 'date-fns/locale';
 import useSWR from 'swr';
 import { Court, Reservation } from "../../types/bookings/types";
 
-// Types
 interface EventIndicator {
   type: 'futbol' | 'padel' | 'event';
   count: number;
@@ -20,6 +19,7 @@ interface DayEvents {
 
 interface GroupedEvent extends Reservation {
   courts: string[];
+  originalId?: string | null; // Añadir esta propiedad
 }
 
 interface UnifiedCalendarProps {
@@ -27,12 +27,11 @@ interface UnifiedCalendarProps {
   currentDate: Date;
   setCurrentDate: (date: Date) => void;
   openReservationModal: (date: Date, hour?: number) => void;
-  openEventModal: () => void;
+  openEventModal: (event: Reservation) => void;  // Modificado para aceptar un evento
   openDetailModal: (reservation: Reservation) => void;
   loading: boolean;
 }
 
-// Improved fetcher with error handling
 const fetcher = async (url: string) => {
   const res = await fetch(url);
   if (!res.ok) {
@@ -54,30 +53,26 @@ export function UnifiedCalendar({
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Calculate week start and end dates - memoized
   const weekStart = useMemo(() => {
-    return startOfWeek(currentDate, { weekStartsOn: 1 }); // Start week on Monday
+    return startOfWeek(currentDate, { weekStartsOn: 1 });
   }, [currentDate]);
   
   const weekEnd = useMemo(() => {
     return endOfWeek(weekStart, { weekStartsOn: 1 });
   }, [weekStart]);
 
-  // Format dates for API calls
   const startDateStr = useMemo(() => format(weekStart, "yyyy-MM-dd"), [weekStart]);
   const endDateStr = useMemo(() => format(weekEnd, "yyyy-MM-dd"), [weekEnd]);
 
-  // Use SWR for all reservations at once instead of per court
   const { data: reservationsData, error: reservationsError, isLoading: reservationsLoading } = useSWR(
     courts.length > 0 ? `/api/bookings/week?start=${startDateStr}&end=${endDateStr}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
-      dedupingInterval: 30000, // 30 seconds cache
+      dedupingInterval: 30000,
     }
   );
 
-  // Check if mobile
   useEffect(() => {
     const checkIfMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -91,7 +86,6 @@ export function UnifiedCalendar({
     };
   }, []);
 
-  // Set error from SWR
   useEffect(() => {
     if (reservationsError) {
       setError("Error fetching calendar data");
@@ -101,33 +95,34 @@ export function UnifiedCalendar({
     }
   }, [reservationsError]);
 
-  // Generate days of the week - memoized
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   }, [weekStart]);
   
-  // For desktop view, get 3 consecutive days starting with the selected day
   const threeDaysView = useMemo(() => {
     const dayIndex = weekDays.findIndex(day => isSameDay(day, currentDate));
     if (dayIndex === -1) return weekDays.slice(0, 3);
     
-    // If selected day is one of the last two days of the week, show last 3 days
+    // Si selecciona lunes o martes, mostrar lunes, martes y miércoles
+    if (dayIndex === 0 || dayIndex === 1) {
+      return weekDays.slice(0, 3);
+    }
+    
+    // Si selecciona uno de los últimos dos días de la semana, mostrar los últimos tres días
     if (dayIndex >= weekDays.length - 2) {
       return weekDays.slice(weekDays.length - 3);
     }
     
-    // Otherwise show selected day and next two days
-    return weekDays.slice(dayIndex, dayIndex + 3);
+    // Para cualquier otro día, mostrar el día seleccionado como día central
+    // (un día antes y un día después)
+    return weekDays.slice(dayIndex - 1, dayIndex + 2);
   }, [weekDays, currentDate]);
 
-  // Process all events from SWR response - memoized for performance
   const allEvents = useMemo(() => {
     if (!reservationsData) return [];
     
-    // Create a map to deduplicate events
     const eventMap = new Map<string, Reservation>();
     
-    // Process reservations
     if (reservationsData.reservations) {
       reservationsData.reservations.forEach((reservation: Reservation) => {
         const id = reservation.id || reservation.virtualId;
@@ -144,26 +139,25 @@ export function UnifiedCalendar({
       });
     }
     
-    // Process and group events by name + time
     const groupedEvents = new Map<string, GroupedEvent>();
     
     if (reservationsData.events) {
       reservationsData.events.forEach((event: any) => {
-        const eventId = `event-${event.id}`;
+        // Corregir el formato del ID para evitar el doble prefijo
+        const eventId = event.id ? `event-${event.id}` : `event-temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const court = courts.find(c => c.id === event.courtId);
         
         if (court) {
-          // Create a key that combines name and time to identify related events
           const groupKey = `${event.name}-${event.startTime}-${event.endTime}`;
           
           if (groupedEvents.has(groupKey)) {
-            // If we already have this event, just add the court to its courts array
             const existingEvent = groupedEvents.get(groupKey)!;
             existingEvent.courts.push(court.name);
           } else {
-            // Otherwise create a new grouped event
             groupedEvents.set(groupKey, {
               id: eventId,
+              virtualId: eventId,
+              originalId: event.id || null,
               name: event.name,
               courtId: court.id,
               courtName: court.name,
@@ -177,8 +171,6 @@ export function UnifiedCalendar({
         }
       });
     }
-    
-    // Add all the grouped events to the event map
     groupedEvents.forEach((event, key) => {
       eventMap.set(key, event);
     });
@@ -186,11 +178,9 @@ export function UnifiedCalendar({
     return Array.from(eventMap.values());
   }, [reservationsData, courts]);
 
-  // Process events by day - heavily memoized calculation
   const dayEventMap = useMemo(() => {
     const result: {[key: string]: DayEvents} = {};
     
-    // Initialize the days
     weekDays.forEach(day => {
       const dateKey = format(day, 'yyyy-MM-dd');
       result[dateKey] = {
@@ -204,7 +194,6 @@ export function UnifiedCalendar({
       };
     });
     
-    // Add reservations to the appropriate days
     allEvents.forEach(reservation => {
       const startTime = typeof reservation.startTime === 'string' 
         ? parseISO(reservation.startTime) 
@@ -212,12 +201,9 @@ export function UnifiedCalendar({
       
       const dateKey = format(startTime, 'yyyy-MM-dd');
       
-      // Only process if the day is within our current week view
       if (result[dateKey]) {
-        // Add to events list
         result[dateKey].events.push(reservation);
         
-        // Update indicators
         if ((reservation as any).isEvent) {
           const eventIndicator = result[dateKey].indicators.find(i => i.type === 'event');
           if (eventIndicator) eventIndicator.count += 1;
@@ -232,7 +218,6 @@ export function UnifiedCalendar({
       }
     });
     
-    // Sort events by time in each day
     Object.values(result).forEach(dayData => {
       dayData.events.sort((a, b) => {
         const timeA = new Date(a.startTime as string).getTime();
@@ -244,14 +229,12 @@ export function UnifiedCalendar({
     return result;
   }, [weekDays, allEvents]);
 
-  // Group events by time for the selected day - memoized
   const selectedDayEvents = useMemo(() => {
     const dayKey = format(currentDate, 'yyyy-MM-dd');
     const dayData = dayEventMap[dayKey];
     
     if (!dayData) return [];
     
-    // Group by hour
     const eventsByHour: {[hour: string]: Reservation[]} = {};
     
     dayData.events.forEach(event => {
@@ -268,14 +251,12 @@ export function UnifiedCalendar({
       eventsByHour[hour].push(event);
     });
     
-    // Convert to sorted array
     return Object.entries(eventsByHour)
       .sort(([hourA], [hourB]) => hourA.localeCompare(hourB))
       .map(([hour, events]) => ({ hour, events }));
     
   }, [currentDate, dayEventMap]);
 
-  // Navigation functions - memoized callbacks
   const goToPreviousWeek = useCallback(() => {
     setCurrentDate(addDays(weekStart, -7));
   }, [weekStart, setCurrentDate]);
@@ -292,43 +273,35 @@ export function UnifiedCalendar({
     setCurrentDate(day);
   }, [setCurrentDate]);
 
-  // Get event color based on type
   const getEventColor = useCallback((reservation: Reservation) => {
     if ((reservation as any).isEvent) return 'green';
     if (reservation.courtType === 'futbol') return 'red';
     if (reservation.courtType === 'padel') return 'yellow';
-    return 'purple'; // Fallback
+    return 'purple';
   }, []);
 
-  // Format court names for display
   const formatCourtNames = useCallback((reservation: Reservation) => {
     if ((reservation as any).isEvent && (reservation as any).courts) {
       const courts = (reservation as any).courts;
       if (courts.length > 1) {
-        // Extract court numbers for more concise display
         const courtNumbers = courts.map((courtName: string) => {
           const match = courtName.match(/\d+/);
           return match ? match[0] : courtName;
         });
         
-        // For events with multiple courts, show "Canchas X, Y, Z"
         return `Canchas ${courtNumbers.join(', ')}`;
       }
     }
     
-    // For regular reservations or single-court events
     return reservation.courtName;
   }, []);
 
-  // Check if loading
   const isLoading = externalLoading || reservationsLoading;
 
-  // Refetch data callback
   const refetchData = useCallback(() => {
     window.location.reload();
   }, []);
 
-  // Render the week header - memoized
   const renderWeekHeader = useCallback(() => {
     const weekRange = `${format(weekStart, "d MMM", { locale: es })} - ${format(addDays(weekStart, 6), "d MMM", { locale: es })}`;
     
@@ -372,7 +345,6 @@ export function UnifiedCalendar({
     );
   }, [currentDate, weekStart, goToPreviousWeek, goToToday, goToNextWeek]);
 
-  // Day indicator dots - memoized
   const renderIndicatorDots = useCallback((indicators: EventIndicator[]) => {
     return (
       <div className="flex justify-center mt-1 gap-1">
@@ -396,7 +368,6 @@ export function UnifiedCalendar({
     );
   }, []);
 
-  // Render desktop calendar - memoized
   const renderDesktopView = useCallback(() => {
     return (
       <>
@@ -453,7 +424,7 @@ export function UnifiedCalendar({
                         <div 
                           key={event.id || event.virtualId} 
                           className={`p-4 hover:bg-gray-50 cursor-pointer ${isEventType ? 'bg-green-50' : ''}`}
-                          onClick={() => openDetailModal(event)}
+                          onClick={() => isEventType ? openEventModal(event) : openDetailModal(event)}
                         >
                           <div className="flex items-center">
                             <div className={`w-3 h-3 rounded-full bg-${eventColor}-500 mr-2 flex-shrink-0`}></div>
@@ -491,9 +462,8 @@ export function UnifiedCalendar({
         </div>
       </>
     );
-  }, [renderWeekHeader, weekDays, dayEventMap, currentDate, threeDaysView, renderIndicatorDots, getEventColor, openDetailModal, openReservationModal, selectDay, formatCourtNames]);
-
-  // Render mobile calendar - memoized
+  }, [renderWeekHeader, weekDays, dayEventMap, currentDate, threeDaysView, renderIndicatorDots, getEventColor, openDetailModal, openEventModal, openReservationModal, selectDay, formatCourtNames]);
+  
   const renderMobileView = useCallback(() => {
     return (
       <>
@@ -554,7 +524,7 @@ export function UnifiedCalendar({
                         <div 
                           key={event.id || event.virtualId}
                           className={`p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${isEventType ? 'bg-green-50' : ''}`}
-                          onClick={() => openDetailModal(event)}
+                          onClick={() => isEventType ? openEventModal(event) : openDetailModal(event)}
                         >
                           <div className="flex items-center">
                             <div className={`w-3 h-3 rounded-full bg-${eventColor}-500 mr-2 flex-shrink-0`}></div>
@@ -597,9 +567,8 @@ export function UnifiedCalendar({
         </div>
       </>
     );
-  }, [renderWeekHeader, weekDays, dayEventMap, currentDate, selectedDayEvents, openDetailModal, openReservationModal, getEventColor, renderIndicatorDots, selectDay, formatCourtNames]);
+  }, [renderWeekHeader, weekDays, dayEventMap, currentDate, selectedDayEvents, openDetailModal, openEventModal, openReservationModal, getEventColor, renderIndicatorDots, selectDay, formatCourtNames]);
 
-  // Render loading state
   if (isLoading) {
     return (
       <div className="p-8 text-center">
@@ -609,7 +578,6 @@ export function UnifiedCalendar({
     );
   }
 
-  // Render error state
   if (error) {
     return (
       <div className="p-8 text-center text-red-600">

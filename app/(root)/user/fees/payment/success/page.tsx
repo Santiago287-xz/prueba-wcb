@@ -1,7 +1,6 @@
 "use client";
 
 import Empty from "@/app/components/Empty";
-import Loading from "@/app/loading";
 import axios from "axios";
 import {useSearchParams} from "next/navigation";
 import useSWR from "swr";

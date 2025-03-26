@@ -1,7 +1,7 @@
 "use client";
 
 import useStudentsStore from "@/app/hooks/useStudentsStore";
-import Loading from "@/app/loading";
+
 import { LoadingButton } from "@mui/lab";
 import {
   Autocomplete,
@@ -187,10 +187,6 @@ const FeesPage: React.FC = () => {
     }
     return [];
   }, [fees, orderBy, order]);
-
-  if (loading || isLoading || status === "loading") {
-    return <Loading />;
-  }
 
   return (
     <ThemeProvider theme={defaultTheme}>

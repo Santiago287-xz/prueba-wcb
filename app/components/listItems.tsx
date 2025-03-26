@@ -18,7 +18,7 @@ import {
   FaChartLine,
   FaBell,
   FaUserCircle,
-  FaUsers
+  FaUsers,
 } from "react-icons/fa";
 
 interface ListItemsProps {
@@ -43,8 +43,8 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
     return (
       <div className="flex flex-col w-full p-2">
         {[1, 2, 3, 4].map((i) => (
-          <div 
-            key={i} 
+          <div
+            key={i}
             className="h-12 bg-gray-200 my-2 rounded-lg animate-pulse"
           ></div>
         ))}
@@ -66,7 +66,7 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
 
   const MenuItem = ({ href, title, icon: Icon, children, onItemClick }: MenuItemProps) => (
     <Link href={href} className="text-inherit no-underline my-1" onClick={onItemClick}>
-      <div 
+      <div
         className={itemBaseClass}
         title={title}
       >
@@ -92,8 +92,9 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
           <MenuItem href="/add-user" title="Add User" icon={FaUserPlus} onItemClick={onItemClick} />
           <MenuItem href="/manage-user" title="Manage User" icon={FaUserCog} onItemClick={onItemClick} />
           <MenuItem href="/students" title="Students" icon={FaUsers} onItemClick={onItemClick} />
-          <MenuItem href="/attendance" title="Attendance" icon={FaClipboardList} onItemClick={onItemClick} />
+          {/* <MenuItem href="/attendance" title="Attendance" icon={FaClipboardList} onItemClick={onItemClick} /> */}
           <MenuItem href="/booking" title="Canchas" icon={FaCalendarAlt} onItemClick={onItemClick} />
+          <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />
         </>
       )}
 
@@ -108,28 +109,28 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
           <MenuItem href="/booking" title="Canchas" icon={FaCalendarAlt} onItemClick={onItemClick} />
         </>
       )}
+      <div className="h-px w-full bg-gray-200 my-3"></div>
 
       {isEmployee && (
         <>
-          <MenuItem href="/sales/report" title="Products" icon={FaShoppingCart} onItemClick={onItemClick} />
-          <MenuItem href="/products" title="Products" icon={FaShoppingCart} onItemClick={onItemClick} />
-          <MenuItem href="/sales" title="Sales" icon={FaChartLine} onItemClick={onItemClick} />
+          <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />          
         </>
       )}
-
-      <div className="h-px w-full bg-gray-200 my-3"></div>
-      
       {isAdmin && (
+        <MenuItem href="/transaction" title="Transaction" icon={FaChartLine} onItemClick={onItemClick} />
+      )}
+
+      {/* {isAdmin && (
         <>
           <MenuItem href="/fees" title="Fees" icon={FaMoneyBillWave} onItemClick={onItemClick} />
           <MenuItem href="/exercise" title="Exercise" icon={FaDumbbell} onItemClick={onItemClick} />
           <MenuItem href="/diet" title="Diet" icon={FaAppleAlt} onItemClick={onItemClick} />
         </>
-      )}
-      
+      )} */}
+
       {isUser && (
         <>
-          {/* <MenuItem href="/user/attendance" title="My Attendance" icon={FaClipboardList} onItemClick={onItemClick} /> */}
+          <MenuItem href="/user/attendance" title="My Attendance" icon={FaClipboardList} onItemClick={onItemClick} />
           <MenuItem href="/user/fees" title="My Fees" icon={FaMoneyBillWave} onItemClick={onItemClick} />
           <MenuItem href="/user/exercise" title="My Exercise" icon={FaDumbbell} onItemClick={onItemClick} />
           <MenuItem href="/user/diet" title="My Diet Sheet" icon={FaAppleAlt} onItemClick={onItemClick} />

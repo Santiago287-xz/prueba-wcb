@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Loading from "@/app/loading";
 import { User } from "@prisma/client";
 import Table from "@mui/material/Table";
 import Paper from "@mui/material/Paper";
@@ -64,10 +63,6 @@ export default function TrainersPage() {
     }
     return [];
   }, [trainers, orderBy, order]);
-
-  if (loading) {
-    return <Loading />;
-  }
 
   return (
     <>

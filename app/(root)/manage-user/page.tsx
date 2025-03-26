@@ -14,7 +14,6 @@ import {
 import axios from "axios";
 import { User } from "@prisma/client";
 import useSWR from "swr";
-import Loading from "@/app/loading";
 import useTrainersStore from "@/app/hooks/useTrainersStore";
 import MenuItem from "@mui/material/MenuItem";
 import toast from "react-hot-toast";
@@ -120,11 +119,6 @@ const ManageUser: React.FC = () => {
   useEffect(() => {
     mutate(`/api/users?page=${currentPage}&limit=${rowsPerPage}`);
   }, [currentPage, rowsPerPage, mutate]);
-
-  // Render loading spinner while data is being fetched
-  if (isLoading || loading) {
-    return <Loading />;
-  }
 
   return <>
     {/* Table for displaying user data */}
