@@ -15,6 +15,7 @@ interface TransactionModalProps {
   transaction: Transaction | null;
   onClose: () => void;
   onSave: (transaction: Transaction) => void;
+  hideFields?: boolean;
 }
 
 const categoryOptions = {
@@ -22,7 +23,7 @@ const categoryOptions = {
   expense: ['salary', 'supplies', 'utilities', 'maintenance', 'marketing', 'other_expense']
 };
 
-export default function TransactionModal({ transaction, onClose, onSave }: TransactionModalProps) {
+export default function TransactionModal({ transaction, onClose, onSave, hideFields = false }: TransactionModalProps) {
   const isEdit = !!transaction;
   const [formData, setFormData] = useState<Transaction>(
     transaction || {
@@ -102,42 +103,46 @@ export default function TransactionModal({ transaction, onClose, onSave }: Trans
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-              disabled={loading}
-              required
-            >
-              <option value="income">Ingreso</option>
-              <option value="expense">Gasto</option>
-            </select>
-          </div>
+          {!hideFields && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="type"
+                value={formData.type}
+                onChange={handleChange}
+                className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+                disabled={loading}
+                required
+              >
+                <option value="income">Ingreso</option>
+                <option value="expense">Gasto</option>
+              </select>
+            </div>
+          )}
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Categoría <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-              disabled={loading}
-              required
-            >
-              {categoryOptions[formData.type].map((category) => (
-                <option key={category} value={category}>
-                  {category.replace('_', ' ')}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!hideFields && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Categoría <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+                disabled={loading}
+                required
+              >
+                {categoryOptions[formData.type].map((category) => (
+                  <option key={category} value={category}>
+                    {category.replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -174,22 +179,24 @@ export default function TransactionModal({ transaction, onClose, onSave }: Trans
             </select>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ubicación
-            </label>
-            <select
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-              disabled={loading}
-            >
-              <option value="main_warehouse">Depósito principal</option>
-              <option value="post_1">Kiosko 1</option>
-              <option value="post_2">Kiosko 2</option>
-            </select>
-          </div>
+          {!hideFields && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ubicación
+              </label>
+              <select
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+                disabled={loading}
+              >
+                <option value="main_warehouse">Depósito principal</option>
+                <option value="post_1">Kiosko 1</option>
+                <option value="post_2">Kiosko 2</option>
+              </select>
+            </div>
+          )}
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

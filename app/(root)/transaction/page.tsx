@@ -49,7 +49,7 @@ const AnimatedCounter = ({ value, duration = 1000, previousValue = 0 }: { value:
     const progress = Math.min(elapsed / duration, 1);
     const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
     const easedProgress = easeOut(progress);
-    
+
     const newValue = prevValueRef.current + (value - prevValueRef.current) * easedProgress;
     setDisplayValue(newValue);
 
@@ -65,7 +65,7 @@ const AnimatedCounter = ({ value, duration = 1000, previousValue = 0 }: { value:
     if (value !== prevValueRef.current) {
       requestRef.current = requestAnimationFrame(animate);
     }
-    
+
     return () => {
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
@@ -108,16 +108,16 @@ export default function TransactionsPage() {
     categoryData: [],
     paymentMethodData: []
   });
-  
+
   const [autoRefresh, setAutoRefresh] = useState({
     enabled: false,
     interval: 60000
   });
-  
+
   const [chartInterval, setChartInterval] = useState('month');
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [activePreset, setActivePreset] = useState('last30');
-  
+
   const isMounted = useRef(true);
   const previousDateRange = useRef(dateRange);
   const initialLoadComplete = useRef(false);
@@ -165,7 +165,7 @@ export default function TransactionsPage() {
     // Only fetch if the date range has changed
     const startChanged = !isEqual(dateRange.start, previousDateRange.current.start);
     const endChanged = !isEqual(dateRange.end, previousDateRange.current.end);
-    
+
     if (startChanged || endChanged) {
       previousDateRange.current = dateRange;
       fetchTransactions();
@@ -178,7 +178,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
-    
+
     if (autoRefresh.enabled) {
       intervalId = setInterval(() => {
         if (isMounted.current) {
@@ -188,7 +188,7 @@ export default function TransactionsPage() {
         }
       }, autoRefresh.interval);
     }
-    
+
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
@@ -202,34 +202,34 @@ export default function TransactionsPage() {
     try {
       // Use current filters from ref to ensure we respect user selections
       const filters = currentFilters.current;
-      
+
       // Format using end of day to include the full selected day
       const start = format(startOfDay(filters.dateRange.start), 'yyyy-MM-dd\'T\'HH:mm:ss');
       const end = format(endOfDay(filters.dateRange.end), 'yyyy-MM-dd\'T\'HH:mm:ss');
-      
+
       const response = await fetch(`/api/transactions?start=${start}&end=${end}&interval=${filters.chartInterval}`);
       if (!response.ok) throw new Error('Error al cargar transacciones');
-      
+
       const data = await response.json();
-      
+
       // Create data hash to check if anything changed
       const newDataHash = createDataHash(data);
-      
+
       // Only update state if data changed
       if (lastDataHash.current !== newDataHash) {
         previousStats.current = stats;
-        
+
         // Add card total to summary if not present
         if (data.summary && !data.summary.cardTotal) {
           data.summary.cardTotal = data.summary.totalIncome + data.summary.totalExpense - data.summary.cashTotal;
-          data.summary.cardCount = data.transactions.filter((t: Transaction) => 
-            t.paymentMethod.toLowerCase().includes('tarjeta') || 
+          data.summary.cardCount = data.transactions.filter((t: Transaction) =>
+            t.paymentMethod.toLowerCase().includes('tarjeta') ||
             t.paymentMethod.toLowerCase().includes('card')
           ).length;
         }
-        
+
         const paymentMethodData = generatePaymentMethodData(data.transactions);
-        
+
         setTransactions(data.transactions);
         setStats(data.summary);
         setChartData({
@@ -237,10 +237,10 @@ export default function TransactionsPage() {
           categoryData: data.chartData.categoryData,
           paymentMethodData
         });
-        
+
         lastDataHash.current = newDataHash;
       }
-      
+
       setLastRefresh(new Date());
     } catch (error) {
       console.error('Error:', error);
@@ -254,9 +254,9 @@ export default function TransactionsPage() {
     if (!transactionData || transactionData.length === 0) {
       return [];
     }
-    
+
     const methodCounts: Record<string, { count: number, amount: number }> = {};
-    
+
     transactionData.forEach(t => {
       if (!methodCounts[t.paymentMethod]) {
         methodCounts[t.paymentMethod] = { count: 0, amount: 0 };
@@ -264,7 +264,7 @@ export default function TransactionsPage() {
       methodCounts[t.paymentMethod].count += 1;
       methodCounts[t.paymentMethod].amount += t.amount;
     });
-    
+
     return Object.entries(methodCounts).map(([method, data]) => ({
       method,
       count: data.count,
@@ -277,14 +277,14 @@ export default function TransactionsPage() {
     try {
       const method = transaction.id ? 'PUT' : 'POST';
       const url = transaction.id ? `/api/transactions/${transaction.id}` : '/api/transactions';
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transaction)
       });
       if (!response.ok) throw new Error('Error al guardar la transacción');
-      
+
       fetchTransactions();
       setIsModalOpen(false);
     } catch (error) {
@@ -294,14 +294,14 @@ export default function TransactionsPage() {
 
   const handleDeleteTransaction = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar esta transacción?')) return;
-    
+
     try {
       const response = await fetch(`/api/transactions/${id}`, {
         method: 'DELETE'
       });
-      
+
       if (!response.ok) throw new Error('Error al eliminar la transacción');
-      
+
       fetchTransactions();
     } catch (error) {
       console.error('Error:', error);
@@ -318,12 +318,12 @@ export default function TransactionsPage() {
       t.paymentMethod,
       t.description || ''
     ]);
-    
+
     const csvContent = [
       headers.join(','),
       ...csvData.map(row => row.join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -333,13 +333,13 @@ export default function TransactionsPage() {
     link.click();
     document.body.removeChild(link);
   };
-  
+
   const applyDatePreset = (preset: string) => {
     const today = new Date();
     let start = new Date();
     let end = new Date(today);
-    
-    switch(preset) {
+
+    switch (preset) {
       case 'today':
         start = startOfDay(today);
         end = endOfDay(today);
@@ -370,7 +370,7 @@ export default function TransactionsPage() {
       default:
         start = subDays(today, 29);
     }
-    
+
     setDateRange({ start, end });
     setActivePreset(preset);
   };
@@ -398,17 +398,17 @@ export default function TransactionsPage() {
 
   // Recharts custom label for Pie charts
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: any) => {
-    const RADIAN = Math.PI / 180;
+    const RADIAN = Math.PI / 200;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    
+
     return (
-      <text 
-        x={x} 
-        y={y} 
-        fill="white" 
-        textAnchor={x > cx ? 'start' : 'end'} 
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor={x > cx ? 'start' : 'end'}
         dominantBaseline="central"
         fontSize={10}
       >
@@ -422,7 +422,7 @@ export default function TransactionsPage() {
   return (
     <div className="container mx-auto p-2 sm:p-4 overflow-hidden">
       <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Tablero de Transacciones</h1>
-      
+
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 sm:mb-6 gap-2">
         <div className="flex flex-col sm:flex-row items-start sm:items-center w-full gap-2">
           <div className="border rounded p-1 sm:p-2 flex items-center justify-center w-full md:w-auto">
@@ -446,39 +446,39 @@ export default function TransactionsPage() {
               className="text-sm p-1"
             />
           </div>
-          
+
           <div className="flex flex-wrap gap-1">
-            <button 
+            <button
               onClick={() => applyDatePreset('today')}
               className={`px-2 py-1 text-xs rounded ${activePreset === 'today' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             >
               Hoy
             </button>
-            <button 
+            <button
               onClick={() => applyDatePreset('yesterday')}
               className={`px-2 py-1 text-xs rounded ${activePreset === 'yesterday' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             >
               Ayer
             </button>
-            <button 
+            <button
               onClick={() => applyDatePreset('last7')}
               className={`px-2 py-1 text-xs rounded ${activePreset === 'last7' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             >
               7 días
             </button>
-            <button 
+            <button
               onClick={() => applyDatePreset('last30')}
               className={`px-2 py-1 text-xs rounded ${activePreset === 'last30' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             >
               30 días
             </button>
-            <button 
+            <button
               onClick={() => applyDatePreset('thisMonth')}
               className={`px-2 py-1 text-xs rounded ${activePreset === 'thisMonth' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             >
               Este mes
             </button>
-            <button 
+            <button
               onClick={() => applyDatePreset('lastMonth')}
               className={`px-2 py-1 text-xs rounded ${activePreset === 'lastMonth' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             >
@@ -486,7 +486,7 @@ export default function TransactionsPage() {
             </button>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="flex items-center">
             <input
@@ -500,7 +500,7 @@ export default function TransactionsPage() {
               Auto:
             </label>
           </div>
-          
+
           <select
             value={autoRefresh.interval}
             onChange={(e) => setAutoRefresh({ ...autoRefresh, interval: Number(e.target.value) })}
@@ -513,7 +513,7 @@ export default function TransactionsPage() {
             <option value={60000}>1m</option>
             <option value={300000}>5m</option>
           </select>
-          
+
           <button
             onClick={() => fetchTransactions()}
             className="px-2 py-1 bg-blue-500 text-white rounded text-xs flex items-center ml-auto"
@@ -531,7 +531,7 @@ export default function TransactionsPage() {
             )}
             Actualizar
           </button>
-          
+
           <button
             onClick={exportToCSV}
             className="px-2 py-1 border rounded flex items-center text-xs"
@@ -543,14 +543,14 @@ export default function TransactionsPage() {
           </button>
         </div>
       </div>
-      
+
       <div className="text-xs text-gray-500 mb-2">
-        {autoRefresh.enabled ? 
-          `Auto-actualización cada ${autoRefresh.interval/1000}s` : 
+        {autoRefresh.enabled ?
+          `Auto-actualización cada ${autoRefresh.interval / 1000}s` :
           `Última actualización: ${format(lastRefresh, 'HH:mm:ss')}`
         }
       </div>
-      
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
         <div className="bg-white p-3 rounded shadow transition-all hover:shadow-md">
           {initialLoading ? (
@@ -564,15 +564,15 @@ export default function TransactionsPage() {
               <h3 className="text-sm sm:text-base font-medium text-green-600 flex items-center">
                 <span className="mr-2">↑</span> Ingresos
               </h3>
-              <p className="text-lg sm:text-2xl font-bold">$<AnimatedCounter 
-                value={stats.totalIncome} 
-                previousValue={previousStats.current.totalIncome} 
+              <p className="text-lg sm:text-2xl font-bold">$<AnimatedCounter
+                value={stats.totalIncome}
+                previousValue={previousStats.current.totalIncome}
               /></p>
               <p className="text-xs text-gray-500">{stats.incomeCount} transacciones</p>
             </>
           )}
         </div>
-        
+
         <div className="bg-white p-3 rounded shadow transition-all hover:shadow-md">
           {initialLoading ? (
             <>
@@ -585,15 +585,15 @@ export default function TransactionsPage() {
               <h3 className="text-sm sm:text-base font-medium text-red-600 flex items-center">
                 <span className="mr-2">↓</span> Gastos
               </h3>
-              <p className="text-lg sm:text-2xl font-bold">$<AnimatedCounter 
-                value={stats.totalExpense} 
+              <p className="text-lg sm:text-2xl font-bold">$<AnimatedCounter
+                value={stats.totalExpense}
                 previousValue={previousStats.current.totalExpense}
               /></p>
               <p className="text-xs text-gray-500">{stats.expenseCount} transacciones</p>
             </>
           )}
         </div>
-        
+
         <div className="bg-white p-3 rounded shadow transition-all hover:shadow-md">
           {initialLoading ? (
             <>
@@ -605,8 +605,8 @@ export default function TransactionsPage() {
             <>
               <h3 className="text-sm sm:text-base font-medium">Balance</h3>
               <p className={`text-lg sm:text-2xl font-bold ${stats.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                $<AnimatedCounter 
-                  value={stats.balance} 
+                $<AnimatedCounter
+                  value={stats.balance}
                   previousValue={previousStats.current.balance}
                 />
               </p>
@@ -614,8 +614,8 @@ export default function TransactionsPage() {
             </>
           )}
         </div>
-        
-        <div 
+
+        <div
           className="bg-white p-3 rounded shadow transition-all hover:shadow-md flex items-start cursor-pointer"
           onClick={togglePaymentMethodView}
         >
@@ -629,8 +629,8 @@ export default function TransactionsPage() {
             <>
               <div>
                 <h3 className="text-sm sm:text-base font-medium">{paymentMethodView === 'cash' ? 'Efectivo' : 'Tarjeta'}</h3>
-                <p className="text-lg sm:text-2xl font-bold">$<AnimatedCounter 
-                  value={paymentMethodView === 'cash' ? stats.cashTotal : stats.cardTotal} 
+                <p className="text-lg sm:text-2xl font-bold">$<AnimatedCounter
+                  value={paymentMethodView === 'cash' ? stats.cashTotal : stats.cardTotal}
                   previousValue={paymentMethodView === 'cash' ? previousStats.current.cashTotal : previousStats.current.cardTotal}
                 /></p>
                 <p className="text-xs text-gray-500">
@@ -654,7 +654,7 @@ export default function TransactionsPage() {
           )}
         </div>
       </div>
-      
+
       <div className="mb-4 sm:mb-6">
         <div className="flex border-b">
           <button
@@ -671,7 +671,7 @@ export default function TransactionsPage() {
           </button>
         </div>
       </div>
-      
+
       {view === 'chart' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
           <div className="bg-white p-3 sm:p-4 rounded shadow transition-all hover:shadow-md">
@@ -692,7 +692,7 @@ export default function TransactionsPage() {
                 </select>
               </div>
             </div>
-            
+
             {initialLoading ? (
               <div className="w-full">
                 <SkeletonLoader className="h-56 w-full mb-3" />
@@ -701,52 +701,52 @@ export default function TransactionsPage() {
             ) : (
               <>
                 <ResponsiveContainer width="100%" height={220}>
-                  <LineChart 
+                  <LineChart
                     data={chartData.trendData}
                     margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
+                    <XAxis
                       dataKey={chartInterval === 'day' ? 'date' : chartInterval}
                       tick={{ fontSize: 10 }}
                       tickFormatter={(value) => value?.toString().substring(0, 10) || ""}
                     />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend 
-                      iconSize={10} 
+                    <Legend
+                      iconSize={10}
                       wrapperStyle={{ fontSize: 10 }}
-                      formatter={(value) => <span style={{fontSize: 10, color: '#333'}}>{value}</span>}
+                      formatter={(value) => <span style={{ fontSize: 10, color: '#333' }}>{value}</span>}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="income" 
-                      stroke="#10B981" 
-                      name="Ingresos" 
+                    <Line
+                      type="monotone"
+                      dataKey="income"
+                      stroke="#10B981"
+                      name="Ingresos"
                       strokeWidth={2}
                       dot={{ strokeWidth: 1, r: 2 }}
                       activeDot={{ r: 4 }}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="expense" 
-                      stroke="#EF4444" 
-                      name="Gastos" 
+                    <Line
+                      type="monotone"
+                      dataKey="expense"
+                      stroke="#EF4444"
+                      name="Gastos"
                       strokeWidth={2}
                       dot={{ strokeWidth: 1, r: 2 }}
                       activeDot={{ r: 4 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
-                
+
                 <div className="mt-3">
                   <ResponsiveContainer width="100%" height={150}>
-                    <BarChart 
+                    <BarChart
                       data={chartData.trendData}
                       margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
+                      <XAxis
                         dataKey={chartInterval === 'day' ? 'date' : chartInterval}
                         tick={{ fontSize: 10 }}
                         tickFormatter={(value) => value?.toString().substring(0, 10) || ""}
@@ -754,22 +754,22 @@ export default function TransactionsPage() {
                       />
                       <YAxis tick={{ fontSize: 10 }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend 
-                        iconSize={10} 
+                      <Legend
+                        iconSize={10}
                         wrapperStyle={{ fontSize: 10 }}
-                        formatter={(value) => <span style={{fontSize: 10, color: '#333'}}>{value}</span>}
+                        formatter={(value) => <span style={{ fontSize: 10, color: '#333' }}>{value}</span>}
                       />
-                      <Bar 
-                        dataKey="income" 
-                        fill="#10B981" 
-                        name="Ingresos" 
-                        radius={[4, 4, 0, 0]} 
+                      <Bar
+                        dataKey="income"
+                        fill="#10B981"
+                        name="Ingresos"
+                        radius={[4, 4, 0, 0]}
                       />
-                      <Bar 
-                        dataKey="expense" 
-                        fill="#EF4444" 
-                        name="Gastos" 
-                        radius={[4, 4, 0, 0]} 
+                      <Bar
+                        dataKey="expense"
+                        fill="#EF4444"
+                        name="Gastos"
+                        radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
                   </ResponsiveContainer>
@@ -777,18 +777,16 @@ export default function TransactionsPage() {
               </>
             )}
           </div>
-          
-          <div className="grid grid-cols-1 gap-4">
+          <div className="hidden sm:grid grid-cols-1 gap-4">
             <div className="bg-white p-3 sm:p-4 rounded shadow transition-all hover:shadow-md">
               <h3 className="text-sm sm:text-lg font-medium mb-2">Transacciones por Categoría</h3>
-              
               {initialLoading ? (
                 <SkeletonLoader className="h-44 w-full rounded-lg mx-auto" />
               ) : (
-                <ResponsiveContainer width="100%" height={180}>
+                <ResponsiveContainer width="100%" height={200}>
                   <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                     <Pie
-                      data={chartData.categoryData}
+                      data={chartData.categoryData.sort((a, b) => b.total - a.total)}
                       cx="50%"
                       cy="50%"
                       outerRadius={70}
@@ -797,7 +795,6 @@ export default function TransactionsPage() {
                       fill="#8884d8"
                       dataKey="total"
                       nameKey="category"
-                      label={renderCustomizedLabel}
                       labelLine={false}
                       animationBegin={0}
                       animationDuration={800}
@@ -806,19 +803,21 @@ export default function TransactionsPage() {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip 
-                      formatter={(value, name) => [`${value}%`, name]} 
+                    <Tooltip
+                      formatter={(value, name) => [`${value}%`, name]}
                       wrapperStyle={{ fontSize: 12 }}
                     />
-                    <Legend 
-                      iconSize={8} 
-                      layout="horizontal" 
-                      verticalAlign="bottom" 
-                      align="center" 
-                      wrapperStyle={{ fontSize: 10, overflowY: 'auto', maxHeight: 40 }}
-                      formatter={(value) => {
+                    <Legend
+                      iconSize={10}
+                      layout="horizontal"
+                      verticalAlign="bottom"
+                      align="center"
+                      wrapperStyle={{ fontSize: 10, overflowY: 'auto', marginTop: 10 }}
+                      formatter={(value, entry, index) => {
+                        const percentage = chartData.categoryData[index].total;
+                        const displayName = value.length > 13 ? `${value.substring(0, 13)}...` : value;
                         return <span style={{ fontSize: 10, color: '#333' }}>
-                          {value.length > 15 ? `${value.substring(0, 13)}...` : value}
+                          {displayName} ({percentage}%)
                         </span>;
                       }}
                     />
@@ -826,17 +825,17 @@ export default function TransactionsPage() {
                 </ResponsiveContainer>
               )}
             </div>
-            
+
             <div className="bg-white p-3 sm:p-4 rounded shadow transition-all hover:shadow-md">
               <h3 className="text-sm sm:text-lg font-medium mb-2">Métodos de Pago</h3>
-              
+
               {initialLoading ? (
                 <SkeletonLoader className="h-44 w-full rounded-lg mx-auto" />
               ) : (
-                <ResponsiveContainer width="100%" height={180}>
+                <ResponsiveContainer width="100%" height={200}>
                   <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                     <Pie
-                      data={chartData.paymentMethodData}
+                      data={chartData.paymentMethodData.sort((a, b) => b.count - a.count)}
                       cx="50%"
                       cy="50%"
                       outerRadius={70}
@@ -845,7 +844,6 @@ export default function TransactionsPage() {
                       fill="#8884d8"
                       dataKey="count"
                       nameKey="method"
-                      label={renderCustomizedLabel}
                       labelLine={false}
                       animationBegin={0}
                       animationDuration={800}
@@ -854,19 +852,21 @@ export default function TransactionsPage() {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip 
-                      formatter={(value, name, props) => [`${props.payload.percentage}%`, props.payload.method]} 
+                    <Tooltip
+                      formatter={(value, name, props) => [`${props.payload.percentage}%`, props.payload.method]}
                       wrapperStyle={{ fontSize: 12 }}
                     />
-                    <Legend 
-                      iconSize={8} 
-                      layout="horizontal" 
-                      verticalAlign="bottom" 
-                      align="center" 
+                    <Legend
+                      iconSize={8}
+                      layout="horizontal"
+                      verticalAlign="bottom"
+                      align="center"
                       wrapperStyle={{ fontSize: 10, overflowY: 'auto', maxHeight: 40 }}
-                      formatter={(value) => {
+                      formatter={(value, entry, index) => {
+                        const percentage = chartData.paymentMethodData[index].percentage;
+                        const displayName = value.length > 13 ? `${value.substring(0, 13)}...` : value;
                         return <span style={{ fontSize: 10, color: '#333' }}>
-                          {value.length > 15 ? `${value.substring(0, 13)}...` : value}
+                          {displayName} ({percentage}%)
                         </span>;
                       }}
                     />
@@ -877,7 +877,7 @@ export default function TransactionsPage() {
           </div>
         </div>
       )}
-      
+
       {view === 'table' && (
         <div className="bg-white rounded shadow overflow-hidden">
           <div className="flex justify-between items-center p-3 sm:p-4 border-b">
@@ -892,7 +892,7 @@ export default function TransactionsPage() {
               Nueva Transacción
             </button>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
@@ -985,7 +985,7 @@ export default function TransactionsPage() {
           </div>
         </div>
       )}
-      
+
       {isModalOpen && (
         <TransactionModal
           transaction={currentTransaction}

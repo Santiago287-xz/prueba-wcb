@@ -6,9 +6,20 @@ import { UnifiedCalendar } from "./UnifiedCalendar";
 import { ReservationModal } from "./ReservationModal";
 import EventModal from "./EventModal";
 import BookingInvoiceModal from "../Transactions/BookingInvoiceModal";
+import TransactionModal from "@/app/components/Transactions/TransactionModal";
 import { Court, Reservation, ModalDataType } from "../../types/bookings/types";
 import { useGlobalMutate } from "@/app/hooks/useGlobalMutate";
-import { format } from "date-fns";
+
+interface Transaction {
+  id?: string;
+  type: 'income' | 'expense';
+  category: string;
+  amount: number;
+  description?: string;
+  paymentMethod: string;
+  location?: string;
+  userId?: string;
+}
 
 const fetcher = async (url: string) => {
   const res = await fetch(url, {
@@ -41,6 +52,10 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Transaction modal state
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [currentTransaction, setCurrentTransaction] = useState<Transaction | null>(null);
 
   const defaultModalData = useMemo(() => ({
     isOpen: false,
@@ -111,6 +126,36 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     setSelectedReservation(reservation);
     setIsInvoiceModalOpen(true);
   }, []);
+
+  // Transaction modal handlers
+  const openTransactionModal = useCallback((transaction: Transaction | null = null) => {
+    setCurrentTransaction(transaction);
+    setIsTransactionModalOpen(true);
+  }, []);
+
+  const closeTransactionModal = useCallback(() => {
+    setIsTransactionModalOpen(false);
+  }, []);
+
+  const handleSaveTransaction = useCallback(async (transaction: Transaction) => {
+    try {
+      const method = transaction.id ? 'PUT' : 'POST';
+      const url = transaction.id ? `/api/transactions/${transaction.id}` : '/api/transactions';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction)
+      });
+      
+      if (!response.ok) throw new Error('Error al guardar la transacción');
+      
+      setIsTransactionModalOpen(false);
+      mutateAll();
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }, [mutateAll]);
 
   const closeModal = useCallback(() => {
     setError(null);
@@ -366,8 +411,10 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     setCourtId: (courtId: string) => {
       setModalData(prev => ({ ...prev, courtId }));
     },
-    courts
-  }), [modalData, courts]);
+    courts,
+    // Add the openInvoiceModal handler to the modal data
+    openInvoiceModal: modalData.reservation ? () => openInvoiceModal(modalData.reservation as Reservation) : null
+  }), [modalData, courts, openInvoiceModal]);
 
   return (
     <div className="max-w-full md:max-w-6xl mx-auto bg-white rounded shadow">
@@ -384,13 +431,23 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
             Crear Reserva
           </button>
           <button
-            onClick={() => openEventModal()} // Usar una arrow function para evitar el error de tipo
+            onClick={() => openEventModal()}
             className="px-4 py-2 bg-green-600 text-white rounded flex items-center"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
             </svg>
             Crear Evento
+          </button>
+          <button
+            onClick={() => openTransactionModal()}
+            className="px-4 py-2 bg-purple-600 text-white rounded flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V12a2 2 0 002 2h8a2 2 0 002-2v-.5a2 2 0 002-2V6a2 2 0 00-2-2H4z" />
+              <path d="M3 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM3 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM7 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 017 10.75zM7 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM11 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75z" />
+            </svg>
+            Nueva Transacción
           </button>
         </div>
       </div>
@@ -402,6 +459,7 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
         openReservationModal={openReservationModal}
         openEventModal={openEventModal}
         openDetailModal={openDetailModal}
+        openInvoiceModal={openInvoiceModal}
         loading={loading}
       />
 
@@ -416,6 +474,15 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
           handleUpdatePayment={handleUpdatePayment}
           error={error}
           setError={setError}
+        />
+      )}
+
+      {isTransactionModalOpen && (
+        <TransactionModal
+          transaction={currentTransaction}
+          onClose={closeTransactionModal}
+          onSave={handleSaveTransaction}
+          hideFields
         />
       )}
 
