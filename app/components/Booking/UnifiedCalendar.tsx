@@ -4,33 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, startOfWeek, endOfWeek, addDays, isSameDay, isToday, parseISO } from "date-fns";
 import { es } from 'date-fns/locale';
 import useSWR from 'swr';
-import { Court, Reservation } from "../../types/bookings/types";
-
-interface EventIndicator {
-  type: 'futbol' | 'padel' | 'event';
-  count: number;
-}
-
-interface DayEvents {
-  date: Date;
-  events: Reservation[];
-  indicators: EventIndicator[];
-}
-
-interface GroupedEvent extends Reservation {
-  courts: string[];
-  originalId?: string | null; // Añadir esta propiedad
-}
-
-interface UnifiedCalendarProps {
-  courts: Court[];
-  currentDate: Date;
-  setCurrentDate: (date: Date) => void;
-  openReservationModal: (date: Date, hour?: number) => void;
-  openEventModal: (event: Reservation) => void;  // Modificado para aceptar un evento
-  openDetailModal: (reservation: Reservation) => void;
-  loading: boolean;
-}
+import { Reservation, EventIndicator, DayEvents, GroupedEvent, UnifiedCalendarProps } from "../../types/bookings/types";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -103,20 +77,29 @@ export function UnifiedCalendar({
     const dayIndex = weekDays.findIndex(day => isSameDay(day, currentDate));
     if (dayIndex === -1) return weekDays.slice(0, 3);
     
-    // Si selecciona lunes o martes, mostrar lunes, martes y miércoles
     if (dayIndex === 0 || dayIndex === 1) {
       return weekDays.slice(0, 3);
     }
     
-    // Si selecciona uno de los últimos dos días de la semana, mostrar los últimos tres días
     if (dayIndex >= weekDays.length - 2) {
       return weekDays.slice(weekDays.length - 3);
     }
     
-    // Para cualquier otro día, mostrar el día seleccionado como día central
-    // (un día antes y un día después)
     return weekDays.slice(dayIndex - 1, dayIndex + 2);
   }, [weekDays, currentDate]);
+
+  const getSelectionIndicatorPosition = useCallback(() => {
+    const firstDayIndex = weekDays.findIndex(day => 
+      isSameDay(day, threeDaysView[0])
+    );
+    
+    const leftPosition = (firstDayIndex * (100/7));
+    
+    return {
+      left: `${leftPosition}%`,
+      width: `${(100/7) * 3}%`
+    };
+  }, [weekDays, threeDaysView]);
 
   const allEvents = useMemo(() => {
     if (!reservationsData) return [];
@@ -143,7 +126,6 @@ export function UnifiedCalendar({
     
     if (reservationsData.events) {
       reservationsData.events.forEach((event: any) => {
-        // Corregir el formato del ID para evitar el doble prefijo
         const eventId = event.id ? `event-${event.id}` : `event-temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const court = courts.find(c => c.id === event.courtId);
         
@@ -172,7 +154,13 @@ export function UnifiedCalendar({
       });
     }
     groupedEvents.forEach((event, key) => {
-      eventMap.set(key, event);
+      const reservationEvent: Reservation = {
+        ...event,
+        phone: "",
+        paymentMethod: "",
+        isRecurring: false
+      };
+      eventMap.set(key, reservationEvent);
     });
     
     return Array.from(eventMap.values());
@@ -369,21 +357,41 @@ export function UnifiedCalendar({
   }, []);
 
   const renderDesktopView = useCallback(() => {
+    const indicatorPosition = getSelectionIndicatorPosition();
+    
     return (
       <>
         {renderWeekHeader()}
         
-        <div className="grid grid-cols-7 gap-2 mb-6">
+        <div className="grid grid-cols-7 gap-0 mb-6 relative">
+          <div 
+            className="absolute h-full pointer-events-none z-0 transition-all duration-300 ease-in-out"
+            style={{
+              left: indicatorPosition.left,
+              width: indicatorPosition.width,
+              top: 0
+            }}
+          >
+            <div className="w-full h-full bg-blue-100 rounded-lg"></div>
+          </div>
+          
           {weekDays.map((day) => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const dayData = dayEventMap[dateKey];
             const isCurrentDay = isToday(day);
             const isSelected = isSameDay(day, currentDate);
+            const isInThreeDayView = threeDaysView.some(d => isSameDay(d, day));
             
             return (
               <div 
                 key={dateKey}
-                className={`text-center p-2 rounded cursor-pointer ${isSelected ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'} ${isCurrentDay && !isSelected ? 'border border-blue-500' : ''}`}
+                className={`
+                  text-center p-2 cursor-pointer relative z-10
+                  ${isSelected ? 'bg-blue-500 text-white rounded-lg' : 
+                    isInThreeDayView ? 'hover:bg-blue-200' : 'hover:bg-gray-100'}
+                  ${isCurrentDay && !isSelected && !isInThreeDayView ? 'border rounded-lg border-blue-500' : ''}
+                  transition-all duration-200
+                `}
                 onClick={() => selectDay(day)}
               >
                 <div className="uppercase text-xs font-medium">
@@ -406,7 +414,7 @@ export function UnifiedCalendar({
             
             return (
               <div key={dateKey} className="border rounded-lg overflow-hidden h-fit">
-                <div className={`p-3 font-bold text-center ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-50'}`}>
+                <div className={`p-3 font-bold text-center ${isSelected ? 'bg-blue-500 text-white' : 'bg-blue-100'}`}>
                   <h3 className="capitalize">
                     {format(day, "EEEE d", { locale: es })}
                   </h3>
@@ -462,7 +470,7 @@ export function UnifiedCalendar({
         </div>
       </>
     );
-  }, [renderWeekHeader, weekDays, dayEventMap, currentDate, threeDaysView, renderIndicatorDots, getEventColor, openDetailModal, openEventModal, openReservationModal, selectDay, formatCourtNames]);
+  }, [renderWeekHeader, weekDays, dayEventMap, currentDate, threeDaysView, renderIndicatorDots, getEventColor, openDetailModal, openEventModal, openReservationModal, selectDay, formatCourtNames, getSelectionIndicatorPosition]);
   
   const renderMobileView = useCallback(() => {
     return (

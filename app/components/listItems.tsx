@@ -117,7 +117,7 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
         </>
       )}
       {isAdmin && (
-        <MenuItem href="/transaction" title="Transaction" icon={FaChartLine} onItemClick={onItemClick} />
+        <MenuItem href="/analytics" title="Analytics" icon={FaChartLine} onItemClick={onItemClick} />
       )}
 
       {/* {isAdmin && (

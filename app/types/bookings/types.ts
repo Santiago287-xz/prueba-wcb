@@ -60,3 +60,38 @@ export interface ModalDataType {
   courts?: Court[];
   setCourtId?: (courtId: string) => void;
 }
+
+export interface EventIndicator {
+  type: 'futbol' | 'padel' | 'event';
+  count: number;
+}
+
+export interface DayEvents {
+  date: Date;
+  events: Reservation[];
+  indicators: EventIndicator[];
+}
+
+export interface GroupedEvent {
+  id: string;
+  virtualId: string;
+  originalId?: string | null;
+  name: string;
+  courtId: string;
+  courtName: string;
+  courtType: string;
+  startTime: string | Date;
+  endTime: string | Date;
+  isEvent: boolean;
+  courts: string[];
+}
+
+export interface UnifiedCalendarProps {
+  courts: Court[];
+  currentDate: Date;
+  setCurrentDate: (date: Date) => void;
+  openReservationModal: (date: Date, hour?: number) => void;
+  openEventModal: (event: Reservation) => void;
+  openDetailModal: (reservation: Reservation) => void;
+  loading: boolean;
+}
