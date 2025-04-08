@@ -13,6 +13,7 @@ enum Role {
   user
   employee
   court_manager
+  member
 }
 
 enum Gender {
@@ -72,15 +73,35 @@ model User {
   goal           Goal               @default(lose_weight)
   level          Level              @default(beginner)
   post           String?
+  // RFID Card fields
+  rfidCardNumber String?            @unique
+  rfidAssignedAt DateTime?
+  membershipExpiry DateTime?
+  membershipStatus String?          @default("active") // active, expired, suspended
+  membershipType  String?
+  lastCheckIn     DateTime?
+  // Existing fields...
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   
+  // Relations
+  accessLogs     AccessLog[]
+  // Existing relations...
   PasswordResetToken PasswordResetToken[]
   stockMovements     StockMovement[]
   sales              Sale[]
-  transactions  Transaction[]
+  transactions       Transaction[]
 }
 
+model AccessLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  timestamp DateTime @default(now())
+  status    String   // allowed, denied
+  reason    String?  // optional reason for denial
+  processedBy String? @db.ObjectId // ID of the receptionist who processed the access
+}
 model PasswordResetToken {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
   token     String    @unique

@@ -1,58 +1,81 @@
-import { NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import type { NextRequest } from 'next/server';
+// middleware.ts (updated)
+import { withAuth, NextRequestWithAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
-export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  
-  const path = request.nextUrl.pathname;
-  
-  const protectedRoutes = {
-    '/analytics': ['admin'],
-    '/add-user': ['admin'],
-    '/attendance': ['admin'],
-    '/booking': ['admin', 'court_manager'],
-    '/diet': ['admin'],
-    '/exercise': ['admin'],
-    '/fees': ['admin'],
-    '/inventory': ['admin', 'employee'],
-    '/manage-user': ['admin'],
-    '/notifications': ['admin', 'trainer', 'user', 'employee', 'court_manager'],
-    '/products': ['admin', 'employee'],
-    '/profile': ['admin', 'trainer', 'user', 'employee', 'court_manager'],
-    '/sales': ['admin', 'employee'],
-    '/students': ['admin', 'trainer'],
-    '/trainers': ['admin', 'trainer'],
-    '/user': ['admin', 'trainer', 'user', 'employee', 'court_manager']
-  };
-  
-  const isProtected = Object.keys(protectedRoutes).some(route => 
-    path === route || path.startsWith(`${route}/`)
-  );
-  
-  if (isProtected) {
-    if (!token) {
-      const url = new URL('/auth/signin', request.url);
-      url.searchParams.set('callbackUrl', path);
-      return NextResponse.redirect(url);
+export default withAuth(
+  function middleware(request: NextRequestWithAuth) {
+    // Add the member role to appropriate routes
+    const user =
+      request.nextauth.token?.role === "user" &&
+      (request.nextUrl.pathname.startsWith("/exercise") ||
+        request.nextUrl.pathname.startsWith("/diet") ||
+        request.nextUrl.pathname.startsWith("/fees") ||
+        request.nextUrl.pathname.startsWith("/add-user") ||
+        request.nextUrl.pathname.startsWith("/students"));
+
+    if (user) {
+      return NextResponse.rewrite(new URL("/unauthorized", request.url));
     }
-    
-    const userRole = token.role as string;
-    const allowedRoles = Object.entries(protectedRoutes).find(([route]) => 
-      path === route || path.startsWith(`${route}/`)
-    )?.[1] || [];
-    
-    if (!allowedRoles.includes(userRole)) {
-      return NextResponse.redirect(new URL('/unauthorized', request.url));
+
+    // Allow members to access user routes but not admin routes
+    const member =
+      request.nextauth.token?.role === "member" &&
+      (request.nextUrl.pathname.startsWith("/manage-user") ||
+       request.nextUrl.pathname.startsWith("/add-user") ||
+       request.nextUrl.pathname.startsWith("/students"));
+
+    if (member) {
+      return NextResponse.rewrite(new URL("/unauthorized", request.url));
     }
+
+    const adminOrTrainer =
+      request.nextUrl.pathname.startsWith("/user") &&
+      request.nextauth.token?.role !== "user" &&
+      request.nextauth.token?.role !== "member";
+
+    if (adminOrTrainer) {
+      return NextResponse.rewrite(new URL("/unauthorized", request.url));
+    }
+
+    const admin = 
+      request.nextauth.token?.role !== "admin" && 
+      request.nextUrl.pathname.startsWith("/manage-user");
+
+    if (admin) {
+      return NextResponse.rewrite(new URL("/unauthorized", request.url));
+    }
+
+    // Add RFID access management route protection
+    const rfidManagement = 
+      request.nextUrl.pathname.startsWith("/rfid-management") &&
+      request.nextauth.token?.role !== "admin" &&
+      request.nextauth.token?.role !== "employee";
+
+    if (rfidManagement) {
+      return NextResponse.rewrite(new URL("/unauthorized", request.url));
+    }
+  },
+  {
+    callbacks: {
+      authorized: ({token}) => !!token,
+    },
   }
-  
-  return NextResponse.next();
-}
+);
 
 export const config = {
   matcher: [
-    '/bookings/:path*',
-    '/admin/:path*',
+    "/",
+    "/api",
+    "/add-user",
+    "/manage-user",
+    "/profile",
+    "/notifications",
+    "/students/:path*",
+    "/trainers/:path*",
+    "/fees",
+    "/exercise/:path*",
+    "/diet/:path*",
+    "/user/:path*",
+    "/rfid-management/:path*",
   ],
 };
