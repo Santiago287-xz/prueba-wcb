@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 import { getServerSession } from "next-auth";
 import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
-import { AccessLogData } from "@/app/types/membership";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -44,7 +43,13 @@ export async function GET(req: NextRequest) {
     
     const logs = await prisma.accessLog.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        timestamp: true,
+        status: true,
+        reason: true,
+        processedBy: true,
         user: {
           select: {
             id: true,

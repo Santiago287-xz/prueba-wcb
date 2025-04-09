@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
         }
       }
     });
+    console.log(todayAccesses)
 
     const response: MembershipStatsResponse = {
       totalMembers,

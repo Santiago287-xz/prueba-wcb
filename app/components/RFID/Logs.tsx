@@ -1,4 +1,3 @@
-// app/components/RFIDLogs.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -17,18 +16,18 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField,
   Button,
   CircularProgress,
   Grid,
+  TextField,
 } from '@mui/material';
-import { DatePicker } from '@mui/lab';
-import { format } from 'date-fns';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import axios from 'axios';
 
 interface AccessLog {
   id: string;
-  userId: string;
+  userId: string | null;
   timestamp: string;
   status: string;
   reason: string | null;
@@ -37,9 +36,9 @@ interface AccessLog {
     id: string;
     name: string;
     email: string;
-    membershipType: string;
-    membershipStatus: string;
-  };
+    membershipType: string | null;
+    membershipStatus: string | null;
+  } | null;
 }
 
 const RFIDLogs: React.FC = () => {
@@ -50,21 +49,24 @@ const RFIDLogs: React.FC = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, [date, status]);
+  }, []);
 
   const fetchLogs = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (date) {
-        params.append('date', date.toISOString().split('T')[0]);
+        params.append('date', formatDateToYYYYMMDD(date));
       }
       if (status) {
         params.append('status', status);
       }
+      
+      // Asegurar que obtenemos todos los logs
+      params.append('limit', '1000');
 
       const response = await axios.get(`/api/rfid/logs?${params.toString()}`);
-      setLogs(response.data);
+      setLogs(response.data || []);
     } catch (error) {
       console.error('Error fetching access logs:', error);
     } finally {
@@ -72,13 +74,30 @@ const RFIDLogs: React.FC = () => {
     }
   };
 
+  const formatDateToYYYYMMDD = (date: Date) => {
+    return date.toISOString().split('T')[0];
+  };
+
   const formatDateTime = (dateString: string) => {
-    return format(new Date(dateString), 'dd/MM/yyyy HH:mm:ss');
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('es', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).format(date);
   };
 
   const clearFilters = () => {
     setDate(new Date());
     setStatus('');
+  };
+
+  const handleDateChange = (newDate: Date | null) => {
+    setDate(newDate);
   };
 
   return (
@@ -88,37 +107,45 @@ const RFIDLogs: React.FC = () => {
       </Typography>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
-          <DatePicker
-            label="Fecha"
-            value={date}
-            onChange={setDate}
-            renderInput={(params) => <TextField {...params} fullWidth />}
-          />
+          <Grid item xs={12} md={4}>
+            <div style={{ width: '100%' }}>
+              <DatePicker
+                selected={date}
+                onChange={handleDateChange}
+                dateFormat="dd/MM/yyyy"
+                customInput={
+                  <TextField
+                    fullWidth
+                    label="Fecha"
+                    variant="outlined"
+                  />
+                }
+              />
+            </div>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth>
+              <InputLabel>Estado</InputLabel>
+              <Select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                label="Estado"
+              >
+                <MenuItem value="">Todos</MenuItem>
+                <MenuItem value="allowed">Permitido</MenuItem>
+                <MenuItem value="denied">Denegado</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
+            <Button variant="outlined" onClick={clearFilters} sx={{ mr: 1 }}>
+              Limpiar
+            </Button>
+            <Button variant="contained" onClick={fetchLogs}>
+              Filtrar
+            </Button>
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <FormControl fullWidth>
-            <InputLabel>Estado</InputLabel>
-            <Select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              label="Estado"
-            >
-              <MenuItem value="">Todos</MenuItem>
-              <MenuItem value="allowed">Permitido</MenuItem>
-              <MenuItem value="denied">Denegado</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
-          <Button variant="outlined" onClick={clearFilters} sx={{ mr: 1 }}>
-            Limpiar
-          </Button>
-          <Button variant="contained" onClick={fetchLogs}>
-            Filtrar
-          </Button>
-        </Grid>
-      </Grid>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -141,7 +168,7 @@ const RFIDLogs: React.FC = () => {
                 logs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell>{formatDateTime(log.timestamp)}</TableCell>
-                    <TableCell>{log.user?.name || 'Usuario no registrado'}</TableCell>
+                    <TableCell>{log.user?.name || 'Tarjeta no asignada'}</TableCell>
                     <TableCell>{log.user?.email || 'N/A'}</TableCell>
                     <TableCell>
                       <Chip 

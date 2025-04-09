@@ -62,10 +62,10 @@ export default function RFIDManagementPage() {
         fetch('/api/memberships/stats'),
         fetch('/api/access/stats/today')
       ]);
-
       // Verificamos si las respuestas fueron exitosas
       if (membershipsResponse.ok && accessResponse.ok) {
         const membershipsData = await membershipsResponse.json();
+        console.log(membershipsData)
         const accessData = await accessResponse.json();
 
         setStats({
