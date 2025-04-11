@@ -73,26 +73,30 @@ model User {
   goal           Goal               @default(lose_weight)
   level          Level              @default(beginner)
   post           String?
-  // RFID Card fields
   rfidCardNumber String?            @unique
   rfidAssignedAt DateTime?
   membershipExpiry DateTime?
   membershipStatus String?          @default("active") // active, expired, suspended
   membershipType  String?
   lastCheckIn     DateTime?
-  // Existing fields...
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
-  
-  // Relations
   accessLogs     AccessLog[]
-  // Existing relations...
   PasswordResetToken PasswordResetToken[]
   stockMovements     StockMovement[]
   sales              Sale[]
   transactions       Transaction[]
 }
 
+model MembershipPrice {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  type        String   @unique
+  basePrice   Float
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
 model AccessLog {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
