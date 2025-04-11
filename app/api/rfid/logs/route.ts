@@ -14,9 +14,13 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
-    const date = searchParams.get('date');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
     const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const page = parseInt(searchParams.get('page') || '0');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    
+    const skip = page * limit;
     
     let where: any = {};
     
@@ -24,23 +28,33 @@ export async function GET(req: NextRequest) {
       where.userId = userId;
     }
     
-    if (date) {
-      const startDate = new Date(date);
-      startDate.setHours(0, 0, 0, 0);
+    if (startDate || endDate) {
+      where.timestamp = {};
       
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
+      if (startDate) {
+        // Create date with time at beginning of day in local timezone
+        const parsedStartDate = new Date(`${startDate}T00:00:00.000`);
+        console.log("Start date (local):", parsedStartDate.toISOString());
+        where.timestamp.gte = parsedStartDate;
+      }
       
-      where.timestamp = {
-        gte: startDate,
-        lte: endDate
-      };
+      if (endDate) {
+        // Create date with time at end of day in local timezone and add 1 day
+        const nextDay = new Date(`${endDate}T00:00:00.000`);
+        nextDay.setDate(nextDay.getDate() + 1);
+        console.log("End date (local + 1 day):", nextDay.toISOString());
+        where.timestamp.lt = nextDay; // Using lt instead of lte with nextDay
+      }
     }
     
     if (status) {
       where.status = status;
     }
     
+    // Get total count for pagination info
+    const totalCount = await prisma.accessLog.count({ where });
+    
+    // Query logs with pagination
     const logs = await prisma.accessLog.findMany({
       where,
       select: {
@@ -49,7 +63,7 @@ export async function GET(req: NextRequest) {
         timestamp: true,
         status: true,
         reason: true,
-        processedBy: true,
+        // processedBy: true, // Removed to avoid MongoDB ObjectId serialization issues
         user: {
           select: {
             id: true,
@@ -63,10 +77,20 @@ export async function GET(req: NextRequest) {
       orderBy: {
         timestamp: 'desc'
       },
+      skip,
       take: limit
     });
     
-    return NextResponse.json(logs, { status: 200 });
+    return NextResponse.json({
+      logs,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    }, { status: 200 });
+    
   } catch (error) {
     console.error("Error al obtener logs de acceso:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
