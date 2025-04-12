@@ -11,16 +11,14 @@ import {
   Grid,
   Card,
   CardContent,
-  Button,
   CircularProgress,
   Snackbar,
   Alert,
+  IconButton,
 } from '@mui/material';
-import { ScannerOutlined, AssignmentIndOutlined, HistoryOutlined, Refresh } from '@mui/icons-material';
-import RFIDScanner from '@/app/components/RFID/Scanner';
+import { AssignmentIndOutlined, HistoryOutlined, Refresh } from '@mui/icons-material';
 import RFIDMembersList from '@/app/components/RFID/MembersList';
 import RFIDLogs from '@/app/components/RFID/Logs';
-import TransactionModal from '@/app/components/Transactions/TransactionModal';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -51,10 +49,11 @@ interface AccessNotification {
     id: string;
     name: string;
     email: string;
-    membershipType: string | null;
-    membershipExpiry: string | null;
+    accessPoints: number;
     membershipStatus: string | null;
   } | null;
+  pointsDeducted?: number;
+  isToleranceEntry?: boolean;
   cardNumber: string;
   deviceId?: string;
   timestamp: string;
@@ -68,7 +67,6 @@ export default function RFIDManagementPage() {
     expiredMembers: 0,
     todayAccesses: 0,
   });
-  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<AccessNotification | null>(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -129,7 +127,7 @@ export default function RFIDManagementPage() {
             if (data.event !== 'connected') {
               setNotification(data);
               setNotificationOpen(true);
-              fetchStats();
+              fetchStats(); // Actualizar estadísticas cuando llega un evento
               playSound(data.type);
             }
             console.log("Notificación procesada:", data);
@@ -174,14 +172,6 @@ export default function RFIDManagementPage() {
     }
   };
 
-  const openTransactionModal = () => {
-    setIsTransactionModalOpen(true);
-  };
-
-  const closeTransactionModal = () => {
-    setIsTransactionModalOpen(false);
-  };
-
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
@@ -196,17 +186,6 @@ export default function RFIDManagementPage() {
         <Typography variant="h4">
           Gestión de Acceso RFID
         </Typography>
-
-        <button
-          onClick={openTransactionModal}
-          className="px-4 py-2 bg-purple-600 text-white rounded flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V12a2 2 0 002 2h8a2 2 0 002-2v-.5a2 2 0 002-2V6a2 2 0 00-2-2H4z" />
-            <path d="M3 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM3 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM7 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 017 10.75zM7 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM11 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75z" />
-          </svg>
-          Nueva Transacción
-        </button>
       </div>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -217,12 +196,12 @@ export default function RFIDManagementPage() {
                 <Typography color="textSecondary" gutterBottom>
                   Total Miembros
                 </Typography>
-                <Button
+                <IconButton
                   sx={{ minWidth: '24px', p: 0 }}
                   onClick={fetchStats}
                 >
                   <Refresh fontSize="small" />
-                </Button>
+                </IconButton>
               </div>
               {isLoading ? (
                 <CircularProgress size={24} />
@@ -239,12 +218,12 @@ export default function RFIDManagementPage() {
                 <Typography color="textSecondary" gutterBottom>
                   Miembros Activos
                 </Typography>
-                <Button
+                <IconButton
                   sx={{ minWidth: '24px', p: 0 }}
                   onClick={fetchStats}
                 >
                   <Refresh fontSize="small" />
-                </Button>
+                </IconButton>
               </div>
               {isLoading ? (
                 <CircularProgress size={24} />
@@ -259,14 +238,14 @@ export default function RFIDManagementPage() {
             <CardContent>
               <div className="flex justify-between items-center">
                 <Typography color="textSecondary" gutterBottom>
-                  Membresías Expiradas
+                  Sin Accesos
                 </Typography>
-                <Button
+                <IconButton
                   sx={{ minWidth: '24px', p: 0 }}
                   onClick={fetchStats}
                 >
                   <Refresh fontSize="small" />
-                </Button>
+                </IconButton>
               </div>
               {isLoading ? (
                 <CircularProgress size={24} />
@@ -283,12 +262,12 @@ export default function RFIDManagementPage() {
                 <Typography color="textSecondary" gutterBottom>
                   Accesos Hoy
                 </Typography>
-                <Button
+                <IconButton
                   sx={{ minWidth: '24px', p: 0 }}
                   onClick={fetchStats}
                 >
                   <Refresh fontSize="small" />
-                </Button>
+                </IconButton>
               </div>
               {isLoading ? (
                 <CircularProgress size={24} />
@@ -308,44 +287,17 @@ export default function RFIDManagementPage() {
           textColor="primary"
           centered
         >
-          <Tab icon={<ScannerOutlined />} label="Escanear Tarjetas" />
           <Tab icon={<AssignmentIndOutlined />} label="Gestionar Miembros" />
           <Tab icon={<HistoryOutlined />} label="Historial de Accesos" />
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
-          <RFIDScanner />
-        </TabPanel>
-        <TabPanel value={tabValue} index={1}>
           <RFIDMembersList />
         </TabPanel>
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={1}>
           <RFIDLogs />
         </TabPanel>
       </Paper>
-
-      {isTransactionModalOpen && (
-        <TransactionModal
-          transaction={null}
-          onClose={closeTransactionModal}
-          onSave={(transaction) => {
-            fetch('/api/transactions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(transaction)
-            })
-              .then(response => {
-                if (response.ok) {
-                  closeTransactionModal();
-                  fetchStats();
-                }
-              })
-              .catch(error => {
-                console.error('Error:', error);
-              });
-          }}
-        />
-      )}
 
       <Snackbar
         open={notificationOpen}
@@ -368,6 +320,13 @@ export default function RFIDManagementPage() {
           <Typography variant="body2">
             {notification?.message}
           </Typography>
+          {notification?.user && (
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              {notification.isToleranceEntry ? 
+                "Período de tolerancia - No se descontaron puntos" : 
+                `Puntos restantes: ${notification.user.accessPoints}`}
+            </Typography>
+          )}
         </Alert>
       </Snackbar>
     </Container>

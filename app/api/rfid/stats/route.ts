@@ -1,52 +1,26 @@
-// app/api/rfid/stats/route.ts
-import { NextRequest, NextResponse } from "next/server";
+// app/api/rfid/stats/route.ts - Actualizado para sistema de puntos
+import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
-import { getServerSession } from "next-auth";
-import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
-import { MembershipStatsResponse } from "@/app/types/membership";
 
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session?.user?.id || !['admin', 'employee'].includes(session.user.role as string)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export async function GET() {
   try {
-    // Get total members with RFID cards
     const totalMembers = await prisma.user.count({
       where: {
-        role: "user",
         rfidCardNumber: { not: null }
       }
     });
-
-    // Get active members
     const activeMembers = await prisma.user.count({
       where: {
-        role: "user",
         rfidCardNumber: { not: null },
-        membershipStatus: "active",
-        membershipExpiry: { gte: new Date() }
+        accessPoints: { gt: 0 }
       }
-    });
-
-    // Get expired members
+    });    
     const expiredMembers = await prisma.user.count({
       where: {
-        role: "user",
         rfidCardNumber: { not: null },
-        OR: [
-          { membershipStatus: "expired" },
-          { 
-            membershipExpiry: { lt: new Date() },
-            membershipStatus: "active"
-          }
-        ]
+        accessPoints: { equals: 0 }
       }
     });
-
-    // Get today's accesses
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -61,18 +35,15 @@ export async function GET(req: NextRequest) {
         }
       }
     });
-    console.log(todayAccesses)
-
-    const response: MembershipStatsResponse = {
-      totalMembers,
-      activeMembers,
-      expiredMembers,
-      todayAccesses
-    };
-
-    return NextResponse.json(response, { status: 200 });
+    
+    return NextResponse.json({ 
+      totalMembers, 
+      activeMembers, 
+      expiredMembers, 
+      todayAccesses 
+    });
   } catch (error) {
-    console.error("Error al obtener estadísticas RFID:", error);
+    console.error("Error al obtener estadísticas de RFID:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }

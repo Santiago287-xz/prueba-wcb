@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { format, addMonths, isAfter, isBefore } from 'date-fns';
 import axios from 'axios';
 import {
   Box,
@@ -34,7 +33,8 @@ import {
   CircularProgress,
   Divider,
   Card,
-  CardContent
+  CardContent,
+  SelectChangeEvent
 } from '@mui/material';
 import {
   Add,
@@ -45,7 +45,32 @@ import {
   Close,
   Warning
 } from '@mui/icons-material';
-import { Member, MembershipPrice } from '@/app/types/membership';
+
+// Extender la interfaz de Member para incluir accessPoints
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | number;
+  gender: 'male' | 'female' | 'other';
+  age?: number;
+  rfidCardNumber?: string;
+  membershipType?: string;
+  membershipStatus?: string;
+  accessPoints: number;
+  lastCheckIn?: string | Date;
+  height?: number;
+  weight?: number;
+  goal?: string;
+  level?: string;
+}
+
+interface MembershipPrice {
+  id: string;
+  name: string;
+  basePrice: number;
+  description?: string;
+}
 
 export default function MembersList() {
   // Main state
@@ -77,8 +102,7 @@ export default function MembersList() {
     rfidCardNumber: '',
     membershipTypeId: '',
     membershipStatus: 'active',
-    membershipMonths: 1,
-    membershipExpiry: '',
+    accessPoints: 0,
     paymentMethod: 'cash',
     height: '',
     weight: '',
@@ -89,7 +113,7 @@ export default function MembersList() {
   // Renewal state
   const [renewalState, setRenewalState] = useState({
     membershipTypeId: '',
-    months: 1,
+    pointsAmount: 10,
     paymentMethod: 'cash',
     totalAmount: 0
   });
@@ -124,7 +148,6 @@ export default function MembersList() {
     setPricesError(null);
     try {
       const response = await axios.get('/api/membership-prices');
-      console.log(response.data.types)
       if (response.data && response.data.types) {
         setMembershipPrices(response.data.types);
 
@@ -156,30 +179,23 @@ export default function MembersList() {
     fetchMembershipPrices();
   }, [fetchMembers, fetchMembershipPrices]);
 
-  // Update membership expiry when months change
-  useEffect(() => {
-    const newExpiryDate = addMonths(new Date(), formState.membershipMonths);
-    setFormState(prev => ({
-      ...prev,
-      membershipExpiry: format(newExpiryDate, 'yyyy-MM-dd')
-    }));
-  }, [formState.membershipMonths]);
-
   // Calculate total amount for renewal
   useEffect(() => {
-    if (renewalState.membershipTypeId && renewalState.months > 0) {
+    if (renewalState.membershipTypeId && renewalState.pointsAmount > 0) {
       const selectedType = membershipPrices.find(p => p.id === renewalState.membershipTypeId);
       if (selectedType) {
+        // Calcular precio basado en puntos
+        const pointCost = selectedType.basePrice / 30; // Asumiendo que un mes son 30 accesos
         setRenewalState(prev => ({
           ...prev,
-          totalAmount: selectedType.basePrice * prev.months
+          totalAmount: Math.round(pointCost * prev.pointsAmount * 100) / 100
         }));
       }
     }
-  }, [renewalState.membershipTypeId, renewalState.months, membershipPrices]);
+  }, [renewalState.membershipTypeId, renewalState.pointsAmount, membershipPrices]);
 
-  // Handle form input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+  // Handle text input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (!name) return;
 
@@ -197,8 +213,41 @@ export default function MembersList() {
     }
   };
 
+  // Handle select input changes
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
+    const { name, value } = e.target;
+    if (!name) return;
+
+    setFormState(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle gender select changes specifically
+  const handleGenderChange = (e: SelectChangeEvent<"male" | "female" | "other">) => {
+    const { name, value } = e.target;
+    if (!name) return;
+
+    setFormState(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   // Handle renewal form changes
-  const handleRenewalChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+  const handleRenewalTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (!name) return;
+
+    setRenewalState(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle renewal select changes
+  const handleRenewalSelectChange = (e: SelectChangeEvent<string | number>) => {
     const { name, value } = e.target;
     if (!name) return;
 
@@ -252,15 +301,15 @@ export default function MembersList() {
         return;
       }
 
-      // Calculate expiry date
-      const expiryDate = addMonths(new Date(), formState.membershipMonths);
+      // Calculate initial access points (por ejemplo, 30 puntos por mes contratado)
+      const accessPoints = 30;
 
       // First register the payment transaction
       await axios.post('/api/transactions', {
         type: 'income',
         category: 'membership',
-        amount: selectedType.basePrice * formState.membershipMonths,
-        description: `Nueva membresía ${selectedType.name} por ${formState.membershipMonths} mes(es) para ${formState.name}`,
+        amount: selectedType.basePrice,
+        description: `Nueva membresía ${selectedType.name} con ${accessPoints} puntos para ${formState.name}`,
         paymentMethod: formState.paymentMethod,
       });
 
@@ -274,7 +323,7 @@ export default function MembersList() {
         rfidCardNumber: formState.rfidCardNumber,
         membershipType: formState.membershipTypeId,
         membershipStatus: 'active',
-        membershipExpiry: format(expiryDate, 'yyyy-MM-dd'),
+        accessPoints: accessPoints,
         height: formState.height ? parseInt(formState.height.toString()) : undefined,
         weight: formState.weight ? parseInt(formState.weight.toString()) : undefined,
         goal: formState.goal,
@@ -308,7 +357,7 @@ export default function MembersList() {
         rfidCardNumber: formState.rfidCardNumber,
         membershipType: selectedMember.membershipType,
         membershipStatus: selectedMember.membershipStatus,
-        membershipExpiry: selectedMember.membershipExpiry,
+        accessPoints: selectedMember.accessPoints,
         phone: formState.phone,
         gender: formState.gender,
         age: formState.age ? parseInt(formState.age.toString()) : undefined,
@@ -337,40 +386,32 @@ export default function MembersList() {
         return;
       }
 
-      const now = new Date();
-      let newExpiryDate;
-      const currentExpiry = selectedMember.membershipExpiry ? new Date(selectedMember.membershipExpiry) : now;
-
-      if (isAfter(currentExpiry, now)) {
-        newExpiryDate = addMonths(currentExpiry, renewalState.months);
-      } else {
-        newExpiryDate = addMonths(now, renewalState.months);
-      }
-
+      // Registrar la transacción de recarga de puntos
       await axios.post('/api/transactions', {
         type: 'income',
         category: 'membership',
         amount: renewalState.totalAmount,
-        description: `Renovación de membresía ${selectedType.name} por ${renewalState.months} mes(es) para ${selectedMember.name}`,
+        description: `Recarga de ${renewalState.pointsAmount} puntos de acceso para ${selectedMember.name}`,
         paymentMethod: renewalState.paymentMethod,
         userId: selectedMember.id,
       });
 
+      // Actualizar los puntos del usuario
       await axios.post('/api/rfid/assign', {
         userId: selectedMember.id,
         rfidCardNumber: selectedMember.rfidCardNumber,
         membershipType: renewalState.membershipTypeId,
         membershipStatus: 'active',
-        membershipExpiry: format(newExpiryDate, 'yyyy-MM-dd'),
+        accessPoints: selectedMember.accessPoints + renewalState.pointsAmount,
       });
 
-      showNotification('Membresía renovada correctamente', 'success');
+      showNotification('Puntos de acceso recargados correctamente', 'success');
       setRenewModalOpen(false);
       setConfirmRenewalOpen(false);
       fetchMembers();
     } catch (error: any) {
       console.error('Error renewing membership:', error);
-      showNotification(error.response?.data?.error || 'Error al renovar membresía', 'error');
+      showNotification(error.response?.data?.error || 'Error al recargar puntos', 'error');
     }
   };
 
@@ -386,8 +427,7 @@ export default function MembersList() {
       rfidCardNumber: member.rfidCardNumber || '',
       membershipTypeId: member.membershipType || membershipPrices[0]?.id || '',
       membershipStatus: member.membershipStatus || 'active',
-      membershipMonths: 1,
-      membershipExpiry: member.membershipExpiry ? format(new Date(member.membershipExpiry), 'yyyy-MM-dd') : '',
+      accessPoints: member.accessPoints || 0,
       paymentMethod: 'cash',
       height: member.height?.toString() || '',
       weight: member.weight?.toString() || '',
@@ -404,9 +444,9 @@ export default function MembersList() {
 
     setRenewalState({
       membershipTypeId: memberType,
-      months: 1,
+      pointsAmount: 10,
       paymentMethod: 'cash',
-      totalAmount: selectedPrice?.basePrice || 0
+      totalAmount: selectedPrice ? Math.round((selectedPrice.basePrice / 30) * 10 * 100) / 100 : 0
     });
 
     setRenewModalOpen(true);
@@ -427,8 +467,7 @@ export default function MembersList() {
       rfidCardNumber: '',
       membershipTypeId: membershipPrices[0]?.id || '',
       membershipStatus: 'active',
-      membershipMonths: 1,
-      membershipExpiry: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
+      accessPoints: 30,
       paymentMethod: 'cash',
       height: '',
       weight: '',
@@ -456,37 +495,22 @@ export default function MembersList() {
     setOrderBy(property);
   };
 
-  // Calculate days until expiry
-  const getDaysUntilExpiry = useCallback((expiryDate?: string | Date): number | null => {
-    if (!expiryDate) return null;
-    const today = new Date();
-    const expiry = new Date(expiryDate);
-    const diffTime = expiry.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }, []);
-
-  // Determine membership status based on expiry date
+  // Determine membership status based on points
   const getMembershipStatus = useCallback((member: Member): { status: string; color: string } => {
-    if (!member.membershipExpiry) {
+    if (!member.accessPoints && member.accessPoints !== 0) {
       return { status: 'Indefinido', color: 'default' };
     }
 
-    const daysLeft = getDaysUntilExpiry(member.membershipExpiry);
-
-    if (daysLeft === null) {
-      return { status: 'Desconocido', color: 'default' };
+    if (member.accessPoints <= 0) {
+      return { status: 'Sin puntos', color: 'error' };
     }
 
-    if (daysLeft < 0) {
-      return { status: 'Expirado', color: 'error' };
-    }
-
-    if (daysLeft <= 7) {
-      return { status: 'Por vencer', color: 'warning' };
+    if (member.accessPoints <= 5) {
+      return { status: 'Pocos puntos', color: 'warning' };
     }
 
     return { status: 'Activo', color: 'success' };
-  }, [getDaysUntilExpiry]);
+  }, []);
 
   // Filter and sort members
   const filteredMembers = React.useMemo(() => {
@@ -497,12 +521,9 @@ export default function MembersList() {
         if (orderBy === 'lastCheckIn') {
           aValue = a.lastCheckIn ? new Date(a.lastCheckIn).getTime() : 0;
           bValue = b.lastCheckIn ? new Date(b.lastCheckIn).getTime() : 0;
-        } else if (orderBy === 'membershipExpiry') {
-          aValue = a.membershipExpiry ? new Date(a.membershipExpiry).getTime() : 0;
-          bValue = b.membershipExpiry ? new Date(b.membershipExpiry).getTime() : 0;
-        } else if (orderBy === 'daysLeft') {
-          aValue = getDaysUntilExpiry(a.membershipExpiry) || -999;
-          bValue = getDaysUntilExpiry(b.membershipExpiry) || -999;
+        } else if (orderBy === 'accessPoints') {
+          aValue = a.accessPoints || 0;
+          bValue = b.accessPoints || 0;
         } else if (orderBy === 'name') {
           aValue = a.name?.toLowerCase() || '';
           bValue = b.name?.toLowerCase() || '';
@@ -519,8 +540,8 @@ export default function MembersList() {
         if (statusFilter !== 'all') {
           const memberStatus = getMembershipStatus(member).status.toLowerCase();
           if (statusFilter === 'active' && memberStatus !== 'activo') return false;
-          if (statusFilter === 'expired' && memberStatus !== 'expirado') return false;
-          if (statusFilter === 'pending' && memberStatus !== 'por vencer') return false;
+          if (statusFilter === 'nopoints' && memberStatus !== 'sin puntos') return false;
+          if (statusFilter === 'lowpoints' && memberStatus !== 'pocos puntos') return false;
         }
 
         // Filter by search term
@@ -535,7 +556,7 @@ export default function MembersList() {
 
         return true;
       });
-  }, [members, orderBy, order, statusFilter, search, getDaysUntilExpiry, getMembershipStatus]);
+  }, [members, orderBy, order, statusFilter, search, getMembershipStatus]);
 
   // Get price from membership type ID
   const getMembershipPrice = useCallback((typeId: string): number => {
@@ -598,8 +619,8 @@ export default function MembersList() {
             >
               <MenuItem value="all">Todos</MenuItem>
               <MenuItem value="active">Activos</MenuItem>
-              <MenuItem value="pending">Por vencer</MenuItem>
-              <MenuItem value="expired">Expirados</MenuItem>
+              <MenuItem value="lowpoints">Pocos puntos</MenuItem>
+              <MenuItem value="nopoints">Sin puntos</MenuItem>
             </Select>
           </FormControl>
         </Stack>
@@ -648,15 +669,6 @@ export default function MembersList() {
                 </TableCell>
                 <TableCell>
                   <TableSortLabel
-                    active={orderBy === 'accessPoints'}
-                    direction={orderBy === 'accessPoints' ? order : 'asc'}
-                    onClick={() => handleSort('accessPoints')}
-                  >
-                    Puntos Restantes
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
                     active={orderBy === 'lastCheckIn'}
                     direction={orderBy === 'lastCheckIn' ? order : 'asc'}
                     onClick={() => handleSort('lastCheckIn')}
@@ -670,7 +682,6 @@ export default function MembersList() {
             <TableBody>
               {filteredMembers.length > 0 ? (
                 filteredMembers.map((member) => {
-                  const daysLeft = getDaysUntilExpiry(member.membershipExpiry);
                   const memberStatus = getMembershipStatus(member);
 
                   return (
@@ -692,26 +703,27 @@ export default function MembersList() {
                         />
                       </TableCell>
                       <TableCell>
-                        {member.membershipExpiry
-                          ? format(new Date(member.membershipExpiry), 'dd/MM/yyyy')
-                          : 'No definida'}
-                      </TableCell>
-                      <TableCell>
                         <Typography
                           variant="body2"
                           color={
                             !member.accessPoints ? 'error' :
-                              member.accessPoints <= 5 ? 'warning.main' :
-                                'text.secondary'
+                            member.accessPoints <= 5 ? 'warning.main' :
+                            'text.secondary'
                           }
-                          fontWeight={member.accessPoints && member.accessPoints <= 5 ? 'medium' : 'regular'}
+                          fontWeight={member.accessPoints <= 5 ? 'medium' : 'regular'}
                         >
                           {member.accessPoints || 0} puntos
                         </Typography>
                       </TableCell>
                       <TableCell>
                         {member.lastCheckIn
-                          ? format(new Date(member.lastCheckIn), 'dd/MM/yyyy HH:mm')
+                          ? new Date(member.lastCheckIn).toLocaleString('es-AR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
                           : 'Nunca'}
                       </TableCell>
                       <TableCell>
@@ -737,7 +749,7 @@ export default function MembersList() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={7} align="center">
                     <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                       No se encontraron miembros con los filtros aplicados
                     </Typography>
@@ -823,7 +835,7 @@ export default function MembersList() {
                 <Select
                   name="gender"
                   value={formState.gender}
-                  onChange={handleInputChange}
+                  onChange={handleGenderChange}
                   label="Género"
                 >
                   <MenuItem value="male">Masculino</MenuItem>
@@ -892,7 +904,7 @@ export default function MembersList() {
                   <Select
                     name="level"
                     value={formState.level}
-                    onChange={handleInputChange}
+                    onChange={handleSelectChange}
                     label="Nivel"
                   >
                     <MenuItem value="beginner">Principiante</MenuItem>
@@ -909,7 +921,7 @@ export default function MembersList() {
                   <Select
                     name="goal"
                     value={formState.goal}
-                    onChange={handleInputChange}
+                    onChange={handleSelectChange}
                     label="Objetivo"
                   >
                     <MenuItem value="lose_weight">Perder Peso</MenuItem>
@@ -953,7 +965,7 @@ export default function MembersList() {
                   <Select
                     name="membershipTypeId"
                     value={formState.membershipTypeId}
-                    onChange={handleInputChange}
+                    onChange={handleSelectChange}
                     label="Tipo de Membresía"
                     disabled={pricesLoading || membershipPrices.length === 0}
                   >
@@ -967,20 +979,17 @@ export default function MembersList() {
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <FormControl fullWidth margin="normal" size="small">
-                  <InputLabel>Duración</InputLabel>
-                  <Select
-                    name="membershipMonths"
-                    value={formState.membershipMonths}
-                    onChange={handleInputChange}
-                    label="Duración"
-                  >
-                    <MenuItem value={1}>1 mes</MenuItem>
-                    <MenuItem value={3}>3 meses</MenuItem>
-                    <MenuItem value={6}>6 meses</MenuItem>
-                    <MenuItem value={12}>12 meses</MenuItem>
-                  </Select>
-                </FormControl>
+                <TextField
+                  label="Puntos iniciales"
+                  name="accessPoints"
+                  type="number"
+                  value={formState.accessPoints}
+                  onChange={handleInputChange}
+                  fullWidth
+                  margin="normal"
+                  size="small"
+                  inputProps={{ min: 0 }}
+                />
               </Grid>
 
               <Grid item xs={12} md={4}>
@@ -989,7 +998,7 @@ export default function MembersList() {
                   <Select
                     name="paymentMethod"
                     value={formState.paymentMethod}
-                    onChange={handleInputChange}
+                    onChange={handleSelectChange}
                     label="Método de Pago"
                   >
                     <MenuItem value="cash">Efectivo</MenuItem>
@@ -1009,17 +1018,15 @@ export default function MembersList() {
                       Total a pagar:
                     </Typography>
                     <Typography variant="h6" color="primary.main" fontWeight="bold">
-                      ${getMembershipPrice(formState.membershipTypeId) * formState.membershipMonths}
+                      ${getMembershipPrice(formState.membershipTypeId)}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2">
-                      Expira el:
+                      Puntos iniciales:
                     </Typography>
                     <Typography variant="h6" color="primary.main" fontWeight="bold">
-                      {formState.membershipExpiry ?
-                        format(new Date(formState.membershipExpiry), 'dd/MM/yyyy') :
-                        format(addMonths(new Date(), formState.membershipMonths), 'dd/MM/yyyy')}
+                      {formState.accessPoints} puntos
                     </Typography>
                   </Grid>
                 </Grid>
@@ -1117,8 +1124,8 @@ export default function MembersList() {
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <TextField
-                      label="Fecha de Expiración"
-                      value={selectedMember.membershipExpiry ? format(new Date(selectedMember.membershipExpiry), 'dd/MM/yyyy') : 'No definida'}
+                      label="Puntos disponibles"
+                      value={selectedMember.accessPoints || 0}
                       disabled
                       fullWidth
                       size="small"
@@ -1159,7 +1166,7 @@ export default function MembersList() {
                     <Select
                       name="gender"
                       value={formState.gender}
-                      onChange={handleInputChange}
+                      onChange={handleGenderChange}
                       label="Género"
                     >
                       <MenuItem value="male">Masculino</MenuItem>
@@ -1232,7 +1239,7 @@ export default function MembersList() {
                     <Select
                       name="goal"
                       value={formState.goal}
-                      onChange={handleInputChange}
+                      onChange={handleSelectChange}
                       label="Objetivo"
                     >
                       <MenuItem value="lose_weight">Perder Peso</MenuItem>
@@ -1252,7 +1259,7 @@ export default function MembersList() {
                     <Select
                       name="level"
                       value={formState.level}
-                      onChange={handleInputChange}
+                      onChange={handleSelectChange}
                       label="Nivel"
                     >
                       <MenuItem value="beginner">Principiante</MenuItem>
@@ -1286,7 +1293,7 @@ export default function MembersList() {
         fullWidth
       >
         <DialogTitle>
-          Renovar Membresía
+          Recargar Puntos de Acceso
           <IconButton
             aria-label="close"
             onClick={() => setRenewModalOpen(false)}
@@ -1306,9 +1313,7 @@ export default function MembersList() {
                   Tarjeta: <span style={{ fontFamily: 'monospace' }}>{selectedMember.rfidCardNumber}</span>
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Expiración actual: {selectedMember.membershipExpiry
-                    ? format(new Date(selectedMember.membershipExpiry), 'dd/MM/yyyy')
-                    : 'No definida'}
+                  Puntos actuales: {selectedMember.accessPoints || 0}
                 </Typography>
               </Paper>
 
@@ -1319,7 +1324,7 @@ export default function MembersList() {
                     <Select
                       name="membershipTypeId"
                       value={renewalState.membershipTypeId}
-                      onChange={handleRenewalChange}
+                      onChange={handleRenewalSelectChange}
                       label="Tipo de Membresía"
                       disabled={pricesLoading || membershipPrices.length === 0}
                     >
@@ -1334,17 +1339,18 @@ export default function MembersList() {
 
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Duración</InputLabel>
+                    <InputLabel>Cantidad de puntos</InputLabel>
                     <Select
-                      name="months"
-                      value={renewalState.months}
-                      onChange={handleRenewalChange}
-                      label="Duración"
+                      name="pointsAmount"
+                      value={renewalState.pointsAmount}
+                      onChange={handleRenewalSelectChange}
+                      label="Cantidad de puntos"
                     >
-                      <MenuItem value={1}>1 mes</MenuItem>
-                      <MenuItem value={3}>3 meses</MenuItem>
-                      <MenuItem value={6}>6 meses</MenuItem>
-                      <MenuItem value={12}>12 meses</MenuItem>
+                      <MenuItem value={5}>5 puntos</MenuItem>
+                      <MenuItem value={10}>10 puntos</MenuItem>
+                      <MenuItem value={20}>20 puntos</MenuItem>
+                      <MenuItem value={30}>30 puntos</MenuItem>
+                      <MenuItem value={50}>50 puntos</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1355,7 +1361,7 @@ export default function MembersList() {
                     <Select
                       name="paymentMethod"
                       value={renewalState.paymentMethod}
-                      onChange={handleRenewalChange}
+                      onChange={handleRenewalSelectChange}
                       label="Método de Pago"
                     >
                       <MenuItem value="cash">Efectivo</MenuItem>
@@ -1379,21 +1385,9 @@ export default function MembersList() {
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={6}>
-                      <Typography variant="subtitle2">Nueva expiración:</Typography>
+                      <Typography variant="subtitle2">Puntos totales:</Typography>
                       <Typography variant="h6" color="primary.main">
-                        {(() => {
-                          const now = new Date();
-                          const currentExpiry = selectedMember.membershipExpiry ? new Date(selectedMember.membershipExpiry) : now;
-                          let newExpiryDate;
-
-                          if (isAfter(currentExpiry, now)) {
-                            newExpiryDate = addMonths(currentExpiry, renewalState.months);
-                          } else {
-                            newExpiryDate = addMonths(now, renewalState.months);
-                          }
-
-                          return format(newExpiryDate, 'dd/MM/yyyy');
-                        })()}
+                        {(selectedMember.accessPoints || 0) + renewalState.pointsAmount} puntos
                       </Typography>
                     </Grid>
                   </Grid>
@@ -1410,7 +1404,7 @@ export default function MembersList() {
             onClick={() => setConfirmRenewalOpen(true)}
             disabled={pricesLoading || membershipPrices.length === 0}
           >
-            Renovar
+            Recargar
           </Button>
         </DialogActions>
       </Dialog>
@@ -1423,11 +1417,11 @@ export default function MembersList() {
         fullWidth
       >
         <DialogTitle>
-          Confirmar Renovación
+          Confirmar Recarga de Puntos
         </DialogTitle>
         <DialogContent dividers>
           <Alert severity="warning" icon={<Warning />} sx={{ mb: 2 }}>
-            ¿Confirmar la renovación de esta membresía?
+            ¿Confirmar la recarga de puntos?
           </Alert>
 
           {selectedMember && (
@@ -1451,12 +1445,12 @@ export default function MembersList() {
 
                 <Grid item xs={6}>
                   <Typography variant="body2" color="text.secondary">
-                    Duración:
+                    Puntos a recargar:
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2">
-                    {renewalState.months} mes(es)
+                    {renewalState.pointsAmount} puntos
                   </Typography>
                 </Grid>
 
