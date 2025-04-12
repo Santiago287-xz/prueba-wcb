@@ -127,7 +127,7 @@ export default function MembersList() {
       console.log(response.data.types)
       if (response.data && response.data.types) {
         setMembershipPrices(response.data.types);
-      
+
         if (response.data.types.length > 0) {
           setFormState(prev => ({
             ...prev,
@@ -141,7 +141,7 @@ export default function MembersList() {
         }
       } else {
         setPricesError('La respuesta de la API no tiene el formato esperado');
-      }      
+      }
     } catch (error) {
       console.error('Error fetching membership prices:', error);
       setPricesError('Error al cargar los precios de membresía');
@@ -401,14 +401,14 @@ export default function MembersList() {
     setSelectedMember(member);
     const memberType = member.membershipType || membershipPrices[0]?.id || '';
     const selectedPrice = membershipPrices.find(p => p.id === memberType);
-    
+
     setRenewalState({
       membershipTypeId: memberType,
       months: 1,
       paymentMethod: 'cash',
       totalAmount: selectedPrice?.basePrice || 0
     });
-    
+
     setRenewModalOpen(true);
   }, [membershipPrices]);
 
@@ -417,7 +417,7 @@ export default function MembersList() {
       showNotification('No hay tipos de membresía disponibles', 'error');
       return;
     }
-    
+
     setFormState({
       name: '',
       email: '',
@@ -435,7 +435,7 @@ export default function MembersList() {
       goal: 'lose_weight',
       level: 'beginner'
     });
-    
+
     setErrors({
       name: false,
       email: false,
@@ -445,7 +445,7 @@ export default function MembersList() {
       height: false,
       weight: false
     });
-    
+
     setCreateModalOpen(true);
   }, [membershipPrices, showNotification]);
 
@@ -564,7 +564,7 @@ export default function MembersList() {
           Cargando precios de membresía...
         </Alert>
       )}
-      
+
       {pricesError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {pricesError}
@@ -639,20 +639,20 @@ export default function MembersList() {
                 <TableCell>Estado</TableCell>
                 <TableCell>
                   <TableSortLabel
-                    active={orderBy === 'membershipExpiry'}
-                    direction={orderBy === 'membershipExpiry' ? order : 'asc'}
-                    onClick={() => handleSort('membershipExpiry')}
+                    active={orderBy === 'accessPoints'}
+                    direction={orderBy === 'accessPoints' ? order : 'asc'}
+                    onClick={() => handleSort('accessPoints')}
                   >
-                    Expiración
+                    Puntos disponibles
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
                   <TableSortLabel
-                    active={orderBy === 'daysLeft'}
-                    direction={orderBy === 'daysLeft' ? order : 'asc'}
-                    onClick={() => handleSort('daysLeft')}
+                    active={orderBy === 'accessPoints'}
+                    direction={orderBy === 'accessPoints' ? order : 'asc'}
+                    onClick={() => handleSort('accessPoints')}
                   >
-                    Días Restantes
+                    Puntos Restantes
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -700,19 +700,13 @@ export default function MembersList() {
                         <Typography
                           variant="body2"
                           color={
-                            daysLeft === null ? 'text.secondary' :
-                              daysLeft < 0 ? 'error' :
-                                daysLeft <= 7 ? 'warning.main' :
-                                  daysLeft <= 15 ? 'info.main' :
-                                    'text.secondary'
+                            !member.accessPoints ? 'error' :
+                              member.accessPoints <= 5 ? 'warning.main' :
+                                'text.secondary'
                           }
-                          fontWeight={daysLeft !== null && daysLeft <= 15 ? 'medium' : 'regular'}
+                          fontWeight={member.accessPoints && member.accessPoints <= 5 ? 'medium' : 'regular'}
                         >
-                          {daysLeft !== null
-                            ? daysLeft < 0
-                              ? `Vencido (${Math.abs(daysLeft)} días)`
-                              : `${daysLeft} días`
-                            : 'N/A'}
+                          {member.accessPoints || 0} puntos
                         </Typography>
                       </TableCell>
                       <TableCell>

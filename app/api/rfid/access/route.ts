@@ -1,7 +1,6 @@
-// app/api/rfid/access/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
-import { broadcastEvent } from "@/app/api/rfid-events/route";
+import { broadcastEvent } from "@/app/libs/broadcast";
 
 const API_KEY = process.env.RFID_API_KEY || "your_secret_api_key";
 

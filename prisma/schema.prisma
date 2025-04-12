@@ -60,7 +60,7 @@ enum SalePaymentMethod {
 }
 
 model User {
-  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
   name               String
   email              String               @unique
   phone              Int?                 @default(0)
@@ -76,14 +76,12 @@ model User {
   post               String?
   rfidCardNumber     String?              @unique
   rfidAssignedAt     DateTime?
-  membershipExpiry   DateTime?
-  membershipStatus   String?              @default("active") // active, expired, suspended
-  membershipType     String?
+  accessPoints       Int                  @default(0)
+  membershipStatus   String?              @default("active")
   lastCheckIn        DateTime?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   accessLogs         AccessLog[]
-  PasswordResetToken PasswordResetToken[]
   stockMovements     StockMovement[]
   sales              Sale[]
   transactions       Transaction[]
@@ -100,15 +98,25 @@ model MembershipPrice {
 }
 
 model AccessLog {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String?  
-  user        User?    @relation(fields: [userId], references: [id])
-  status      String
-  reason      String?
-  deviceId    String
-  ip          String?
-  timestamp   DateTime @default(now())
-  processedBy String?
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String   @db.ObjectId
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           String   // allowed, denied, warning
+  reason           String?
+  deviceId         String
+  ip               String?
+  timestamp        DateTime @default(now())
+  pointsDeducted   Int      @default(0)
+  isToleranceEntry Boolean  @default(false)
+}
+
+model PasswordResetToken {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  token     String    @unique
+  resetAt   DateTime?
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String    @map("userId") @db.ObjectId
+  createdAt DateTime  @default(now())
 }
 
 model PasswordResetToken {
@@ -258,6 +266,8 @@ model Transaction {
   reservationId String?           @db.ObjectId
   reservation   CourtReservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  PointPackage   PointPackage? @relation(fields: [pointPackageId], references: [id])
+  pointPackageId String?       @db.ObjectId
 }

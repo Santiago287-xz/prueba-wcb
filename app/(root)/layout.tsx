@@ -46,6 +46,8 @@ function AuthLoadingSkeleton() {
 
 // Optimized fetcher with retry logic
 const fetcher = async (url: string) => {
+  console.log(url)
+  if (url == "/api/notification") return
   try {
     const res = await axios.get(url, {
       headers: {

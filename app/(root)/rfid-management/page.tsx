@@ -1,7 +1,6 @@
-// app/rfid-management/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -14,6 +13,8 @@ import {
   CardContent,
   Button,
   CircularProgress,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { ScannerOutlined, AssignmentIndOutlined, HistoryOutlined, Refresh } from '@mui/icons-material';
 import RFIDScanner from '@/app/components/RFID/Scanner';
@@ -43,6 +44,22 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+interface AccessNotification {
+  type: 'allowed' | 'denied' | 'warning';
+  message: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    membershipType: string | null;
+    membershipExpiry: string | null;
+    membershipStatus: string | null;
+  } | null;
+  cardNumber: string;
+  deviceId?: string;
+  timestamp: string;
+}
+
 export default function RFIDManagementPage() {
   const [tabValue, setTabValue] = useState(0);
   const [stats, setStats] = useState({
@@ -53,49 +70,18 @@ export default function RFIDManagementPage() {
   });
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [notification, setNotification] = useState<AccessNotification | null>(null);
+  const [notificationOpen, setNotificationOpen] = useState(false);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setIsLoading(true);
-    try {
-      // Primero intentamos obtener datos con las nuevas APIs
-      const [membershipsResponse, accessResponse] = await Promise.all([
-        fetch('/api/memberships/stats'),
-        fetch('/api/access/stats/today')
-      ]);
-      // Verificamos si las respuestas fueron exitosas
-      if (membershipsResponse.ok && accessResponse.ok) {
-        const membershipsData = await membershipsResponse.json();
-        console.log(membershipsData)
-        const accessData = await accessResponse.json();
-
-        setStats({
-          totalMembers: membershipsData.total || 0,
-          activeMembers: membershipsData.active || 0,
-          expiredMembers: membershipsData.expired || 0,
-          todayAccesses: accessData.count || 0,
-        });
-      } else {
-        // Si alguna falla, usamos la API de respaldo
-        fallbackFetchStats();
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-      // Si hay un error, usamos la API de respaldo
-      fallbackFetchStats();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fallbackFetchStats = async () => {
     try {
       const response = await fetch('/api/rfid/stats');
       if (response.ok) {
         const data = await response.json();
         setStats(data);
       } else {
-        // Si incluso la API de respaldo falla, usamos valores por defecto
-        console.error('Error fetching fallback stats');
+        console.error('Error fetching stats');
         setStats({
           totalMembers: 0,
           activeMembers: 0,
@@ -103,14 +89,90 @@ export default function RFIDManagementPage() {
           todayAccesses: 0,
         });
       }
-    } catch (fallbackError) {
-      console.error('Error fetching fallback stats:', fallbackError);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      setStats({
+        totalMembers: 0,
+        activeMembers: 0,
+        expiredMembers: 0,
+        todayAccesses: 0,
+      });
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    console.log("Iniciando conexión SSE...");
     fetchStats();
-  }, []);
+    
+    let eventSource: EventSource | null = null;
+    
+    const setupEventSource = () => {
+      console.log("Configurando EventSource...");
+      if (eventSource) {
+        eventSource.close();
+      }
+      
+      eventSource = new EventSource('/api/rfid-events');
+      
+      eventSource.onopen = () => {
+        console.log("Conexión SSE establecida correctamente");
+      };
+      
+      eventSource.onmessage = (event) => {
+        console.log("Evento SSE recibido:", event.data);
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type && data.cardNumber) {
+            if (data.event !== 'connected') {
+              setNotification(data);
+              setNotificationOpen(true);
+              fetchStats();
+              playSound(data.type);
+            }
+            console.log("Notificación procesada:", data);
+          }
+        } catch (error) {
+          console.error('Error parsing SSE data:', error);
+        }
+      };
+      
+      eventSource.onerror = (error) => {
+        console.error('SSE error:', error);
+        eventSource?.close();
+        
+        setTimeout(setupEventSource, 5000);
+      };
+    };
+    
+    setupEventSource();
+    
+    return () => {
+      console.log("Limpiando conexión SSE");
+      eventSource?.close();
+    };
+  }, [fetchStats]);
+
+  const playSound = (status: string) => {
+    let soundFile;
+    switch (status) {
+      case 'allowed': soundFile = 'access-granted.mp3'; break;
+      case 'warning': soundFile = 'warning.mp3'; break;
+      case 'denied': soundFile = 'access-denied.mp3'; break;
+      default: soundFile = 'notification.mp3';
+    }
+
+    try {
+      const audio = new Audio(`/sounds/${soundFile}`);
+      audio.play().catch(err => {
+        console.error('Error playing sound:', err);
+      });
+    } catch (err) {
+      console.error('Error playing sound:', err);
+    }
+  };
 
   const openTransactionModal = () => {
     setIsTransactionModalOpen(true);
@@ -122,6 +184,10 @@ export default function RFIDManagementPage() {
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+
+  const handleCloseNotification = () => {
+    setNotificationOpen(false);
   };
 
   return (
@@ -263,7 +329,6 @@ export default function RFIDManagementPage() {
           transaction={null}
           onClose={closeTransactionModal}
           onSave={(transaction) => {
-            // Implementar lógica de guardado similar a handleSaveTransaction
             fetch('/api/transactions', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -272,7 +337,7 @@ export default function RFIDManagementPage() {
               .then(response => {
                 if (response.ok) {
                   closeTransactionModal();
-                  fetchStats(); // Refrescar estadísticas después de una transacción
+                  fetchStats();
                 }
               })
               .catch(error => {
@@ -281,6 +346,30 @@ export default function RFIDManagementPage() {
           }}
         />
       )}
+
+      <Snackbar
+        open={notificationOpen}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleCloseNotification}
+          severity={
+            notification?.type === 'allowed' ? 'success' :
+              notification?.type === 'warning' ? 'warning' : 'error'
+          }
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          <Typography variant="subtitle1">
+            {notification?.user?.name || 'Tarjeta no registrada'}
+          </Typography>
+          <Typography variant="body2">
+            {notification?.message}
+          </Typography>
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }
