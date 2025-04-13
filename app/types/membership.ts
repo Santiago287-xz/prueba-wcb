@@ -1,24 +1,27 @@
 // /app/types/membership.ts
 
-// Core membership types
+// Core membership types - Updated for points-based system
 export interface MembershipData {
   membershipType: string;
   membershipStatus: "active" | "expired" | "pending" | "suspended";
-  membershipExpiry: Date | string | null;
+  accessPoints: number;
   rfidCardNumber: string;
   rfidAssignedAt?: Date | string;
   lastCheckIn?: Date | string | null;
 }
 
-// Access log entry
+// Access log entry - Updated with points and tolerance info
 export interface AccessLogData {
   userId: string;
   status: 'allowed' | 'denied' | 'warning';
   reason?: string | null;
   processedBy?: string;
+  pointsDeducted: number;
+  isToleranceEntry: boolean;
   timestamp?: Date;
   location?: string;
 }
+
 export interface Member {
   id: string;
   name: string;
@@ -29,7 +32,7 @@ export interface Member {
   rfidCardNumber?: string;
   membershipType?: string;
   membershipStatus?: string;
-  membershipExpiry?: string | Date;
+  accessPoints: number;
   lastCheckIn?: string | Date;
   height?: number;
   weight?: number;
@@ -43,7 +46,8 @@ export interface MembershipPrice {
   basePrice: number;
   description?: string;
 }
-// Response formats
+
+// Response formats - Updated for points-based system
 export interface RFIDScanResponse {
   status: 'allowed' | 'denied' | 'warning';
   user?: {
@@ -51,12 +55,14 @@ export interface RFIDScanResponse {
     name: string;
     email: string;
     membershipType: string;
-    membershipExpiry: Date | string | null;
+    accessPoints: number;
     membershipStatus: string;
     lastCheckIn: Date | string | null;
   };
   accessLog?: any;
   message: string;
+  pointsDeducted: number;
+  isToleranceEntry: boolean;
 }
 
 export interface MembershipStatsResponse {
@@ -69,7 +75,7 @@ export interface MembershipStatsResponse {
   revenueThisMonth?: number;
 }
 
-// Event payload for real-time notifications
+// Event payload for real-time notifications - Updated for points
 export interface RFIDEventPayload {
   type: 'allowed' | 'denied' | 'warning';
   message: string;
@@ -77,8 +83,11 @@ export interface RFIDEventPayload {
     id: string;
     name: string;
     membershipType: string;
+    accessPoints: number;
     membershipStatus: string;
   };
+  pointsDeducted?: number;
+  isToleranceEntry?: boolean;
   cardNumber: string;
   timestamp?: string;
 }

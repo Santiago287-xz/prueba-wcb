@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       rfidCardNumber, 
       membershipType, 
       membershipStatus,
-      membershipExpiry,
+      accessPoints,
       goal,
       level,
       medicalConditions,
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         rfidAssignedAt: new Date(),
         membershipType: membershipType || "standard",
         membershipStatus: membershipStatus || "active",
-        membershipExpiry: membershipExpiry ? new Date(membershipExpiry) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        accessPoints: accessPoints ? parseInt(accessPoints.toString()) : 30,
         isActive: true,
         post: JSON.stringify(extraData)
       }

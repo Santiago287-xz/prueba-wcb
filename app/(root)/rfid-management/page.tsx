@@ -101,25 +101,16 @@ export default function RFIDManagementPage() {
   }, []);
 
   useEffect(() => {
-    console.log("Iniciando conexión SSE...");
     fetchStats();
     
     let eventSource: EventSource | null = null;
     
     const setupEventSource = () => {
-      console.log("Configurando EventSource...");
       if (eventSource) {
         eventSource.close();
-      }
-      
+      }      
       eventSource = new EventSource('/api/rfid-events');
-      
-      eventSource.onopen = () => {
-        console.log("Conexión SSE establecida correctamente");
-      };
-      
       eventSource.onmessage = (event) => {
-        console.log("Evento SSE recibido:", event.data);
         try {
           const data = JSON.parse(event.data);
           
@@ -127,10 +118,9 @@ export default function RFIDManagementPage() {
             if (data.event !== 'connected') {
               setNotification(data);
               setNotificationOpen(true);
-              fetchStats(); // Actualizar estadísticas cuando llega un evento
+              fetchStats();
               playSound(data.type);
             }
-            console.log("Notificación procesada:", data);
           }
         } catch (error) {
           console.error('Error parsing SSE data:', error);
@@ -148,7 +138,6 @@ export default function RFIDManagementPage() {
     setupEventSource();
     
     return () => {
-      console.log("Limpiando conexión SSE");
       eventSource?.close();
     };
   }, [fetchStats]);

@@ -1,4 +1,4 @@
-// app/api/rfid/stats/route.ts - Actualizado para sistema de puntos
+// app/api/rfid/stats/route.ts - Updated for points-based system
 import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 
@@ -9,18 +9,24 @@ export async function GET() {
         rfidCardNumber: { not: null }
       }
     });
+    
+    // Active members now have accessPoints > 0
     const activeMembers = await prisma.user.count({
       where: {
         rfidCardNumber: { not: null },
         accessPoints: { gt: 0 }
       }
     });    
+    
+    // Expired members now have accessPoints = 0
     const expiredMembers = await prisma.user.count({
       where: {
         rfidCardNumber: { not: null },
         accessPoints: { equals: 0 }
       }
     });
+    
+    // Today's accesses remain the same
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -32,7 +38,8 @@ export async function GET() {
         timestamp: {
           gte: today,
           lt: tomorrow
-        }
+        },
+        status: "allowed"
       }
     });
     

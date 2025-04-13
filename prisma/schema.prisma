@@ -77,6 +77,7 @@ model User {
   rfidCardNumber     String?              @unique
   rfidAssignedAt     DateTime?
   accessPoints       Int                  @default(0)
+  membershipType     String?
   membershipStatus   String?              @default("active")
   lastCheckIn        DateTime?
   createdAt          DateTime             @default(now())
@@ -108,24 +109,6 @@ model AccessLog {
   timestamp        DateTime @default(now())
   pointsDeducted   Int      @default(0)
   isToleranceEntry Boolean  @default(false)
-}
-
-model PasswordResetToken {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  token     String    @unique
-  resetAt   DateTime?
-  user      User      @relation(fields: [userId], references: [id])
-  userId    String    @map("userId") @db.ObjectId
-  createdAt DateTime  @default(now())
-}
-
-model PasswordResetToken {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  token     String    @unique
-  resetAt   DateTime?
-  user      User      @relation(fields: [userId], references: [id])
-  userId    String    @map("userId") @db.ObjectId
-  createdAt DateTime  @default(now())
 }
 
 enum Month {
@@ -270,4 +253,16 @@ model Transaction {
   updatedAt      DateTime      @updatedAt
   PointPackage   PointPackage? @relation(fields: [pointPackageId], references: [id])
   pointPackageId String?       @db.ObjectId
+}
+
+model PointPackage {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  points      Int
+  price       Float
+  description String?
+  active      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  transactions Transaction[]
 }

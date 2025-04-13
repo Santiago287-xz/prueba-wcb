@@ -18,14 +18,12 @@ import {
   MenuItem,
   Button,
   CircularProgress,
-  Grid,
-  TextField,
   IconButton,
+  Grid,
 } from '@mui/material';
 import { Refresh } from '@mui/icons-material';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 import axios from 'axios';
+import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 
 interface AccessLog {
   id: string;
@@ -43,30 +41,34 @@ interface AccessLog {
 }
 
 const RFIDLogs: React.FC = () => {
+  // Initialize with today's date range
+  const today = new Date();
+  const [dateRange, setDateRange] = useState({
+    startDate: startOfDay(today),
+    endDate: endOfDay(today)
+  });
+  
   const [logs, setLogs] = useState<AccessLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState<Date | null>(new Date());
-  const [endDate, setEndDate] = useState<Date | null>(new Date());
   const [status, setStatus] = useState<string>('');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 20;
 
-  const fetchLogs = useCallback(async (reset: boolean = false) => {
+  const fetchLogs = useCallback(async (resetPage: boolean = false) => {
     setLoading(true);
     try {
-      const currentPage = reset ? 0 : page;
-      if (reset) {
+      const currentPage = resetPage ? 0 : page;
+      if (resetPage) {
         setPage(0);
       }
 
       const params = new URLSearchParams();
-      if (startDate) {
-        params.append('startDate', formatDateToYYYYMMDD(startDate));
-      }
-      if (endDate) {
-        params.append('endDate', formatDateToYYYYMMDD(endDate));
-      }
+      
+      // Format dates for API
+      params.append('startDate', format(dateRange.startDate, 'yyyy-MM-dd'));
+      params.append('endDate', format(dateRange.endDate, 'yyyy-MM-dd'));
+      
       if (status) {
         params.append('status', status);
       }
@@ -76,15 +78,19 @@ const RFIDLogs: React.FC = () => {
 
       const response = await axios.get(`/api/rfid/logs?${params.toString()}`);
       
-      if (response.data && Array.isArray(response.data.logs)) {
-        if (reset) {
+      if (response.data && response.data.logs) {
+        if (resetPage) {
           setLogs(response.data.logs);
         } else {
           setLogs(prevLogs => [...prevLogs, ...response.data.logs]);
         }
+        
+        // Check if there might be more logs to load
         setHasMore(response.data.logs.length === pageSize);
       } else {
-        setLogs(reset ? [] : logs);
+        if (resetPage) {
+          setLogs([]);
+        }
         setHasMore(false);
       }
     } catch (error) {
@@ -92,15 +98,17 @@ const RFIDLogs: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, status, page, logs, pageSize]);
+  }, [dateRange, status, page, pageSize]);
 
+  // Initial fetch on component mount
   useEffect(() => {
     fetchLogs(true);
   }, []);
 
-  const formatDateToYYYYMMDD = (date: Date) => {
-    return date.toISOString().split('T')[0];
-  };
+  // Apply filters when status or date range changes
+  useEffect(() => {
+    fetchLogs(true);
+  }, [status, dateRange]);
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -117,30 +125,32 @@ const RFIDLogs: React.FC = () => {
 
   const loadMore = () => {
     setPage(prevPage => prevPage + 1);
-    fetchLogs();
-  };
-
-  const resetFilters = () => {
-    setStartDate(new Date());
-    setEndDate(new Date());
-    setStatus('');
-    fetchLogs(true);
-  };
-
-  const handleStartDateChange = (newDate: Date | null) => {
-    setStartDate(newDate);
-  };
-
-  const handleEndDateChange = (newDate: Date | null) => {
-    setEndDate(newDate);
+    fetchLogs(false);
   };
 
   const handleStatusChange = (event: React.ChangeEvent<{ value: unknown }>) => {
     setStatus(event.target.value as string);
   };
 
-  const handleApplyFilters = () => {
-    fetchLogs(true);
+  const handleSetToday = () => {
+    setDateRange({
+      startDate: startOfDay(today),
+      endDate: endOfDay(today)
+    });
+  };
+
+  const handleSet7Days = () => {
+    setDateRange({
+      startDate: startOfDay(subDays(today, 6)),
+      endDate: endOfDay(today)
+    });
+  };
+
+  const handleSet30Days = () => {
+    setDateRange({
+      startDate: startOfDay(subDays(today, 29)),
+      endDate: endOfDay(today)
+    });
   };
 
   return (
@@ -159,48 +169,31 @@ const RFIDLogs: React.FC = () => {
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={3}>
-          <div style={{ width: '100%' }}>
-            <DatePicker
-              selected={startDate}
-              onChange={handleStartDateChange}
-              selectsStart
-              startDate={startDate}
-              endDate={endDate}
-              dateFormat="dd/MM/yyyy"
-              customInput={
-                <TextField
-                  fullWidth
-                  label="Fecha inicial"
-                  variant="outlined"
-                  size="small"
-                />
-              }
-            />
-          </div>
+        {/* Date Range Selector - Left Side */}
+        <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
+          <input
+            type="date"
+            value={format(dateRange.startDate, 'yyyy-MM-dd')}
+            onChange={(e) => {
+              setDateRange({ ...dateRange, startDate: new Date(e.target.value) });
+            }}
+            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+            max={format(new Date(), 'yyyy-MM-dd')}
+          />
+          <span style={{ margin: '0 8px' }}>-</span>
+          <input
+            type="date"
+            value={format(dateRange.endDate, 'yyyy-MM-dd')}
+            onChange={(e) => {
+              setDateRange({ ...dateRange, endDate: new Date(e.target.value) });
+            }}
+            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+            max={format(new Date(), 'yyyy-MM-dd')}
+          />
         </Grid>
-        <Grid item xs={12} md={3}>
-          <div style={{ width: '100%' }}>
-            <DatePicker
-              selected={endDate}
-              onChange={handleEndDateChange}
-              selectsEnd
-              startDate={startDate}
-              endDate={endDate}
-              minDate={startDate}
-              dateFormat="dd/MM/yyyy"
-              customInput={
-                <TextField
-                  fullWidth
-                  label="Fecha final"
-                  variant="outlined"
-                  size="small"
-                />
-              }
-            />
-          </div>
-        </Grid>
-        <Grid item xs={12} md={3}>
+        
+        {/* Status Selector - Middle */}
+        <Grid item xs={12} md={2}>
           <FormControl fullWidth size="small">
             <InputLabel>Estado</InputLabel>
             <Select
@@ -215,22 +208,31 @@ const RFIDLogs: React.FC = () => {
             </Select>
           </FormControl>
         </Grid>
-        <Grid item xs={12} md={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        
+        {/* Quick Date Buttons - Right Side */}
+        <Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
           <Button 
-            variant="contained" 
-            onClick={handleApplyFilters}
-            disabled={loading}
-            fullWidth
+            variant="outlined"
+            onClick={handleSet30Days}
+            size="small"
           >
-            Aplicar filtros
+            30 días
           </Button>
+          
           <Button 
-            variant="outlined" 
-            onClick={resetFilters}
-            disabled={loading}
-            fullWidth
+            variant="outlined"
+            onClick={handleSet7Days}
+            size="small"
           >
-            Mostrar todos
+            7 días
+          </Button>
+          
+          <Button 
+            variant="outlined"
+            onClick={handleSetToday}
+            size="small"
+          >
+            Hoy
           </Button>
         </Grid>
       </Grid>
@@ -255,7 +257,7 @@ const RFIDLogs: React.FC = () => {
               <TableBody>
                 {logs.length > 0 ? (
                   logs.map((log) => (
-                    <TableRow key={log.id}>
+                    <TableRow key={log.id} hover>
                       <TableCell>{formatDateTime(log.timestamp)}</TableCell>
                       <TableCell>{log.user?.name || 'Tarjeta no asignada'}</TableCell>
                       <TableCell>{log.user?.email || 'N/A'}</TableCell>

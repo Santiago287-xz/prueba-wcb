@@ -1,39 +1,44 @@
-// app/api/rfid-events/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from "next-auth";
-import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
-import { addClient, removeClient, clients } from "@/app/libs/broadcast";
+import { addClient, removeClient } from '@/app/libs/broadcast';
 
 export async function GET(req: NextRequest) {
-  console.log("SSE connection iniciada");
-  const session = await getServerSession(authOptions);
   
-  if (!session?.user?.id) {
-    console.log("Usuario no autenticado");
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  // Create a variable to store the controller reference
+  let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
+  
+  try {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        
+        // Store reference in outer scope
+        controllerRef = controller;
+        
+        try {
+          addClient(controller);
+          const connectEvent = { event: 'connected', message: 'Conexión establecida' };
+          const data = `data: ${JSON.stringify(connectEvent)}\n\n`;
+          controller.enqueue(new TextEncoder().encode(data));
+        } catch (error) {
+          console.error("🔴 Error in stream start:", error);
+        }
+      },
+      cancel(reason) {
+        if (controllerRef) {
+          removeClient(controllerRef);
+          controllerRef = null;
+        }
+      }
+    });
+    
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+      }
+    });
+  } catch (error) {
+    console.error("🔴 Fatal error in SSE handler:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  console.log(`Usuarios conectados antes: ${clients.size}, ID sesión: ${session.user.id}`);
-  
-  const stream = new ReadableStream({
-    start(controller) {
-      console.log("Nuevo cliente SSE conectado");
-      addClient(controller);
-      
-      const data = `data: ${JSON.stringify({ event: 'connected' })}\n\n`;
-      controller.enqueue(new TextEncoder().encode(data));
-    },
-    cancel(controller) {
-      console.log("Cliente SSE desconectado");
-      removeClient(controller);
-    }
-  });
-
-  return new NextResponse(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  });
 }

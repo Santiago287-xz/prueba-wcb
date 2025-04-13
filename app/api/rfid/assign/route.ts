@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 import { getServerSession } from "next-auth";
 import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
-import { MembershipData } from "@/app/types/membership";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -13,11 +12,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { userId, rfidCardNumber, membershipType, membershipExpiry } = await req.json() as {
+    const { userId, rfidCardNumber, membershipType, accessPoints } = await req.json() as {
       userId: string;
       rfidCardNumber: string;
       membershipType?: string;
-      membershipExpiry?: string;
+      accessPoints?: number;
     };
     
     if (!userId || !rfidCardNumber) {
@@ -37,14 +36,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Update user with RFID information
-    const updateData: MembershipData & { isActive: boolean } = { 
+    const updateData: any = { 
       rfidCardNumber,
       rfidAssignedAt: new Date(),
-      membershipType: membershipType || 'standard',
-      membershipExpiry: membershipExpiry ? new Date(membershipExpiry) : null,
-      membershipStatus: "active",
       isActive: true
     };
+
+    // Add optional fields if provided
+    if (membershipType) {
+      updateData.membershipType = membershipType;
+    }
+
+    if (accessPoints !== undefined) {
+      updateData.accessPoints = accessPoints;
+      // Update membership status based on points
+      updateData.membershipStatus = accessPoints > 0 ? "active" : "expired";
+    }
 
     const user = await prisma.user.update({
       where: { id: userId },

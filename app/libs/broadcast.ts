@@ -1,36 +1,30 @@
-// app/libs/broadcast.ts (versión corregida)
-export const clients = new Set<ReadableStreamController<Uint8Array>>();
+import { clientsStore } from './globalStore';
 
-export function addClient(controller: ReadableStreamController<Uint8Array>) {
-  console.log(`Cliente añadido (ID: ${Math.random().toString(36).slice(2)}), total: ${clients.size + 1}`);
-  clients.add(controller);
+export function addClient(controller: ReadableStreamDefaultController<Uint8Array>) {
+  (controller as any).clientId = Math.random().toString(36).substring(2, 10);
+  clientsStore.add(controller);
 }
 
-export function removeClient(controller: ReadableStreamController<Uint8Array>) {
-  clients.delete(controller);
-  console.log(`Cliente eliminado, total: ${clients.size}`);
+export function removeClient(controller: ReadableStreamDefaultController<Uint8Array>) {
+  const id = (controller as any).clientId || 'unknown';
+  const deleted = clientsStore.delete(controller);
 }
 
-export function broadcastEvent(eventData: any) {
-  console.log(`Intentando emitir evento a ${clients.size} clientes:`, JSON.stringify(eventData).slice(0, 100) + "...");
-  
-  if (clients.size === 0) {
-    console.log("No hay clientes conectados para recibir el evento");
+export function broadcastEvent(event: any) {  
+  if (clientsStore.size === 0) {
     return;
   }
   
-  const data = `data: ${JSON.stringify(eventData)}\n\n`;
-  const encoded = new TextEncoder().encode(data);
+  const data = `data: ${JSON.stringify(event)}\n\n`;
+  const encoder = new TextEncoder();
+  const encodedData = encoder.encode(data);
   
-  let activeClients = 0;
-  clients.forEach(client => {
+  clientsStore.forEach(client => {
     try {
-      client.enqueue(encoded);
-      activeClients++;
-    } catch (e) {
-      console.error('Failed to send SSE:', e);
-      clients.delete(client);
+      client.enqueue(encodedData);
+    } catch (error) {
+      console.error(`❌ Error sending to [${(client as any).clientId}]`);
+      clientsStore.delete(client);
     }
   });
-  console.log(`Evento enviado exitosamente a ${activeClients} clientes`);
 }

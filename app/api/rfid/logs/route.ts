@@ -34,7 +34,6 @@ export async function GET(req: NextRequest) {
       if (startDate) {
         // Create date with time at beginning of day in local timezone
         const parsedStartDate = new Date(`${startDate}T00:00:00.000`);
-        console.log("Start date (local):", parsedStartDate.toISOString());
         where.timestamp.gte = parsedStartDate;
       }
       
@@ -42,7 +41,6 @@ export async function GET(req: NextRequest) {
         // Create date with time at end of day in local timezone and add 1 day
         const nextDay = new Date(`${endDate}T00:00:00.000`);
         nextDay.setDate(nextDay.getDate() + 1);
-        console.log("End date (local + 1 day):", nextDay.toISOString());
         where.timestamp.lt = nextDay; // Using lt instead of lte with nextDay
       }
     }
