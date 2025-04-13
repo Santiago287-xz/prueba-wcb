@@ -2,10 +2,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 import { getServerSession } from "next-auth";
-import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { options } from "@/app/api/auth/[...nextauth]/options";
 
 // GET: Obtener todas las categorías
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(options);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }  
   try {
     const categories = await prisma.category.findMany({
       orderBy: {
@@ -22,7 +27,7 @@ export async function GET(req: NextRequest) {
 
 // POST: Crear una nueva categoría
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(options);
   
   // Verificar que el usuario está autenticado y tiene permisos
   if (!session?.user?.id || (session.user.role !== "admin" && session.user.role !== "court_manager")) {

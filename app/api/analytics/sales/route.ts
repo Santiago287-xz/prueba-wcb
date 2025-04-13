@@ -1,8 +1,15 @@
 // app/api/analytics/sales/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/app/libs/prismadb';
+import { getServerSession } from "next-auth";
+import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 export async function GET(request: Request) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id || !['admin', 'employee'].includes(session.user.role as string)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
   const start = searchParams.get('start');
   const end = searchParams.get('end');

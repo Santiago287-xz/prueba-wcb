@@ -18,7 +18,7 @@ function AuthCheck({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/auth/signin');
+      router.push('/signin');
     }
   }, [status, router]);
 

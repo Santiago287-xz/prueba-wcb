@@ -4,6 +4,11 @@ import { getServerSession } from "next-auth";
 import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   try {
     const prices = await prisma.membershipPrice.findMany({
       where: { active: true },

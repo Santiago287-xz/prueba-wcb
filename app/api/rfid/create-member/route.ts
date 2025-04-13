@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
     
     // Create user logic...
-    const password = Math.random().toString(36).slice(-8);
+    const password = (Math.floor(Math.random() * 900000) + 100000).toString();
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Store extra data as JSON
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         name,
         email,
         hashedPassword,
-        role: "user",
+        role: "member",
         gender: gender || "male",
         age: age ? parseInt(age.toString()) : 18,
         height: height ? parseInt(height.toString()) : 170,

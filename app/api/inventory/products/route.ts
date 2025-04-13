@@ -4,7 +4,6 @@ import { getServerSession } from "next-auth";
 import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-
 // Ensure upload directory exists
 async function ensureUploadDir() {
   const uploadDir = path.join(process.cwd(), "public", "uploads");
@@ -18,6 +17,11 @@ async function ensureUploadDir() {
 
 // GET: Listar todos los productos con su stock
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   try {
     const products = await prisma.product.findMany({
       include: {

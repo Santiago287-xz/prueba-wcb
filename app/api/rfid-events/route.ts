@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addClient, removeClient } from '@/app/libs/broadcast';
+import { getServerSession } from "next-auth/next";
+import { options } from '../auth/[...nextauth]/options';
 
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(options);
   
+  if (!session?.user?.id || !['admin', 'employee'].includes(session.user.role as string)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   // Create a variable to store the controller reference
   let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
   

@@ -1,8 +1,14 @@
 // app/api/rfid/stats/route.ts - Updated for points-based system
 import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
+import { getServerSession } from "next-auth";
+import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || !['admin', 'employee'].includes(session.user.role as string)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   try {
     const totalMembers = await prisma.user.count({
       where: {

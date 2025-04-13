@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
-
+import { getServerSession } from "next-auth/next";
+import { options as authOptions } from '../auth/[...nextauth]/options';
 const extractMongoId = (id: string): string | null => {
   if (id.length === 24 && /^[0-9a-f]{24}$/i.test(id)) {
     return id;
@@ -24,6 +25,11 @@ const extractMongoId = (id: string): string | null => {
 };
 
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   try {
     const body = await req.json();
     const { name, date, startTime, endTime, courtIds } = body;
@@ -97,6 +103,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   try {
     const body = await req.json();
     const { id, name, date, startTime, endTime, courtIds } = body;
@@ -190,6 +201,11 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   try {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
@@ -219,6 +235,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   try {
     const body = await req.json();
     const { eventId } = body;

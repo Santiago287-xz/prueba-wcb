@@ -43,7 +43,9 @@ import {
   Edit,
   CreditCard,
   Close,
-  Warning
+  Warning,
+  Key,
+  Delete
 } from '@mui/icons-material';
 
 // Extender la interfaz de Member para incluir accessPoints
@@ -83,14 +85,23 @@ export default function MembersList() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [orderBy, setOrderBy] = useState('lastCheckIn');
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+  const [isCreatingMember, setIsCreatingMember] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [renewModalOpen, setRenewModalOpen] = useState(false);
   const [confirmRenewalOpen, setConfirmRenewalOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  
+  // Estado para el PIN y su modal
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [generatedPin, setGeneratedPin] = useState('');
+  const [createdUserName, setCreatedUserName] = useState('');
 
   // Form state
   const [formState, setFormState] = useState({
@@ -293,11 +304,14 @@ export default function MembersList() {
   const handleCreateMember = async () => {
     if (!validateForm()) return;
 
+    setIsCreatingMember(true); // Iniciar estado de carga
+
     try {
       // Get selected membership type
       const selectedType = membershipPrices.find(p => p.id === formState.membershipTypeId);
       if (!selectedType) {
         showNotification('Tipo de membresía no válido', 'error');
+        setIsCreatingMember(false);
         return;
       }
 
@@ -314,7 +328,7 @@ export default function MembersList() {
       });
 
       // Then create the member with RFID card
-      await axios.post('/api/rfid/create-member', {
+      const response = await axios.post('/api/rfid/create-member', {
         name: formState.name,
         email: formState.email,
         phone: formState.phone,
@@ -330,13 +344,49 @@ export default function MembersList() {
         level: formState.level
       });
 
-      showNotification('Miembro creado correctamente', 'success');
-      setCreateModalOpen(false);
+      // Capturar el PIN generado
+      if (response.data && response.data.password) {
+        setGeneratedPin(response.data.password);
+        setCreatedUserName(formState.name);
+        setCreateModalOpen(false);
+        setPinModalOpen(true); // Abrir el modal con el PIN
+      } else {
+        showNotification('Miembro creado correctamente', 'success');
+        setCreateModalOpen(false);
+      }
+      
       fetchMembers();
     } catch (error: any) {
       console.error('Error creating member:', error);
       showNotification(error.response?.data?.error || 'Error al crear miembro', 'error');
+    } finally {
+      setIsCreatingMember(false); // Finalizar estado de carga
     }
+  };
+  
+  // Function to handle member deletion
+  const handleDeleteMember = async () => {
+    if (!memberToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await axios.delete(`/api/rfid/${memberToDelete.id}`);
+      showNotification('Miembro eliminado correctamente', 'success');
+      setDeleteConfirmOpen(false);
+      setMemberToDelete(null);
+      fetchMembers(); // Actualizar la lista
+    } catch (error: any) {
+      console.error('Error deleting member:', error);
+      showNotification(error.response?.data?.error || 'Error al eliminar miembro', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
+  // Function to open delete confirmation modal
+  const openDeleteConfirmation = (member: Member) => {
+    setMemberToDelete(member);
+    setDeleteConfirmOpen(true);
   };
 
   const handleEditMember = async () => {
@@ -564,6 +614,12 @@ export default function MembersList() {
     return type?.basePrice || 0;
   }, [membershipPrices]);
 
+  // Función para cerrar el modal del PIN y mostrar notificación
+  const handleClosePinModal = () => {
+    setPinModalOpen(false);
+    showNotification('Miembro creado correctamente', 'success');
+  };
+
   return (
     <Box sx={{ p: 2 }}>
       {/* Header */}
@@ -741,6 +797,13 @@ export default function MembersList() {
                             onClick={() => openRenewModal(member)}
                           >
                             <CreditCard fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => openDeleteConfirmation(member)}
+                          >
+                            <Delete fontSize="small" />
                           </IconButton>
                         </Stack>
                       </TableCell>
@@ -1035,12 +1098,19 @@ export default function MembersList() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateModalOpen(false)}>Cancelar</Button>
+          <Button 
+            onClick={() => setCreateModalOpen(false)} 
+            disabled={isCreatingMember}
+          >
+            Cancelar
+          </Button>
           <Button
             variant="contained"
             onClick={handleCreateMember}
+            disabled={isCreatingMember}
+            startIcon={isCreatingMember ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            Crear Miembro
+            {isCreatingMember ? "Creando..." : "Crear Miembro"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1490,6 +1560,162 @@ export default function MembersList() {
             onClick={handleRenewMembership}
           >
             Confirmar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* PIN Modal */}
+      <Dialog
+        open={pinModalOpen}
+        onClose={handleClosePinModal}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle 
+          sx={{ 
+            textAlign: 'center',
+            bgcolor: 'primary.main',
+            color: 'white',
+            py: 2
+          }}
+        >
+          PIN de Acceso Generado
+          <IconButton
+            aria-label="close"
+            onClick={handleClosePinModal}
+            sx={{ 
+              position: 'absolute', 
+              right: 8, 
+              top: 8,
+              color: 'white'
+            }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            pt: 4,
+            pb: 4 
+          }}
+        >
+          <Box 
+            sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              mb: 2
+            }}
+          >
+            <Key sx={{ color: 'primary.main', mr: 1, fontSize: 28 }} />
+            <Typography variant="h5" fontWeight="medium" color="primary.main">
+              Miembro creado correctamente
+            </Typography>
+          </Box>
+          
+          <Typography variant="body1" sx={{ mb: 3, textAlign: 'center' }}>
+            El PIN para el usuario <strong>{createdUserName}</strong> es:
+          </Typography>
+          
+          <Box 
+            sx={{ 
+              p: 3, 
+              border: '3px dashed',
+              borderColor: 'primary.main',
+              borderRadius: 2, 
+              width: '250px',
+              textAlign: 'center',
+              mb: 2,
+              bgcolor: 'primary.50'
+            }}
+          >
+            <Typography 
+              variant="h3" 
+              fontFamily="monospace" 
+              fontWeight="bold"
+              color="primary.dark"
+              letterSpacing={2}
+            >
+              {generatedPin}
+            </Typography>
+          </Box>
+          
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+            Este PIN debe ser proporcionado al usuario para que pueda acceder a su cuenta.
+            <br />
+            Anótelo antes de cerrar esta ventana.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+          <Button 
+            variant="contained" 
+            color="primary"
+            size="large"
+            onClick={handleClosePinModal}
+          >
+            Entendido
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => !isDeleting && setDeleteConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          Confirmar Eliminación
+          <IconButton
+            aria-label="close"
+            onClick={() => !isDeleting && setDeleteConfirmOpen(false)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+            disabled={isDeleting}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" icon={<Warning />} sx={{ mb: 2 }}>
+            ¿Estás seguro de eliminar a este miembro?
+          </Alert>
+          {memberToDelete && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body1" fontWeight="medium">
+                {memberToDelete.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {memberToDelete.email}
+              </Typography>
+              {memberToDelete.rfidCardNumber && (
+                <Typography variant="body2" fontFamily="monospace" mt={1}>
+                  Tarjeta: {memberToDelete.rfidCardNumber}
+                </Typography>
+              )}
+            </Box>
+          )}
+          <Typography variant="body2" color="error.main" fontWeight="medium">
+            Esta acción no se puede deshacer y eliminará todos los datos asociados.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setDeleteConfirmOpen(false)}
+            disabled={isDeleting}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDeleteMember}
+            disabled={isDeleting}
+            startIcon={isDeleting ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {isDeleting ? "Eliminando..." : "Eliminar"}
           </Button>
         </DialogActions>
       </Dialog>

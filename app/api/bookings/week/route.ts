@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 import { addDays, isBefore, isAfter, getDay, format, differenceInDays } from "date-fns";
+import { getServerSession } from "next-auth/next";
+import { options as authOptions } from '../../auth/[...nextauth]/options';
 
-/**
- * Consolidated API endpoint for fetching all reservations and events for a week range
- * This optimizes data loading by making a single request instead of multiple per-court calls
- */
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   try {
     const searchParams = request.nextUrl.searchParams;
     const start = searchParams.get('start');
