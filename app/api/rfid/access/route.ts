@@ -16,7 +16,6 @@ export async function POST(
 	const authHeader = req.headers.get(
 		"authorization"
 	);
-
 	// Verificar API key para dispositivos externos (Arduino)
 	const isExternalDevice =
 		authHeader &&
@@ -56,12 +55,10 @@ export async function POST(
 				{ status: 400 }
 			);
 		}
-
 		const user =
 			await prisma.user.findFirst({
 				where: { rfidCardNumber },
 			});
-
 		const now = new Date();
 
 		let accessStatus:
@@ -136,20 +133,30 @@ export async function POST(
 				reason =
 					"Sin puntos de acceso disponibles";
 			}
+		} else {
+			NextResponse.json(
+				{
+					error:
+						"Ningun usuario encontrado",
+				},
+				{ status: 404 }
+			);
 		}
 
 		// Crear entrada en el registro de acceso
-		const accessLog =
-			await prisma.accessLog.create({
-				data: {
-					userId: user?.id || "unknown",
-					status: accessStatus,
-					reason,
-					deviceId,
-					pointsDeducted,
-					isToleranceEntry,
-				},
-			});
+		await prisma.accessLog.create({
+			data: {
+				...(user?.id
+					? { userId: user.id }
+					: {}),
+				status: accessStatus,
+				reason,
+				deviceId,
+				pointsDeducted,
+				isToleranceEntry,
+			},
+		});
+
 		try {
 			broadcastEvent({
 				type: accessStatus,

@@ -59,12 +59,33 @@ enum SalePaymentMethod {
   mercado_pago
 }
 
+model Exercise {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  description   String?
+  sets          Int
+  reps          Int
+  weight        Float?
+  duration      Int?     // en minutos, para ejercicios cardio
+  notes         String?
+  
+  // Relaciones
+  user          User     @relation(fields: [userId], references: [id], name: "UserExercises")
+  userId        String   @db.ObjectId
+  trainer       User     @relation(fields: [trainerId], references: [id], name: "TrainerExercises")
+  trainerId     String   @db.ObjectId
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 model User {
   id                 String               @id @default(auto()) @map("_id") @db.ObjectId
   name               String
   email              String               @unique
   phone              Int?                 @default(0)
   hashedPassword     String
+  trainer            String?
   role               Role
   isActive           Boolean?             @default(false)
   gender             Gender
@@ -82,6 +103,8 @@ model User {
   lastCheckIn        DateTime?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
+  assignedExercises Exercise[] @relation("UserExercises")
+  createdExercises  Exercise[] @relation("TrainerExercises")
   accessLogs         AccessLog[]
   stockMovements     StockMovement[]
   sales              Sale[]
@@ -100,9 +123,9 @@ model MembershipPrice {
 
 model AccessLog {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId           String   @db.ObjectId
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status           String   // allowed, denied, warning
+  userId           String?  @db.ObjectId
+  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           String   
   reason           String?
   deviceId         String
   ip               String?

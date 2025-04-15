@@ -15,10 +15,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    console.log(body)
     const { 
       name, 
       email, 
       phone,
+      trainer,
       gender,
       age,
       height,
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
       dietaryRestrictions,
       notes
     } = body;
-    
+    console.log(body)
     // Validation code...
     if (!name || !email || !rfidCardNumber) {
       return NextResponse.json({ 
@@ -59,6 +61,7 @@ export async function POST(req: NextRequest) {
         name,
         email,
         hashedPassword,
+        trainer,
         role: "member",
         gender: gender || "male",
         age: age ? parseInt(age.toString()) : 18,
@@ -76,7 +79,6 @@ export async function POST(req: NextRequest) {
         post: JSON.stringify(extraData)
       }
     });
-
     return NextResponse.json({ 
       message: "Miembro creado correctamente", 
       user,

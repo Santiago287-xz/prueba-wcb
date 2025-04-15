@@ -59,7 +59,7 @@ import {
 import axios from "axios"
 import type { User } from "@prisma/client"
 import useSWR from "swr"
-import useTrainersStore from "@/app/hooks/useTrainersStore"
+// Eliminamos la importación de useTrainersStore
 
 // Definición de estilos personalizados
 const styles = {
@@ -157,8 +157,10 @@ const ManageUser: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"))
   const isTablet = useMediaQuery(theme.breakpoints.down("md"))
-  const { loading, trainers, fetchTrainers } = useTrainersStore()
-
+  
+  // Reemplazo del useTrainersStore con estado local y SWR
+  const [trainerLoading, setTrainerLoading] = useState<boolean>(false)
+  
   // State and data fetching using useSWR
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [rowsPerPage, setRowsPerPage] = useState<number>(10)
@@ -176,10 +178,25 @@ const ManageUser: React.FC = () => {
   const [addUserDialogOpen, setAddUserDialogOpen] = useState<boolean>(false)
 
   const { data, isLoading, mutate } = useSWR(`/api/users?page=${currentPage}&limit=${rowsPerPage}`, fetcher)
+  
+  // Usamos SWR para cargar los entrenadores - reemplaza la funcionalidad de useTrainersStore
+  const { data: trainersData, isLoading: isTrainersLoading, mutate: mutateTrainers } = useSWR('/api/trainers', fetcher, {
+    onSuccess: () => setTrainerLoading(false),
+    onError: () => setTrainerLoading(false)
+  })
+  
+  // Array de entrenadores extraído de trainersData
+  const trainers = useMemo(() => trainersData?.data || [], [trainersData])
+
+  // Reemplaza la función fetchTrainers de useTrainersStore
+  const fetchTrainers = async () => {
+    setTrainerLoading(true)
+    await mutateTrainers()
+  }
 
   useEffect(() => {
     fetchTrainers()
-  }, [fetchTrainers])
+  }, [])
 
   const handleChangeTrainer = async (trainerId: string, userId: string) => {
     try {
@@ -462,7 +479,7 @@ const ManageUser: React.FC = () => {
       {/* Table */}
       <Card elevation={2} sx={styles.tableContainer}>
         {/* Loading indicator */}
-        {isLoading && (
+        {(isLoading || isTrainersLoading) && (
           <LinearProgress color="primary" sx={{ height: "3px" }} />
         )}
         

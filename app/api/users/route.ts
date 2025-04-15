@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import {getServerSession} from "next-auth/next";
 import {NextApiRequest} from "next";
 import {NextResponse} from "next/server";
-import {options} from "../auth/[...nextauth]/options";
+import {options} from "@/app/api/auth/[...nextauth]/options";
 import {SessionUser} from "@/types";
 import prisma from "@/app/libs/prismadb";
 import {User} from "@prisma/client";
@@ -97,95 +97,106 @@ export async function GET(request: NextApiRequest) {
 }
 
 export async function POST(req: Request) {
-    const session = await getSession();
+    try {
+        const session = await getSession();
+        const sessionUser = session?.user as SessionUser;
 
-    const sessionUser = session?.user as SessionUser;
+        if (!sessionUser?.email) {
+            return NextResponse.json(
+                {
+                    error: "Not authenticated",
+                },
+                {status: 401}
+            );
+        }
 
-    if (!sessionUser?.email) {
-        // If there's no active session or user email, return a response indicating unauthenticated access
-        return NextResponse.json(
-            {
-                error: "Not authenticated",
-            },
-            {status: 401}
-        );
-    }
+        if (sessionUser.role === "user") {
+            return NextResponse.json(
+                {
+                    error: "Not authorized",
+                },
+                {status: 403}
+            );
+        }
 
-    if (sessionUser.role === "user") {
-        return NextResponse.json(
-            {
-                error: "Not authorized",
-            },
-            {status: 403}
-        );
-    }
+        const body = await req.json();
+        console.log("Body recibido:", body);
 
-    const body = await req.json();
+        if (!body.email || !body.password) {
+            return NextResponse.json(
+                {
+                    error: "Missing email or password",
+                },
+                {status: 400}
+            );
+        }
 
-    if (!body.email || !body.password) {
-        return NextResponse.json(
-            {
-                error: "Missing email or password",
-            },
-            {status: 400}
-        );
-    }
+        const userExists = await prisma.user.findUnique({
+            where: {email: body.email},
+        });
 
-    const userExists = await prisma.user.findUnique({
-        where: {email: body.email},
-    });
+        if (userExists) {
+            return NextResponse.json(
+                {
+                    error: "User already exists",
+                },
+                {status: 409}
+            );
+        }
 
-    if (userExists) {
-        return NextResponse.json(
-            {
-                error: "User already exists",
-            },
-            {status: 409}
-        );
-    }
+        if (sessionUser.role === body.role) {
+            return NextResponse.json({
+                error: `You can't add an ${body.role}`
+            }, {
+                status: 503
+            });
+        }
 
-    if (sessionUser.role === body.role) {
-        return NextResponse.json({
-            error: `You can't add an ${body.role}`
-        }, {
-            status: 503
-        })
-    }
+        const hashedPassword = await bcrypt.hash(body.password, 12);
 
-    const hashedPassword = await bcrypt.hash(body.password, 12);
-
-    const adminAccount = await prisma.user.findFirst({
-        where: {role: "admin"},
-    });
-
-    const user = await prisma.user.create({
-        data: {
-            name: body?.name,
-            email: body?.email!,
-            role: body?.role,
+        // Crear el objeto de datos para usuario
+        const userData = {
+            name: body.name,
+            email: body.email,
+            role: body.role,
             hashedPassword,
-            gender: body?.gender,
-            age: body?.age,
-            goal: body?.goal && body.goal.split(" ").join("_"),
-            level: body?.level,
-            weight: body?.weight,
-            height: body?.height,
-            phone: body?.phone,
-            adminId: adminAccount?.id || null,
-            trainerId: body?.trainerId || null,
-        },
-    });
+            gender: body.gender || "male",
+            phone: body.phone || 0,
+            // Asignar valores por defecto para campos requeridos
+            age: body.age || 30,
+            weight: body.weight || 70,
+            height: body.height || 170,
+            goal: body.goal || "get_fitter",
+            level: body.level || "beginner",
+            // No intentamos asignar adminId ni trainerId
+        };
 
-    return NextResponse.json({
-        status: 201,
-        data: user,
-    });
+        console.log("Datos a crear:", userData);
+
+        const user = await prisma.user.create({
+            data: userData
+        });
+
+        // Remover el password hasheado de la respuesta
+        const userResponse = { ...user };
+        userResponse.hashedPassword = undefined as any;
+
+        return NextResponse.json({
+            status: 201,
+            data: userResponse,
+        });
+    } catch (error) {
+        console.error("Error creating user:", error);
+        return NextResponse.json({
+            error: error instanceof Error ? error.message : "Unknown error"
+        }, {
+            status: 500
+        });
+    }
 }
-
 
 export async function PATCH(req: Request) {
     try {
-
         const session = await getSession();
         const sessionUser = session?.user as SessionUser;
 
@@ -197,11 +208,9 @@ export async function PATCH(req: Request) {
             })
         }
 
-
         const body = await req.json();
 
         if (sessionUser?.role === 'admin' && body.trainerId && body.userId && body.trainerId !== body.userId) {
-
             const user = await prisma.user.findUnique({
                 where: {
                     id: body.userId as string
@@ -226,7 +235,7 @@ export async function PATCH(req: Request) {
                 where: {
                     id: user.id
                 }, data: {
-                    trainerId: trainer.id
+                    trainer: trainer.id // Actualizado para usar 'trainer' en lugar de 'trainerId'
                 }
             })
 
@@ -275,7 +284,6 @@ export async function PATCH(req: Request) {
                     status: 400
                 })
             }
-
 
             let hashedPassword = user.hashedPassword;
 

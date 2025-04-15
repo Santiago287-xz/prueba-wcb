@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import useSWR from 'swr';
 import { UnifiedCalendar } from "./UnifiedCalendar";
 import { ReservationModal } from "./ReservationModal";
@@ -9,6 +9,9 @@ import BookingInvoiceModal from "../Transactions/BookingInvoiceModal";
 import TransactionModal from "@/app/components/Transactions/TransactionModal";
 import { Court, Reservation, ModalDataType } from "../../types/bookings/types";
 import { useGlobalMutate } from "@/app/hooks/useGlobalMutate";
+import { OverheadView } from './OverheadView';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { Tab, Tabs } from '@mui/material';
 
 interface Transaction {
   id?: string;
@@ -50,6 +53,7 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
   const { mutateAll } = useGlobalMutate();
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [currentView, setCurrentView] = useState<number>(0); // 0 for calendar, 1 for overhead view
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,6 +81,30 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  
+  // For the overhead view, fetch reservations and events for the current week
+  const weekStart = useMemo(() => startOfWeek(currentDate, { weekStartsOn: 1 }), [currentDate]);
+  const weekEnd = useMemo(() => endOfWeek(weekStart, { weekStartsOn: 1 }), [weekStart]);
+  
+  const startDateStr = useMemo(() => format(weekStart, "yyyy-MM-dd"), [weekStart]);
+  const endDateStr = useMemo(() => format(weekEnd, "yyyy-MM-dd"), [weekEnd]);
+  
+  const { data: weekData, error: weekDataError } = useSWR(
+    courts.length > 0 ? `/api/bookings/week?start=${startDateStr}&end=${endDateStr}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 30000,
+    }
+  );
+  
+  const allReservations = useMemo(() => {
+    return weekData?.reservations || [];
+  }, [weekData]);
+  
+  const allEvents = useMemo(() => {
+    return weekData?.events || [];
+  }, [weekData]);
 
   const openReservationModal = useCallback((day: Date, hour?: number) => {
     setError(null);
@@ -405,6 +433,20 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     mutateAll();
   }, [mutateAll]);
 
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setCurrentView(newValue);
+  };
+
+  const handleCourtClick = useCallback((court: Court) => {
+    // Open a reservation modal for the selected court
+    openReservationModal(currentDate, new Date().getHours());
+    // Pre-select the court in the modal
+    setModalData(prev => ({
+      ...prev,
+      courtId: court.id
+    }));
+  }, [currentDate, openReservationModal]);
+
   const enhancedModalData = useMemo(() => ({
     ...modalData,
     courtId: modalData.courtId || modalData.reservation?.courtId || '',
@@ -417,7 +459,7 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
   }), [modalData, courts, openInvoiceModal]);
 
   return (
-    <div className="max-w-full md:max-w-6xl mx-auto bg-white rounded shadow">
+    <div className="max-w-full md:max-w-7xl mx-auto bg-white rounded shadow">
       <div className="p-4 border-b flex justify-between items-center">
         <h1 className="text-xl font-bold text-gray-800">Reservas de Canchas</h1>
         <div className="flex space-x-2">
@@ -452,16 +494,35 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
         </div>
       </div>
 
-      <UnifiedCalendar
-        courts={courts}
-        currentDate={currentDate}
-        setCurrentDate={setCurrentDate}
-        openReservationModal={openReservationModal}
-        openEventModal={openEventModal}
-        openDetailModal={openDetailModal}
-        openInvoiceModal={openInvoiceModal}
-        loading={loading}
-      />
+      <div className="px-4 py-2 border-b">
+        <Tabs value={currentView} onChange={handleTabChange} aria-label="view tabs">
+          <Tab label="Calendario" id="calendar-tab" />
+          <Tab label="Vista desde arriba" id="overhead-tab" />
+        </Tabs>
+      </div>
+
+      {currentView === 0 ? (
+        <UnifiedCalendar
+          courts={courts}
+          currentDate={currentDate}
+          setCurrentDate={setCurrentDate}
+          openReservationModal={openReservationModal}
+          openEventModal={openEventModal}
+          openDetailModal={openDetailModal}
+          openInvoiceModal={openInvoiceModal}
+          loading={loading}
+        />
+      ) : (
+        <div className="p-4">
+          <OverheadView 
+            courts={courts}
+            reservations={allReservations}
+            events={allEvents}
+            onCourtClick={handleCourtClick}
+            currentDate={currentDate}
+          />
+        </div>
+      )}
 
       {modalData.isOpen && (
         <ReservationModal

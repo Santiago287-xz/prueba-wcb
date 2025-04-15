@@ -20,12 +20,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing start or end date' }, { status: 400 });
     }
     
+    // Parse and normalize dates
     const startDate = new Date(start);
+    startDate.setHours(0, 0, 0, 0);
+    
     const endDate = new Date(end);
     endDate.setHours(23, 59, 59, 999);
     
-    // Use a unique request id to prevent caching issues
-    const requestId = Date.now().toString();
+    // Debugging information
+    console.log(`Fetching data for range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     
     // Get all courts in a single query
     const courts = await prisma.court.findMany({
@@ -48,8 +51,23 @@ export async function GET(request: NextRequest) {
           courtId: { in: courts.map(c => c.id) },
           status: "confirmed",
           isRecurring: false,
-          startTime: { gte: startDate },
-          endTime: { lte: endDate },
+          OR: [
+            {
+              // Start time falls within range
+              startTime: { gte: startDate, lte: endDate },
+            },
+            {
+              // End time falls within range
+              endTime: { gte: startDate, lte: endDate },
+            },
+            {
+              // Reservation spans the entire range
+              AND: [
+                { startTime: { lt: startDate } },
+                { endTime: { gt: endDate } }
+              ]
+            }
+          ]
         },
         select: {
           id: true,
@@ -68,7 +86,7 @@ export async function GET(request: NextRequest) {
         }
       }),
       
-      // Get all recurring reservations in one query
+      // Get all recurring reservations in one query with expanded date range
       prisma.courtReservation.findMany({
         where: {
           courtId: { in: courts.map(c => c.id) },
@@ -116,6 +134,11 @@ export async function GET(request: NextRequest) {
       }).catch(() => []) : Promise.resolve([])
     ]);
     
+    // Log results for debugging
+    console.log(`Found ${nonRecurringRes.length} non-recurring reservations`);
+    console.log(`Found ${recurringRes.length} recurring reservations`);
+    console.log(`Found ${events.length} events`);
+    
     // Create a court map for faster lookups
     const courtMap = Object.fromEntries(
       courts.map(court => [court.id, court])
@@ -125,7 +148,11 @@ export async function GET(request: NextRequest) {
     const processedNonRecurringRes = nonRecurringRes.map(res => ({
       ...res,
       courtName: courtMap[res.courtId]?.name,
-      courtType: courtMap[res.courtId]?.type
+      courtType: courtMap[res.courtId]?.type,
+      startTime: res.startTime.toISOString(),
+      endTime: res.endTime.toISOString(),
+      recurrenceEnd: res.recurrenceEnd ? res.recurrenceEnd.toISOString() : null,
+      lastPaymentDate: res.lastPaymentDate ? res.lastPaymentDate.toISOString() : null
     }));
     
     // Generate virtual instances for recurring reservations
@@ -139,15 +166,19 @@ export async function GET(request: NextRequest) {
       const startMinute = originalStart.getMinutes();
       const duration = originalEnd.getTime() - originalStart.getTime();
       
-      // Only calculate necessary days based on day of week
+      // Calculate how many days we need to check (add 1 to include the end date)
       const daysDifference = differenceInDays(endDate, startDate) + 1;
       
       for (let i = 0; i < daysDifference; i++) {
         const date = addDays(startDate, i);
+        
+        // Only process dates that match the weekday of the original reservation
         if (getDay(date) !== weekDay) continue;
         
-        // Check if instance is valid
+        // Skip if date is before the original start date
         if (isBefore(date, originalStart)) continue;
+        
+        // Skip if reservation has an end date and this instance is after it
         if (res.recurrenceEnd && isAfter(date, res.recurrenceEnd)) continue;
         
         // Create the virtual instance
@@ -157,18 +188,27 @@ export async function GET(request: NextRequest) {
         const instanceEnd = new Date(instanceStart);
         instanceEnd.setTime(instanceStart.getTime() + duration);
         
+        // Skip if this instance is outside our search range
+        if (isAfter(instanceStart, endDate) || isBefore(instanceEnd, startDate)) continue;
+        
+        const virtualId = `${res.id}-${format(instanceStart, 'yyyy-MM-dd')}`;
+        
         processedRecurringRes.push({
           ...res,
-          startTime: instanceStart,
-          endTime: instanceEnd,
-          virtualId: `${res.id}-${format(instanceStart, 'yyyy-MM-dd')}`,
+          startTime: instanceStart.toISOString(),
+          endTime: instanceEnd.toISOString(),
+          virtualId,
           isVirtualInstance: true,
           parentId: res.id,
           courtName: courtMap[res.courtId]?.name,
-          courtType: courtMap[res.courtId]?.type
+          courtType: courtMap[res.courtId]?.type,
+          recurrenceEnd: res.recurrenceEnd ? res.recurrenceEnd.toISOString() : null,
+          lastPaymentDate: res.lastPaymentDate ? res.lastPaymentDate.toISOString() : null
         });
       }
     }
+    
+    console.log(`Generated ${processedRecurringRes.length} virtual instances`);
     
     // Process events - carefully track courtIds to avoid duplicates
     const processedEvents = [];
@@ -193,35 +233,51 @@ export async function GET(request: NextRequest) {
           if (processedEventIds.has(uniqueEventId)) continue;
           processedEventIds.add(uniqueEventId);
           
+          const eventStart = event.startTime || event.date;
+          const eventEnd = event.endTime || new Date(new Date(event.date).setHours(23, 59, 59));
+          
           processedEvents.push({
             id: uniqueEventId,
             name: event.name,
             courtId,
             courtName: court.name,
             courtType: court.type,
-            startTime: event.startTime || event.date,
-            endTime: event.endTime || new Date(new Date(event.date).setHours(23, 59, 59)),
+            startTime: eventStart.toISOString(),
+            endTime: eventEnd.toISOString(),
             isEvent: true
           });
         }
       }
     }
     
-    // Return all data with cache-busting headers
+    console.log(`Processed ${processedEvents.length} event instances`);
+    
+    // Build the final response and add all necessary no-cache headers
+    const allReservations = [...processedNonRecurringRes, ...processedRecurringRes];
+    
+    // Log some sample data for debugging
+    if (allReservations.length > 0) {
+      console.log("Sample reservation:", JSON.stringify(allReservations[0]));
+    }
+    
     return NextResponse.json({
-      reservations: [...processedNonRecurringRes, ...processedRecurringRes],
+      reservations: allReservations,
       events: processedEvents,
-      requestId // Add request ID to response for debugging
+      timestamp: new Date().toISOString()
     }, {
       headers: {
-        'Cache-Control': 'no-store, must-revalidate',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
         'Pragma': 'no-cache',
-        'Expires': '0'
+        'Expires': '0',
+        'Content-Type': 'application/json'
       }
     });
     
   } catch (error) {
     console.error('Error fetching week data:', error);
-    return NextResponse.json({ error: 'Error fetching reservations' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Error fetching reservations',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }

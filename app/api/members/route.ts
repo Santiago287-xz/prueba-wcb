@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         createdAt: 'desc'
       }
     });
-
+    console.log("members api", members)
     return NextResponse.json({ members }, { status: 200 });
   } catch (error) {
     console.error("Error fetching members:", error);

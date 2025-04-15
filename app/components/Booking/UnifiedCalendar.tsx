@@ -7,7 +7,12 @@ import useSWR from 'swr';
 import { Reservation, EventIndicator, DayEvents, GroupedEvent, UnifiedCalendarProps } from "../../types/bookings/types";
 
 const fetcher = async (url: string) => {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: {
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache'
+    }
+  });
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.error || "Error fetching data");
@@ -43,7 +48,8 @@ export function UnifiedCalendar({
     fetcher,
     {
       revalidateOnFocus: false,
-      dedupingInterval: 30000,
+      revalidateIfStale: true,
+      dedupingInterval: 10000,
     }
   );
 
@@ -106,7 +112,7 @@ export function UnifiedCalendar({
     
     const eventMap = new Map<string, Reservation>();
     
-    if (reservationsData.reservations) {
+    if (reservationsData.reservations && Array.isArray(reservationsData.reservations)) {
       reservationsData.reservations.forEach((reservation: Reservation) => {
         const id = reservation.id || reservation.virtualId;
         if (id) {
@@ -124,7 +130,7 @@ export function UnifiedCalendar({
     
     const groupedEvents = new Map<string, GroupedEvent>();
     
-    if (reservationsData.events) {
+    if (reservationsData.events && Array.isArray(reservationsData.events)) {
       reservationsData.events.forEach((event: any) => {
         const eventId = event.id ? `event-${event.id}` : `event-temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const court = courts.find(c => c.id === event.courtId);
@@ -153,6 +159,7 @@ export function UnifiedCalendar({
         }
       });
     }
+    
     groupedEvents.forEach((event, key) => {
       const reservationEvent: Reservation = {
         ...event,
@@ -183,26 +190,35 @@ export function UnifiedCalendar({
     });
     
     allEvents.forEach(reservation => {
-      const startTime = typeof reservation.startTime === 'string' 
-        ? parseISO(reservation.startTime) 
-        : reservation.startTime;
-      
-      const dateKey = format(startTime, 'yyyy-MM-dd');
-      
-      if (result[dateKey]) {
-        result[dateKey].events.push(reservation);
+      try {
+        const startTime = typeof reservation.startTime === 'string' 
+          ? parseISO(reservation.startTime) 
+          : new Date(reservation.startTime);
         
-        if ((reservation as any).isEvent) {
-          const eventIndicator = result[dateKey].indicators.find(i => i.type === 'event');
-          if (eventIndicator) eventIndicator.count += 1;
+        if (isNaN(startTime.getTime())) {
+          console.error("Invalid date:", reservation.startTime);
+          return;
         }
-        else if (reservation.courtType === 'futbol') {
-          const futbolIndicator = result[dateKey].indicators.find(i => i.type === 'futbol');
-          if (futbolIndicator) futbolIndicator.count += 1;
-        } else if (reservation.courtType === 'padel') {
-          const padelIndicator = result[dateKey].indicators.find(i => i.type === 'padel');
-          if (padelIndicator) padelIndicator.count += 1;
+        
+        const dateKey = format(startTime, 'yyyy-MM-dd');
+        
+        if (result[dateKey]) {
+          result[dateKey].events.push(reservation);
+          
+          if ((reservation as any).isEvent) {
+            const eventIndicator = result[dateKey].indicators.find(i => i.type === 'event');
+            if (eventIndicator) eventIndicator.count += 1;
+          }
+          else if (reservation.courtType === 'futbol') {
+            const futbolIndicator = result[dateKey].indicators.find(i => i.type === 'futbol');
+            if (futbolIndicator) futbolIndicator.count += 1;
+          } else if (reservation.courtType === 'padel') {
+            const padelIndicator = result[dateKey].indicators.find(i => i.type === 'padel');
+            if (padelIndicator) padelIndicator.count += 1;
+          }
         }
+      } catch (error) {
+        console.error("Error processing reservation:", error);
       }
     });
     
@@ -226,17 +242,23 @@ export function UnifiedCalendar({
     const eventsByHour: {[hour: string]: Reservation[]} = {};
     
     dayData.events.forEach(event => {
-      const startTime = typeof event.startTime === 'string' 
-        ? parseISO(event.startTime) 
-        : event.startTime;
-      
-      const hour = format(startTime, 'HH:mm');
-      
-      if (!eventsByHour[hour]) {
-        eventsByHour[hour] = [];
+      try {
+        const startTime = typeof event.startTime === 'string' 
+          ? parseISO(event.startTime) 
+          : new Date(event.startTime);
+        
+        if (isNaN(startTime.getTime())) return;
+        
+        const hour = format(startTime, 'HH:mm');
+        
+        if (!eventsByHour[hour]) {
+          eventsByHour[hour] = [];
+        }
+        
+        eventsByHour[hour].push(event);
+      } catch (error) {
+        console.error("Error processing event time:", error);
       }
-      
-      eventsByHour[hour].push(event);
     });
     
     return Object.entries(eventsByHour)
@@ -423,34 +445,41 @@ export function UnifiedCalendar({
                 <div className="divide-y">
                   {dayData && dayData.events.length > 0 ? (
                     dayData.events.map((event) => {
-                      const startTime = new Date(event.startTime as string);
-                      const endTime = new Date(event.endTime as string);
-                      const eventColor = getEventColor(event);
-                      const isEventType = (event as any).isEvent;
-                      
-                      return (
-                        <div 
-                          key={event.id || event.virtualId} 
-                          className={`p-4 hover:bg-gray-50 cursor-pointer ${isEventType ? 'bg-green-50' : ''}`}
-                          onClick={() => isEventType ? openEventModal(event) : openDetailModal(event)}
-                        >
-                          <div className="flex items-center">
-                            <div className={`w-3 h-3 rounded-full bg-${eventColor}-500 mr-2 flex-shrink-0`}></div>
-                            <div className="w-full">
-                              <div className="flex justify-between items-start">
-                                <p className="font-medium">{event.name}</p>
-                                {isEventType && (
-                                  <span className="text-xs px-2 py-1 bg-green-100 rounded-full text-green-800">Evento</span>
-                                )}
+                      try {
+                        const startTime = new Date(event.startTime as string);
+                        const endTime = new Date(event.endTime as string);
+                        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) return null;
+                        
+                        const eventColor = getEventColor(event);
+                        const isEventType = (event as any).isEvent;
+                        
+                        return (
+                          <div 
+                            key={event.id || event.virtualId} 
+                            className={`p-4 hover:bg-gray-50 cursor-pointer ${isEventType ? 'bg-green-50' : ''}`}
+                            onClick={() => isEventType ? openEventModal(event) : openDetailModal(event)}
+                          >
+                            <div className="flex items-center">
+                              <div className={`w-3 h-3 rounded-full bg-${eventColor}-500 mr-2 flex-shrink-0`}></div>
+                              <div className="w-full">
+                                <div className="flex justify-between items-start">
+                                  <p className="font-medium">{event.name}</p>
+                                  {isEventType && (
+                                    <span className="text-xs px-2 py-1 bg-green-100 rounded-full text-green-800">Evento</span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600">
+                                  {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
+                                </p>
+                                <p className="text-xs text-gray-500">{formatCourtNames(event)}</p>
                               </div>
-                              <p className="text-sm text-gray-600">
-                                {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
-                              </p>
-                              <p className="text-xs text-gray-500">{formatCourtNames(event)}</p>
                             </div>
                           </div>
-                        </div>
-                      );
+                        );
+                      } catch (error) {
+                        console.error("Error rendering event:", error);
+                        return null;
+                      }
                     })
                   ) : (
                     <div className="p-6 text-center text-gray-500">
@@ -523,36 +552,43 @@ export function UnifiedCalendar({
                   
                   <div className="mt-2 space-y-2">
                     {events.map((event) => {
-                      const startTime = new Date(event.startTime as string);
-                      const endTime = new Date(event.endTime as string);
-                      const eventColor = getEventColor(event);
-                      const isEventType = (event as any).isEvent;
-                      
-                      return (
-                        <div 
-                          key={event.id || event.virtualId}
-                          className={`p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${isEventType ? 'bg-green-50' : ''}`}
-                          onClick={() => isEventType ? openEventModal(event) : openDetailModal(event)}
-                        >
-                          <div className="flex items-center">
-                            <div className={`w-3 h-3 rounded-full bg-${eventColor}-500 mr-2 flex-shrink-0`}></div>
-                            <div className="w-full">
-                              <div className="flex justify-between items-start">
-                                <p className="font-medium">{event.name}</p>
-                                {isEventType && (
-                                  <span className="text-xs px-2 py-0.5 bg-green-100 rounded-full text-green-800">Evento</span>
-                                )}
+                      try {
+                        const startTime = new Date(event.startTime as string);
+                        const endTime = new Date(event.endTime as string);
+                        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) return null;
+                        
+                        const eventColor = getEventColor(event);
+                        const isEventType = (event as any).isEvent;
+                        
+                        return (
+                          <div 
+                            key={event.id || event.virtualId}
+                            className={`p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${isEventType ? 'bg-green-50' : ''}`}
+                            onClick={() => isEventType ? openEventModal(event) : openDetailModal(event)}
+                          >
+                            <div className="flex items-center">
+                              <div className={`w-3 h-3 rounded-full bg-${eventColor}-500 mr-2 flex-shrink-0`}></div>
+                              <div className="w-full">
+                                <div className="flex justify-between items-start">
+                                  <p className="font-medium">{event.name}</p>
+                                  {isEventType && (
+                                    <span className="text-xs px-2 py-0.5 bg-green-100 rounded-full text-green-800">Evento</span>
+                                  )}
+                                </div>
+                                <div className="flex justify-between">
+                                  <p className="text-sm text-gray-600">
+                                    {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
+                                  </p>
+                                </div>
+                                <p className="text-xs text-gray-500">{formatCourtNames(event)}</p>
                               </div>
-                              <div className="flex justify-between">
-                                <p className="text-sm text-gray-600">
-                                  {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
-                                </p>
-                              </div>
-                              <p className="text-xs text-gray-500">{formatCourtNames(event)}</p>
                             </div>
                           </div>
-                        </div>
-                      );
+                        );
+                      } catch (error) {
+                        console.error("Error rendering event:", error);
+                        return null;
+                      }
                     })}
                   </div>
                 </div>

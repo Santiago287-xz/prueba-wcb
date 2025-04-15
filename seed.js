@@ -1,39 +1,42 @@
-// prisma/seed.js
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Crear un usuario con 5 puntos
-  const hashedPassword = await bcrypt.hash('password123', 12);
-  
-  const user = await prisma.user.create({
-    data: {
-      name: 'Usuario Ejemplo',
-      email: 'ejemplo@gym.com',
-      hashedPassword,
-      role: 'member',
-      isActive: true,
-      gender: 'male',
-      age: 30,
-      height: 175,
-      weight: 80,
-      rfidCardNumber: '123456789',
-      rfidAssignedAt: new Date(),
-      accessPoints: 5, // 5 puntos asignados
-      lastCheckIn: null
-    }
-  });
-  
-  console.log('Usuario de ejemplo creado:', user);
+  try {
+    // Hash the password
+    const hashedPassword = await bcrypt.hash('admin123', 12);
+    
+    // Create admin user
+    const admin = await prisma.user.create({
+      data: {
+        name: 'trainer User',
+        email: 'trainer@policenter.com',
+        hashedPassword,
+        role: 'trainer',
+        gender: 'male',
+        age: 30,
+        height: 175,
+        weight: 70,
+        goal: 'get_fitter',
+        level: 'advanced',
+        isActive: true
+      }
+    });
+    
+    console.log('Trainer user created successfully:');
+    console.log({
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      role: admin.role
+    });
+  } catch (error) {
+    console.error('Error creating admin user:', error);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main();

@@ -48,6 +48,11 @@ import {
   Delete
 } from '@mui/icons-material';
 
+interface Trainer {
+  id: string;
+  name: string;
+}
+
 // Extender la interfaz de Member para incluir accessPoints
 interface Member {
   id: string;
@@ -65,6 +70,7 @@ interface Member {
   weight?: number;
   goal?: string;
   level?: string;
+  trainer?: string;
 }
 
 interface MembershipPrice {
@@ -75,7 +81,7 @@ interface MembershipPrice {
 }
 
 export default function MembersList() {
-  // Main state
+  const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [pricesLoading, setPricesLoading] = useState(true);
@@ -97,7 +103,7 @@ export default function MembersList() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  
+
   // Estado para el PIN y su modal
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [generatedPin, setGeneratedPin] = useState('');
@@ -118,7 +124,8 @@ export default function MembersList() {
     height: '',
     weight: '',
     goal: 'lose_weight',
-    level: 'beginner'
+    level: 'beginner',
+    trainer: ''
   });
 
   // Renewal state
@@ -139,7 +146,13 @@ export default function MembersList() {
     height: false,
     weight: false
   });
-
+  const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'warning' = 'success') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
+  }, []);
   // Load members and membership prices
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -151,6 +164,16 @@ export default function MembersList() {
       console.error('Error fetching members:', error);
     } finally {
       setLoading(false);
+    }
+  }, [showNotification]);
+
+
+  const fetchTrainers = useCallback(async () => {
+    try {
+      const response = await axios.get('/api/rfid/trainers');
+      setTrainers(response.data);
+    } catch (error) {
+      console.error('Error fetching trainers:', error);
     }
   }, []);
 
@@ -188,7 +211,8 @@ export default function MembersList() {
   useEffect(() => {
     fetchMembers();
     fetchMembershipPrices();
-  }, [fetchMembers, fetchMembershipPrices]);
+    fetchTrainers()
+  }, [fetchMembers, fetchMembershipPrices, fetchTrainers]);
 
   // Calculate total amount for renewal
   useEffect(() => {
@@ -269,13 +293,7 @@ export default function MembersList() {
   };
 
   // Notifications
-  const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'warning' = 'success') => {
-    setNotification({
-      open: true,
-      message,
-      severity
-    });
-  }, []);
+
 
   const handleCloseNotification = () => {
     setNotification(prev => ({
@@ -354,7 +372,7 @@ export default function MembersList() {
         showNotification('Miembro creado correctamente', 'success');
         setCreateModalOpen(false);
       }
-      
+
       fetchMembers();
     } catch (error: any) {
       console.error('Error creating member:', error);
@@ -363,11 +381,11 @@ export default function MembersList() {
       setIsCreatingMember(false); // Finalizar estado de carga
     }
   };
-  
+
   // Function to handle member deletion
   const handleDeleteMember = async () => {
     if (!memberToDelete) return;
-    
+
     setIsDeleting(true);
     try {
       await axios.delete(`/api/rfid/${memberToDelete.id}`);
@@ -382,7 +400,7 @@ export default function MembersList() {
       setIsDeleting(false);
     }
   };
-  
+
   // Function to open delete confirmation modal
   const openDeleteConfirmation = (member: Member) => {
     setMemberToDelete(member);
@@ -414,9 +432,9 @@ export default function MembersList() {
         height: formState.height ? parseInt(formState.height.toString()) : undefined,
         weight: formState.weight ? parseInt(formState.weight.toString()) : undefined,
         goal: formState.goal,
-        level: formState.level
+        level: formState.level,
+        trainer: formState.trainer
       });
-
       showNotification('Miembro actualizado correctamente', 'success');
       setEditModalOpen(false);
       fetchMembers();
@@ -482,8 +500,9 @@ export default function MembersList() {
       height: member.height?.toString() || '',
       weight: member.weight?.toString() || '',
       goal: member.goal || 'lose_weight',
-      level: member.level || 'beginner'
-    });
+      level: member.level || 'beginner',
+      trainer: member.trainer || ''
+    });    
     setEditModalOpen(true);
   }, [membershipPrices]);
 
@@ -522,7 +541,8 @@ export default function MembersList() {
       height: '',
       weight: '',
       goal: 'lose_weight',
-      level: 'beginner'
+      level: 'beginner',
+      trainer: trainers[0]?.id || ''
     });
 
     setErrors({
@@ -536,7 +556,7 @@ export default function MembersList() {
     });
 
     setCreateModalOpen(true);
-  }, [membershipPrices, showNotification]);
+  }, [membershipPrices, showNotification, trainers]);
 
   // Table sorting
   const handleSort = (property: string) => {
@@ -763,8 +783,8 @@ export default function MembersList() {
                           variant="body2"
                           color={
                             !member.accessPoints ? 'error' :
-                            member.accessPoints <= 5 ? 'warning.main' :
-                            'text.secondary'
+                              member.accessPoints <= 5 ? 'warning.main' :
+                                'text.secondary'
                           }
                           fontWeight={member.accessPoints <= 5 ? 'medium' : 'regular'}
                         >
@@ -774,12 +794,12 @@ export default function MembersList() {
                       <TableCell>
                         {member.lastCheckIn
                           ? new Date(member.lastCheckIn).toLocaleString('es-AR', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
                           : 'Nunca'}
                       </TableCell>
                       <TableCell>
@@ -1040,7 +1060,23 @@ export default function MembersList() {
                   </Select>
                 </FormControl>
               </Grid>
-
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth margin="normal" size="small">
+                  <InputLabel>Entrenador</InputLabel>
+                  <Select
+                    name="trainer"
+                    value={formState.trainer}
+                    onChange={handleSelectChange}
+                    label="Entrenador"
+                  >
+                    {trainers.map(trainer => (
+                      <MenuItem key={trainer.id} value={trainer.id}>
+                        {trainer.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
                   label="Puntos iniciales"
@@ -1098,8 +1134,8 @@ export default function MembersList() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button 
-            onClick={() => setCreateModalOpen(false)} 
+          <Button
+            onClick={() => setCreateModalOpen(false)}
             disabled={isCreatingMember}
           >
             Cancelar
@@ -1302,6 +1338,23 @@ export default function MembersList() {
                     margin="normal"
                     size="small"
                   />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth margin="normal" size="small">
+                    <InputLabel>Entrenador</InputLabel>
+                    <Select
+                      name="trainer"
+                      value={formState.trainer}
+                      onChange={handleSelectChange}
+                      label="Entrenador"
+                    >
+                      {trainers.map(trainer => (
+                        <MenuItem key={trainer.id} value={trainer.id}>
+                          {trainer.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth margin="normal" size="small">
@@ -1571,8 +1624,8 @@ export default function MembersList() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle 
-          sx={{ 
+        <DialogTitle
+          sx={{
             textAlign: 'center',
             bgcolor: 'primary.main',
             color: 'white',
@@ -1583,9 +1636,9 @@ export default function MembersList() {
           <IconButton
             aria-label="close"
             onClick={handleClosePinModal}
-            sx={{ 
-              position: 'absolute', 
-              right: 8, 
+            sx={{
+              position: 'absolute',
+              right: 8,
               top: 8,
               color: 'white'
             }}
@@ -1593,17 +1646,17 @@ export default function MembersList() {
             <Close />
           </IconButton>
         </DialogTitle>
-        <DialogContent 
-          sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
+        <DialogContent
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             pt: 4,
-            pb: 4 
+            pb: 4
           }}
         >
-          <Box 
-            sx={{ 
+          <Box
+            sx={{
               display: 'flex',
               alignItems: 'center',
               mb: 2
@@ -1614,26 +1667,26 @@ export default function MembersList() {
               Miembro creado correctamente
             </Typography>
           </Box>
-          
+
           <Typography variant="body1" sx={{ mb: 3, textAlign: 'center' }}>
             El PIN para el usuario <strong>{createdUserName}</strong> es:
           </Typography>
-          
-          <Box 
-            sx={{ 
-              p: 3, 
+
+          <Box
+            sx={{
+              p: 3,
               border: '3px dashed',
               borderColor: 'primary.main',
-              borderRadius: 2, 
+              borderRadius: 2,
               width: '250px',
               textAlign: 'center',
               mb: 2,
               bgcolor: 'primary.50'
             }}
           >
-            <Typography 
-              variant="h3" 
-              fontFamily="monospace" 
+            <Typography
+              variant="h3"
+              fontFamily="monospace"
               fontWeight="bold"
               color="primary.dark"
               letterSpacing={2}
@@ -1641,7 +1694,7 @@ export default function MembersList() {
               {generatedPin}
             </Typography>
           </Box>
-          
+
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
             Este PIN debe ser proporcionado al usuario para que pueda acceder a su cuenta.
             <br />
@@ -1649,8 +1702,8 @@ export default function MembersList() {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             color="primary"
             size="large"
             onClick={handleClosePinModal}
@@ -1702,7 +1755,7 @@ export default function MembersList() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setDeleteConfirmOpen(false)}
             disabled={isDeleting}
           >
