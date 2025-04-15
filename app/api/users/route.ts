@@ -59,14 +59,27 @@ export async function GET(request: NextApiRequest) {
     const parsedPage = Math.max(parseInt(page, 10), 1);
     const parsedLimit = parseInt(limit, 10);
 
+    // Build query object
+    let whereClause = {};
+    
+    // If user is a trainer, restrict to only show users assigned to this trainer
+    if (sessionUser.role === "trainer") {
+        whereClause = {
+            trainer: sessionUser.id
+        };
+    }
+
     const users = await prisma.user.findMany({
+        where: whereClause,
         skip: (parsedPage - 1) * parsedLimit,
         take: parsedLimit,
     });
 
     users.map((user: User) => (user.hashedPassword = undefined as unknown as any))
 
-    const count = await prisma.user.count();
+    const count = await prisma.user.count({
+        where: whereClause
+    });
 
     const onlineUsers = users.filter((user: User) => user.isActive === true);
     const students = users.filter((user: User) => user.role === "user");

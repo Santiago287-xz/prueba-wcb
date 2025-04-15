@@ -1,4 +1,3 @@
-import UserDashboard from "@/app/components/UserDashboard";
 import AdminTrainerDashboard from "@/app/components/AdminTrainerDashboard";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import ClientOnly from "@/app/components/ClientOnly/page";
@@ -30,7 +29,7 @@ export default async function DashboardPage() {
   // Si el usuario tiene otro rol (por ejemplo, 'user'), mostramos el dashboard correspondiente
   return (
     <ClientOnly>
-      {/* {user.role === 'user' ? <UserDashboard user={user}/> : <AdminTrainerDashboard user={user} />} */}
+      <Empty title={'Welcome'} subtitle={'Please use the menu to navigate'} />
     </ClientOnly>
   );
 }

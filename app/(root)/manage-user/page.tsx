@@ -1,6 +1,7 @@
 "use client"
 import type React from "react"
 import { useState, useMemo, useEffect } from "react"
+import { SportsMartialArts } from "@mui/icons-material";
 import {
   Table,
   TableBody,
@@ -59,6 +60,7 @@ import {
 import axios from "axios"
 import type { User } from "@prisma/client"
 import useSWR from "swr"
+import { se } from "date-fns/locale"
 // Eliminamos la importación de useTrainersStore
 
 // Definición de estilos personalizados
@@ -157,10 +159,10 @@ const ManageUser: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"))
   const isTablet = useMediaQuery(theme.breakpoints.down("md"))
-  
+
   // Reemplazo del useTrainersStore con estado local y SWR
   const [trainerLoading, setTrainerLoading] = useState<boolean>(false)
-  
+
   // State and data fetching using useSWR
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [rowsPerPage, setRowsPerPage] = useState<number>(10)
@@ -178,13 +180,13 @@ const ManageUser: React.FC = () => {
   const [addUserDialogOpen, setAddUserDialogOpen] = useState<boolean>(false)
 
   const { data, isLoading, mutate } = useSWR(`/api/users?page=${currentPage}&limit=${rowsPerPage}`, fetcher)
-  
+
   // Usamos SWR para cargar los entrenadores - reemplaza la funcionalidad de useTrainersStore
   const { data: trainersData, isLoading: isTrainersLoading, mutate: mutateTrainers } = useSWR('/api/trainers', fetcher, {
     onSuccess: () => setTrainerLoading(false),
     onError: () => setTrainerLoading(false)
   })
-  
+
   // Array de entrenadores extraído de trainersData
   const trainers = useMemo(() => trainersData?.data || [], [trainersData])
 
@@ -416,8 +418,8 @@ const ManageUser: React.FC = () => {
                 }}
               />
               <Tooltip title="Mostrar/ocultar filtros">
-                <IconButton 
-                  color="primary" 
+                <IconButton
+                  color="primary"
                   onClick={toggleFilters}
                   sx={{ ml: 1, display: { xs: 'flex', md: 'none' } }}
                 >
@@ -482,7 +484,7 @@ const ManageUser: React.FC = () => {
         {(isLoading || isTrainersLoading) && (
           <LinearProgress color="primary" sx={{ height: "3px" }} />
         )}
-        
+
         <TableContainer component={Paper} elevation={0}>
           <Table sx={{ minWidth: 650 }} aria-label="tabla de usuarios">
             <TableHead>
@@ -561,63 +563,6 @@ const ManageUser: React.FC = () => {
                       </Box>
                     </TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>{user?.email}</TableCell>
-                    <TableCell>
-                      <Chip
-                        icon={user?.isActive ? <CheckCircle fontSize="small" /> : <Cancel fontSize="small" />}
-                        label={user?.isActive ? "Online" : "Offline"}
-                        color={user?.isActive ? "success" : "default"}
-                        size="small"
-                        sx={{
-                          fontWeight: 500,
-                          transition: "all 0.2s ease",
-                          bgcolor: user?.isActive ? "rgba(46, 204, 113, 0.1)" : "rgba(200, 200, 200, 0.2)",
-                          "& .MuiChip-icon": {
-                            color: user?.isActive ? "#2ecc71" : "#bdc3c7"
-                          }
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {user?.role === "user" ? (
-                        <FormControl fullWidth size="small" variant="outlined">
-                          <Select
-                            value={user?.trainerId ?? ""}
-                            onChange={(event) => handleChangeTrainer(event.target.value as string, user?.id)}
-                            displayEmpty
-                            sx={{
-                              borderRadius: "8px",
-                              fontSize: "0.875rem",
-                              "& .MuiOutlinedInput-notchedOutline": {
-                                borderColor: "rgba(0, 0, 0, 0.12)",
-                              },
-                            }}
-                          >
-                            <MenuItem value="" disabled>
-                              <Typography variant="body2" color="text.secondary">Seleccionar entrenador</Typography>
-                            </MenuItem>
-                            {trainers?.map((trainer) => (
-                              <MenuItem key={trainer.id} value={trainer.id}>
-                                {trainer.name}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">No aplicable</Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={getRoleName(user?.role)}
-                        color={getRoleColor(user?.role)}
-                        variant="outlined"
-                        size="small"
-                        sx={{ 
-                          textTransform: "capitalize",
-                          fontWeight: 500,
-                        }}
-                      />
-                    </TableCell>
                     <TableCell align="center">
                       <Stack direction="row" spacing={1} justifyContent="center">
                         <Tooltip title="Ver detalles" arrow>
@@ -635,44 +580,68 @@ const ManageUser: React.FC = () => {
                             <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        
-                        <Tooltip title="Editar usuario" arrow>
-                          <IconButton
-                            color="info"
-                            size="small"
-                            sx={{
-                              transition: "all 0.2s",
-                              "&:hover": {
-                                transform: "scale(1.1)",
-                                backgroundColor: "rgba(3, 169, 244, 0.08)"
-                              },
-                            }}
-                          >
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        <Tooltip title="Eliminar usuario" arrow>
-                          <IconButton
-                            color="error"
-                            size="small"
-                            onClick={() => {
-                              setUserToDelete(user.id)
-                              setDeleteDialogOpen(true)
-                            }}
-                            sx={{
-                              transition: "all 0.2s",
-                              "&:hover": {
-                                transform: "scale(1.1)",
-                                backgroundColor: "rgba(244, 67, 54, 0.08)"
-                              },
-                            }}
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+
+                        {user?.role === 'trainer' ? (
+                          // For trainers, only show the exercise assignment button
+                          <Tooltip title="Asignar ejercicios" arrow>
+                            <IconButton
+                              color="success"
+                              size="small"
+                              onClick={() => router.push(`/exercise-assignment/${user.id}`)}
+                              sx={{
+                                transition: "all 0.2s",
+                                "&:hover": {
+                                  transform: "scale(1.1)",
+                                  backgroundColor: "rgba(76, 175, 80, 0.08)"
+                                },
+                              }}
+                            >
+                              <SportsMartialArts fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        ) : (
+                          // For admins, show edit and delete buttons
+                          <>
+                            <Tooltip title="Editar usuario" arrow>
+                              <IconButton
+                                color="info"
+                                size="small"
+                                sx={{
+                                  transition: "all 0.2s",
+                                  "&:hover": {
+                                    transform: "scale(1.1)",
+                                    backgroundColor: "rgba(3, 169, 244, 0.08)"
+                                  },
+                                }}
+                              >
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+
+                            <Tooltip title="Eliminar usuario" arrow>
+                              <IconButton
+                                color="error"
+                                size="small"
+                                onClick={() => {
+                                  setUserToDelete(user.id);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                sx={{
+                                  transition: "all 0.2s",
+                                  "&:hover": {
+                                    transform: "scale(1.1)",
+                                    backgroundColor: "rgba(244, 67, 54, 0.08)"
+                                  },
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
                       </Stack>
                     </TableCell>
+
                   </TableRow>
                 ))
               )}
@@ -680,17 +649,17 @@ const ManageUser: React.FC = () => {
           </Table>
         </TableContainer>
 
-        <Box sx={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center", 
+        <Box sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           p: 2,
           borderTop: "1px solid rgba(224, 224, 224, 1)"
         }}>
           <Typography variant="body2" color="text.secondary" sx={{ ml: 2, display: { xs: "none", sm: "block" } }}>
             {data?.count ? `Total: ${data.count} usuarios` : ""}
           </Typography>
-          
+
           <TablePagination
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
@@ -735,8 +704,8 @@ const ManageUser: React.FC = () => {
           <Button
             onClick={() => setDeleteDialogOpen(false)}
             variant="outlined"
-            sx={{ 
-              borderRadius: "8px", 
+            sx={{
+              borderRadius: "8px",
               textTransform: "none",
               px: 3
             }}
@@ -747,8 +716,8 @@ const ManageUser: React.FC = () => {
             onClick={handleDeleteUser}
             color="error"
             variant="contained"
-            sx={{ 
-              borderRadius: "8px", 
+            sx={{
+              borderRadius: "8px",
               textTransform: "none",
               px: 3
             }}
@@ -771,8 +740,8 @@ const ManageUser: React.FC = () => {
           onClose={() => setSnackbarOpen(false)}
           severity={snackbarSeverity}
           variant="filled"
-          sx={{ 
-            width: "100%", 
+          sx={{
+            width: "100%",
             boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
             borderRadius: "10px"
           }}

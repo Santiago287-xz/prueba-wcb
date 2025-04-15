@@ -20,13 +20,14 @@ const PATH_PERMISSIONS = {
 		"admin",
 		"court_manager",
 	],
-	"/manage-user": ["admin"],
+	"/manage-user": ["admin", "trainer"],
 	"/rfid-management": [
 		"admin",
 		"employee",
 	],
 	"/sales": ["admin", "employee"],
 	"/trainers": ["admin"],
+	"/exercise-assignment": ["admin", "trainer"],
 
 	// Member paths
 	"/user": ["member"],
@@ -101,7 +102,8 @@ const API_PERMISSIONS = {
 	"/api/rfid": ["admin", "employee"],
 	"/api/sales": ["admin", "employee"],
 	"/api/transactions": ["admin"],
-	"/api/users": ["admin"],
+	"/api/users": ["admin", "trainer"],
+	"/api/exercise": ["admin", "trainer"],
 };
 
 // Public paths that don't require auth

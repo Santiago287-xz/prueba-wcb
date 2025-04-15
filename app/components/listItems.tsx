@@ -19,6 +19,7 @@ import {
   FaBell,
   FaUserCircle,
   FaUsers,
+  FaCreditCard
 } from "react-icons/fa";
 
 interface ListItemsProps {
@@ -81,6 +82,7 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
   const isTrainer = user?.role === "trainer";
   const isUser = user?.role === "user";
   const isEmployee = user?.role === "employee";
+  const isReceptionist = user?.role === "receptionist";
   const isCourtManager = user?.role === "court_manager";
 
   return (
@@ -92,7 +94,7 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
           <MenuItem href="/add-user" title="Add User" icon={FaUserPlus} onItemClick={onItemClick} />
           <MenuItem href="/manage-user" title="Manage User" icon={FaUserCog} onItemClick={onItemClick} />
           <MenuItem href="/students" title="Students" icon={FaUsers} onItemClick={onItemClick} />
-          {/* <MenuItem href="/attendance" title="Attendance" icon={FaClipboardList} onItemClick={onItemClick} /> */}
+          <MenuItem href="/rfid-management" title="RFID Management" icon={FaCreditCard} onItemClick={onItemClick} />
           <MenuItem href="/booking" title="Canchas" icon={FaCalendarAlt} onItemClick={onItemClick} />
           <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />
         </>
@@ -104,8 +106,9 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
         </>
       )}
 
-      {isCourtManager && (
+      {isCourtManager || isReceptionist && (
         <>
+          <MenuItem href="/rfid-management" title="RFID Management" icon={FaCreditCard} onItemClick={onItemClick} />
           <MenuItem href="/booking" title="Canchas" icon={FaCalendarAlt} onItemClick={onItemClick} />
         </>
       )}
@@ -120,17 +123,8 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
         <MenuItem href="/analytics" title="Analytics" icon={FaChartLine} onItemClick={onItemClick} />
       )}
 
-      {/* {isAdmin && (
-        <>
-          <MenuItem href="/fees" title="Fees" icon={FaMoneyBillWave} onItemClick={onItemClick} />
-          <MenuItem href="/exercise" title="Exercise" icon={FaDumbbell} onItemClick={onItemClick} />
-          <MenuItem href="/diet" title="Diet" icon={FaAppleAlt} onItemClick={onItemClick} />
-        </>
-      )} */}
-
       {isUser && (
         <>
-          <MenuItem href="/user/attendance" title="My Attendance" icon={FaClipboardList} onItemClick={onItemClick} />
           <MenuItem href="/user/fees" title="My Fees" icon={FaMoneyBillWave} onItemClick={onItemClick} />
           <MenuItem href="/user/exercise" title="My Exercise" icon={FaDumbbell} onItemClick={onItemClick} />
           <MenuItem href="/user/diet" title="My Diet Sheet" icon={FaAppleAlt} onItemClick={onItemClick} />

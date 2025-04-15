@@ -17,7 +17,7 @@ import {
   IconButton,
 } from '@mui/material';
 import { AssignmentIndOutlined, HistoryOutlined, Refresh } from '@mui/icons-material';
-import RFIDMembersList from '@/app/components/RFID/MembersList';
+import MembersList from '@/app/components/RFID/MembersList';
 import RFIDLogs from '@/app/components/RFID/Logs';
 
 interface TabPanelProps {
@@ -281,7 +281,7 @@ export default function RFIDManagementPage() {
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
-          <RFIDMembersList />
+          <MembersList />
         </TabPanel>
         <TabPanel value={tabValue} index={1}>
           <RFIDLogs />
