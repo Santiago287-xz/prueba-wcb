@@ -18,7 +18,7 @@ import {
   Divider,
   SelectChangeEvent
 } from '@mui/material';
-import { Close } from '@mui/icons-material';
+import { Close, Key } from '@mui/icons-material';
 import { Member, MembershipPrice, Trainer, FormState, FormErrors } from '@/app/types/membership';
 
 interface EditMemberModalProps {
@@ -29,6 +29,7 @@ interface EditMemberModalProps {
   trainers: Trainer[];
   onSuccess: () => void;
   showNotification: (message: string, severity?: 'success' | 'error' | 'warning' | 'info') => void;
+  onResetPassword: (member: Member) => void;
 }
 
 export default function EditMemberModal({
@@ -38,7 +39,8 @@ export default function EditMemberModal({
   membershipPrices,
   trainers,
   onSuccess,
-  showNotification
+  showNotification,
+  onResetPassword
 }: EditMemberModalProps) {
   // Form state
   const [formState, setFormState] = useState<FormState>({
@@ -161,7 +163,7 @@ export default function EditMemberModal({
       await axios.post('/api/rfid/assign', {
         userId: member.id,
         rfidCardNumber: formState.rfidCardNumber,
-        membershipType: member.membershipType,
+        membershipType: formState.membershipTypeId,
         membershipStatus: member.membershipStatus,
         accessPoints: member.accessPoints,
         phone: formState.phone,
@@ -173,7 +175,7 @@ export default function EditMemberModal({
         level: formState.level,
         trainer: formState.trainer
       });
-      
+
       onSuccess();
     } catch (error: any) {
       console.error('Error updating member:', error);
@@ -196,6 +198,13 @@ export default function EditMemberModal({
     }
 
     return 'Activo';
+  };
+
+  // Handle password reset
+  const handleResetPassword = () => {
+    if (member) {
+      onResetPassword(member);
+    }
   };
 
   return (
@@ -373,7 +382,7 @@ export default function EditMemberModal({
                   inputProps={{ min: 0 }}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={3}>
                 <TextField
                   label="Altura (cm)"
                   name="height"
@@ -388,7 +397,7 @@ export default function EditMemberModal({
                   inputProps={{ min: 0 }}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={3}>
                 <TextField
                   label="Peso (kg)"
                   name="weight"
@@ -402,8 +411,8 @@ export default function EditMemberModal({
                   size="small"
                   inputProps={{ min: 0 }}
                 />
-              </Grid>              
-              <Grid item xs={12} md={4}>
+              </Grid>
+              <Grid item xs={12} md={3}>
                 <FormControl fullWidth margin="normal" size="small">
                   <InputLabel>Nivel</InputLabel>
                   <Select
@@ -420,7 +429,7 @@ export default function EditMemberModal({
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} md={3}>
                 <FormControl fullWidth margin="normal" size="small">
                   <InputLabel>Objetivo</InputLabel>
                   <Select
@@ -444,7 +453,16 @@ export default function EditMemberModal({
           </>
         )}
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{marginX: 2}}>
+        <Button
+          startIcon={<Key />}
+          color="primary"
+          variant="outlined"
+          onClick={handleResetPassword}
+          sx={{ marginRight: 'auto' }}  // Empuja los siguientes elementos hacia la derecha
+        >
+          Nueva Contraseña
+        </Button>
         <Button onClick={onClose}>Cancelar</Button>
         <Button
           variant="contained"
@@ -453,6 +471,7 @@ export default function EditMemberModal({
           Guardar Cambios
         </Button>
       </DialogActions>
+
     </Dialog>
   );
 }

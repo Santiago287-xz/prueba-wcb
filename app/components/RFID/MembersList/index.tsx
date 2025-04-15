@@ -42,6 +42,7 @@ import EditMemberModal from './EditMemberModal';
 import RenewMembershipModal from './RenewMembershipModal';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
 import PinModal from './PinModal';
+import ResetPasswordModal from './ResetPasswordModal';
 
 export default function MembersList() {
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -71,6 +72,11 @@ export default function MembersList() {
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [generatedPin, setGeneratedPin] = useState('');
   const [createdUserName, setCreatedUserName] = useState('');
+  
+  // Estado para el modal de restablecer contraseña
+  const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
+  const [newGeneratedPassword, setNewGeneratedPassword] = useState('');
+  const [passwordUserName, setPasswordUserName] = useState('');
 
   const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info' = 'success') => {
     setNotification({
@@ -133,6 +139,25 @@ export default function MembersList() {
       ...prev,
       open: false
     }));
+  };
+
+  // Handle password reset
+  const handleResetPassword = async (member: Member) => {
+    try {
+      const response = await axios.post('/api/rfid/reset-password', {
+        userId: member.id
+      });
+      
+      if (response.data && response.data.success) {
+        setPasswordUserName(member.name || '');
+        setNewGeneratedPassword(response.data.newPassword);
+        setEditModalOpen(false); // Cierra el modal de edición
+        setResetPasswordModalOpen(true); // Abre el modal de contraseña
+      }
+    } catch (error: any) {
+      console.error('Error al restablecer contraseña:', error);
+      showNotification(error.response?.data?.error || 'Error al restablecer contraseña', 'error');
+    }
   };
 
   // Handle member deletion
@@ -500,6 +525,7 @@ export default function MembersList() {
           showNotification('Miembro actualizado correctamente', 'success');
         }}
         showNotification={showNotification}
+        onResetPassword={handleResetPassword}
       />
 
       {/* Renew Membership Modal */}
@@ -537,6 +563,17 @@ export default function MembersList() {
         }}
         pin={generatedPin}
         userName={createdUserName}
+      />
+
+      {/* Reset Password Modal */}
+      <ResetPasswordModal
+        open={resetPasswordModalOpen}
+        onClose={() => {
+          setResetPasswordModalOpen(false);
+          showNotification('Contraseña restablecida correctamente', 'success');
+        }}
+        newPassword={newGeneratedPassword}
+        userName={passwordUserName}
       />
 
       {/* Notification Snackbar */}

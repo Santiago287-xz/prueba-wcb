@@ -24,7 +24,7 @@ import {
   TableRow,
   IconButton
 } from "@mui/material";
-import { Add, Delete } from "@mui/icons-material";
+import { Delete } from "@mui/icons-material";
 import axios from "axios";
 import toast from "react-hot-toast";
 
@@ -45,32 +45,28 @@ export default function AssignExercisePage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check authorization
     if (status === "unauthenticated") {
       router.push("/signin");
       return;
     }
-
+    
     if (status === "authenticated" && session.user.role !== "trainer" && session.user.role !== "admin") {
       router.push("/unauthorized");
       return;
     }
-
-    // Load data
+    
     fetchData();
   }, [status, session, router, userId]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch user details
+      // Obtener detalles del usuario
       const userResponse = await axios.get(`/api/users/${userId}`);
       setUser(userResponse.data);
-
-      // Fetch available exercises
+      // Obtener la lista de ejercicios disponibles (desde exerciseList)
       const exercisesResponse = await axios.get('/api/exercise/manage-exercise');
       setAvailableExercises(exercisesResponse.data.data || []);
-      
       setError(null);
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -82,14 +78,10 @@ export default function AssignExercisePage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleExerciseSelection = (exerciseId) => {
-    // Toggle exercise selection
     setSelectedExercises(prev => {
       const isSelected = prev.some(ex => ex.id === exerciseId);
       if (isSelected) {
@@ -109,11 +101,9 @@ export default function AssignExercisePage() {
   };
 
   const handleExerciseDataChange = (exerciseId, field, value) => {
-    setSelectedExercises(prev => 
-      prev.map(ex => 
-        ex.id === exerciseId 
-          ? { ...ex, [field]: parseInt(value) || 0 } 
-          : ex
+    setSelectedExercises(prev =>
+      prev.map(ex =>
+        ex.id === exerciseId ? { ...ex, [field]: parseInt(value) || 0 } : ex
       )
     );
   };
@@ -159,11 +149,7 @@ export default function AssignExercisePage() {
     return (
       <Container sx={{ py: 4 }}>
         <Alert severity="error">{error}</Alert>
-        <Button 
-          variant="outlined" 
-          onClick={() => router.push('/manage-user')}
-          sx={{ mt: 2 }}
-        >
+        <Button variant="outlined" onClick={() => router.push('/manage-user')} sx={{ mt: 2 }}>
           Back to User Management
         </Button>
       </Container>
@@ -300,18 +286,10 @@ export default function AssignExercisePage() {
           )}
           
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-            <Button
-              variant="outlined"
-              onClick={() => router.push('/manage-user')}
-            >
+            <Button variant="outlined" onClick={() => router.push('/manage-user')}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              disabled={submitting || selectedExercises.length === 0}
-            >
+            <Button type="submit" variant="contained" color="primary" disabled={submitting || selectedExercises.length === 0}>
               {submitting ? <CircularProgress size={24} /> : 'Assign Exercises'}
             </Button>
           </Box>

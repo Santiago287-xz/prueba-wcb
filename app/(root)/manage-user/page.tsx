@@ -1,7 +1,9 @@
 "use client"
 import type React from "react"
 import { useState, useMemo, useEffect } from "react"
+import { useSession } from "next-auth/react";
 import { SportsMartialArts } from "@mui/icons-material";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -156,10 +158,12 @@ const getInitials = (name: string): string => {
 };
 
 const ManageUser: React.FC = () => {
+  const router = useRouter();
+  const sessionData = useSession().data;
+  const sessionUser = sessionData?.user;
+  
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"))
-  const isTablet = useMediaQuery(theme.breakpoints.down("md"))
-
   // Reemplazo del useTrainersStore con estado local y SWR
   const [trainerLoading, setTrainerLoading] = useState<boolean>(false)
 
@@ -178,7 +182,6 @@ const ManageUser: React.FC = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "info" | "warning">("success")
   const [filtersOpen, setFiltersOpen] = useState<boolean>(!isMobile) // Por defecto cerrado en móvil
   const [addUserDialogOpen, setAddUserDialogOpen] = useState<boolean>(false)
-
   const { data, isLoading, mutate } = useSWR(`/api/users?page=${currentPage}&limit=${rowsPerPage}`, fetcher)
 
   // Usamos SWR para cargar los entrenadores - reemplaza la funcionalidad de useTrainersStore
@@ -284,6 +287,7 @@ const ManageUser: React.FC = () => {
   const toggleFilters = () => {
     setFiltersOpen(!filtersOpen)
   }
+
 
   // Memoized filtered and sorted data
   const filteredAndSortedData = useMemo(() => {
@@ -564,83 +568,83 @@ const ManageUser: React.FC = () => {
                     </TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>{user?.email}</TableCell>
                     <TableCell align="center">
-                      <Stack direction="row" spacing={1} justifyContent="center">
-                        <Tooltip title="Ver detalles" arrow>
+                    <Stack direction="row" spacing={1} justifyContent="center">
+                      <Tooltip title="Ver detalles" arrow>
+                        <IconButton
+                          color="primary"
+                          size="small"
+                          sx={{
+                            transition: "all 0.2s",
+                            "&:hover": {
+                              transform: "scale(1.1)",
+                              backgroundColor: "rgba(63, 81, 181, 0.08)"
+                            },
+                          }}
+                        >
+                          <Visibility fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      
+                      {sessionUser?.role === 'trainer' ? (
+                        // For trainers, only show the exercise assignment button
+                        <Tooltip title="Asignar ejercicios" arrow>
                           <IconButton
-                            color="primary"
+                            color="success"
                             size="small"
+                            onClick={() => router.push(`/exercise-assignment/${user.id}`)}
                             sx={{
                               transition: "all 0.2s",
                               "&:hover": {
                                 transform: "scale(1.1)",
-                                backgroundColor: "rgba(63, 81, 181, 0.08)"
+                                backgroundColor: "rgba(76, 175, 80, 0.08)"
                               },
                             }}
                           >
-                            <Visibility fontSize="small" />
+                            <SportsMartialArts fontSize="small" />
                           </IconButton>
                         </Tooltip>
-
-                        {user?.role === 'trainer' ? (
-                          // For trainers, only show the exercise assignment button
-                          <Tooltip title="Asignar ejercicios" arrow>
+                      ) : (
+                        // For admins, show edit and delete buttons
+                        <>
+                          <Tooltip title="Editar usuario" arrow>
                             <IconButton
-                              color="success"
+                              color="info"
                               size="small"
-                              onClick={() => router.push(`/exercise-assignment/${user.id}`)}
                               sx={{
                                 transition: "all 0.2s",
                                 "&:hover": {
                                   transform: "scale(1.1)",
-                                  backgroundColor: "rgba(76, 175, 80, 0.08)"
+                                  backgroundColor: "rgba(3, 169, 244, 0.08)"
                                 },
                               }}
                             >
-                              <SportsMartialArts fontSize="small" />
+                              <Edit fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                        ) : (
-                          // For admins, show edit and delete buttons
-                          <>
-                            <Tooltip title="Editar usuario" arrow>
-                              <IconButton
-                                color="info"
-                                size="small"
-                                sx={{
-                                  transition: "all 0.2s",
-                                  "&:hover": {
-                                    transform: "scale(1.1)",
-                                    backgroundColor: "rgba(3, 169, 244, 0.08)"
-                                  },
-                                }}
-                              >
-                                <Edit fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-
-                            <Tooltip title="Eliminar usuario" arrow>
-                              <IconButton
-                                color="error"
-                                size="small"
-                                onClick={() => {
-                                  setUserToDelete(user.id);
-                                  setDeleteDialogOpen(true);
-                                }}
-                                sx={{
-                                  transition: "all 0.2s",
-                                  "&:hover": {
-                                    transform: "scale(1.1)",
-                                    backgroundColor: "rgba(244, 67, 54, 0.08)"
-                                  },
-                                }}
-                              >
-                                <Delete fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                      </Stack>
-                    </TableCell>
+                          
+                          <Tooltip title="Eliminar usuario" arrow>
+                            <IconButton
+                              color="error"
+                              size="small"
+                              onClick={() => {
+                                setUserToDelete(user.id);
+                                setDeleteDialogOpen(true);
+                              }}
+                              sx={{
+                                transition: "all 0.2s",
+                                "&:hover": {
+                                  transform: "scale(1.1)",
+                                  backgroundColor: "rgba(244, 67, 54, 0.08)"
+                                },
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </Stack>
+                  </TableCell>
 
                   </TableRow>
                 ))

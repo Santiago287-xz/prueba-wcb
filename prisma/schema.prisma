@@ -59,24 +59,35 @@ enum SalePaymentMethod {
   mercado_pago
 }
 
-model Exercise {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  name          String
-  description   String?
-  sets          Int
-  reps          Int
-  weight        Float?
-  duration      Int?     // en minutos, para ejercicios cardio
-  notes         String?
-  
-  // Relaciones
-  user          User     @relation(fields: [userId], references: [id], name: "UserExercises")
-  userId        String   @db.ObjectId
-  trainer       User     @relation(fields: [trainerId], references: [id], name: "TrainerExercises")
-  trainerId     String   @db.ObjectId
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model ExerciseList {
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  description     String?
+  sets            Int
+  reps            Int
+  weight          Float?
+  duration        Int?     // en minutos, para ejercicios cardio
+  notes           String?
+  trainer         User           @relation(fields: [trainerId], references: [id], name: "TrainerExercises")
+  trainerId       String         @db.ObjectId
+  assignedToUsers UserExercise[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model UserExercise {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id])
+  userId         String       @db.ObjectId
+  exercise       ExerciseList @relation(fields: [exerciseId], references: [id])
+  exerciseId     String       @db.ObjectId
+  sets           Int?
+  reps           Int?
+  weight         Float?
+  duration       Int?
+  notes          String?
+  assignedAt     DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 model User {
@@ -103,8 +114,8 @@ model User {
   lastCheckIn        DateTime?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
-  assignedExercises Exercise[] @relation("UserExercises")
-  createdExercises  Exercise[] @relation("TrainerExercises")
+  exerciseAssignments UserExercise[]
+  createdExerciseLists ExerciseList[]     @relation("TrainerExercises")
   accessLogs         AccessLog[]
   stockMovements     StockMovement[]
   sales              Sale[]
@@ -184,7 +195,7 @@ model Event {
   date      DateTime
   startTime DateTime
   endTime   DateTime
-  courtIds  String[] @db.ObjectId // Nueva forma - lista de IDs de canchas
+  courtIds  String[] @db.ObjectId
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -261,20 +272,15 @@ model Transaction {
   description   String?
   paymentMethod PaymentMethod
   location      Location?
-
-  // Referencias opcionales
-  userId String? @db.ObjectId
-  user   User?   @relation(fields: [userId], references: [id])
-
-  saleId String? @db.ObjectId
-  sale   Sale?   @relation(fields: [saleId], references: [id], onDelete: SetNull)
-
+  userId        String? @db.ObjectId
+  user          User?   @relation(fields: [userId], references: [id])
+  saleId        String? @db.ObjectId
+  sale          Sale?   @relation(fields: [saleId], references: [id], onDelete: SetNull)
   reservationId String?           @db.ObjectId
   reservation   CourtReservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
-
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  PointPackage   PointPackage? @relation(fields: [pointPackageId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  PointPackage  PointPackage? @relation(fields: [pointPackageId], references: [id])
   pointPackageId String?       @db.ObjectId
 }
 

@@ -1,4 +1,3 @@
-import AdminTrainerDashboard from "@/app/components/AdminTrainerDashboard";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import ClientOnly from "@/app/components/ClientOnly/page";
 import Empty from "@/app/components/Empty";

@@ -7,15 +7,13 @@ import {
   Tooltip, Legend, Bar, Line, Pie, Cell, ResponsiveContainer
 } from 'recharts';
 
-/* ======= Interfaces y Tipos ======= */
-
-interface GrowthData {
+export interface GrowthData {
   date: string;
   total: number;
   active: number;
 }
 
-interface MembersMetrics {
+export interface MembersMetrics {
   total: number;
   active: number;
   newThisMonth: number;
@@ -23,23 +21,23 @@ interface MembersMetrics {
   growthData: GrowthData[];
 }
 
-interface PopularTime {
+export interface PopularTime {
   hour: string;
   reservations: number;
 }
 
-interface UtilizationByDay {
+export interface UtilizationByDay {
   day: string;
   futbol: number;
   padel: number;
 }
 
-interface TopClient {
+export interface TopClient {
   name: string;
   reservations: number;
 }
 
-interface CourtsMetrics {
+export interface CourtsMetrics {
   utilization: number;
   revenue: number;
   popularTimes: PopularTime[];
@@ -48,29 +46,29 @@ interface CourtsMetrics {
   topClients: TopClient[];
 }
 
-interface ByCategory {
+export interface ByCategory {
   name: string;
   value: number;
 }
 
-interface TopProduct {
+export interface TopProduct {
   name: string;
   quantity: number;
   revenue: number;
 }
 
-interface SalesMetrics {
+export interface SalesMetrics {
   total: number;
   byCategory: ByCategory[];
   topProducts: TopProduct[];
 }
 
-interface ByDayOfWeek {
+export interface ByDayOfWeek {
   day: string;
   count: number;
 }
 
-interface AttendanceMetrics {
+export interface AttendanceMetrics {
   today: number;
   thisWeek: number;
   avgDaily: number;
@@ -78,25 +76,24 @@ interface AttendanceMetrics {
   byDayOfWeek: ByDayOfWeek[];
 }
 
-interface Metrics {
+export interface Metrics {
   members: MembersMetrics;
   courts: CourtsMetrics;
   sales: SalesMetrics;
   attendance: AttendanceMetrics;
 }
 
-interface DateRange {
+export interface DateRange {
   start: Date;
   end: Date;
 }
 
-interface AnimatedCounterProps {
+export interface AnimatedCounterProps {
   value: number;
   duration?: number;
   previousValue?: number;
 }
 
-/* ======= Componentes ======= */
 
 // Contador animado con transiciones suaves
 const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ value, duration = 800, previousValue = 0 }) => {

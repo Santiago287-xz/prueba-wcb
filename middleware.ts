@@ -47,7 +47,7 @@ const PATH_PERMISSIONS = {
 		"employee",
 		"court_manager",
 	],
-	"/(auth)/unauthorized": [
+	"/unauthorized": [
 		"admin",
 		"trainer",
 		"member",
@@ -104,6 +104,7 @@ const API_PERMISSIONS = {
 	"/api/transactions": ["admin"],
 	"/api/users": ["admin", "trainer"],
 	"/api/exercise": ["admin", "trainer"],
+	"/api/exercise-assignment": ["admin", "trainer"],
 };
 
 // Public paths that don't require auth
@@ -112,7 +113,7 @@ const PUBLIC_PATHS = [
 	"/signup",
 	"/forgot-password",
 	"/password-reset",
-	"/(auth)/unauthorized", // Make unauthorized page accessible
+	"/unauthorized", // Make unauthorized page accessible
 ];
 
 export async function middleware(
@@ -136,7 +137,7 @@ export async function middleware(
 	const role = token?.role as string;
 
 	// Allow access to unauthorized page without redirection
-	if (path === "/(auth)/unauthorized") {
+	if (path === "/unauthorized") {
 		return NextResponse.next();
 	}
 
