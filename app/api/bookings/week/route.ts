@@ -27,9 +27,6 @@ export async function GET(request: NextRequest) {
     const endDate = new Date(end);
     endDate.setHours(23, 59, 59, 999);
     
-    // Debugging information
-    console.log(`Fetching data for range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
-    
     // Get all courts in a single query
     const courts = await prisma.court.findMany({
       select: {
@@ -134,11 +131,6 @@ export async function GET(request: NextRequest) {
       }).catch(() => []) : Promise.resolve([])
     ]);
     
-    // Log results for debugging
-    console.log(`Found ${nonRecurringRes.length} non-recurring reservations`);
-    console.log(`Found ${recurringRes.length} recurring reservations`);
-    console.log(`Found ${events.length} events`);
-    
     // Create a court map for faster lookups
     const courtMap = Object.fromEntries(
       courts.map(court => [court.id, court])
@@ -208,8 +200,6 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    console.log(`Generated ${processedRecurringRes.length} virtual instances`);
-    
     // Process events - carefully track courtIds to avoid duplicates
     const processedEvents = [];
     const processedEventIds = new Set();
@@ -250,15 +240,8 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    console.log(`Processed ${processedEvents.length} event instances`);
-    
     // Build the final response and add all necessary no-cache headers
     const allReservations = [...processedNonRecurringRes, ...processedRecurringRes];
-    
-    // Log some sample data for debugging
-    if (allReservations.length > 0) {
-      console.log("Sample reservation:", JSON.stringify(allReservations[0]));
-    }
     
     return NextResponse.json({
       reservations: allReservations,

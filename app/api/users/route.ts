@@ -133,7 +133,6 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        console.log("Body recibido:", body);
 
         if (!body.email || !body.password) {
             return NextResponse.json(
@@ -183,8 +182,6 @@ export async function POST(req: Request) {
             level: body.level || "beginner",
             // No intentamos asignar adminId ni trainerId
         };
-
-        console.log("Datos a crear:", userData);
 
         const user = await prisma.user.create({
             data: userData

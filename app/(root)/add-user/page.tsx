@@ -113,7 +113,6 @@ const AddMemberPage: React.FC = () => {
 
   const onSubmit: SubmitHandler<FieldValues> = async (data) => {
     try {
-      console.log("Datos a enviar:", data);
       
       // Datos mínimos necesarios (versión simplificada)
       const userData = {
@@ -125,7 +124,6 @@ const AddMemberPage: React.FC = () => {
         phone: parseInt(data.phone) || 0,
       };
       
-      console.log("Datos procesados:", userData);
       
       // Verificamos si hay conflicto de roles
       if (sessionUser?.role === userData.role) {

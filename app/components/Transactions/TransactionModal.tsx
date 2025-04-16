@@ -16,6 +16,7 @@ interface TransactionModalProps {
   onClose: () => void;
   onSave: (transaction: Transaction) => void;
   hideFields?: boolean;
+  category?: string;
 }
 
 const categoryOptions = {
@@ -23,12 +24,12 @@ const categoryOptions = {
   expense: ['salary', 'supplies', 'utilities', 'maintenance', 'marketing', 'other_expense']
 };
 
-export default function TransactionModal({ transaction, onClose, onSave, hideFields = false }: TransactionModalProps) {
+export default function TransactionModal({ transaction, onClose, onSave, hideFields = false, category }: TransactionModalProps) {
   const isEdit = !!transaction;
   const [formData, setFormData] = useState<Transaction>(
     transaction || {
       type: 'income',
-      category: 'membership',
+      category: category || 'membership',
       amount: 0,
       description: '',
       paymentMethod: 'cash',

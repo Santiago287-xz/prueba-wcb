@@ -1,102 +1,77 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { format, subDays, startOfMonth, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
 import {
-  BarChart, LineChart, PieChart, XAxis, YAxis, CartesianGrid,
+  BarChart, LineChart, PieChart, ComposedChart, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, Bar, Line, Pie, Cell, ResponsiveContainer
 } from 'recharts';
+import { isEqual } from 'lodash';
 
-export interface GrowthData {
-  date: string;
-  total: number;
-  active: number;
-}
-
-export interface MembersMetrics {
-  total: number;
-  active: number;
-  newThisMonth: number;
-  retention: number;
-  growthData: GrowthData[];
-}
-
-export interface PopularTime {
-  hour: string;
-  reservations: number;
-}
-
-export interface UtilizationByDay {
-  day: string;
-  futbol: number;
-  padel: number;
-}
-
-export interface TopClient {
-  name: string;
-  reservations: number;
-}
-
-export interface CourtsMetrics {
-  utilization: number;
-  revenue: number;
-  popularTimes: PopularTime[];
-  popularCourts: any[];
-  utilizationByDay: UtilizationByDay[];
-  topClients: TopClient[];
-}
-
-export interface ByCategory {
-  name: string;
-  value: number;
-}
-
-export interface TopProduct {
-  name: string;
-  quantity: number;
-  revenue: number;
-}
-
-export interface SalesMetrics {
-  total: number;
-  byCategory: ByCategory[];
-  topProducts: TopProduct[];
-}
-
-export interface ByDayOfWeek {
-  day: string;
-  count: number;
-}
-
-export interface AttendanceMetrics {
-  today: number;
-  thisWeek: number;
-  avgDaily: number;
-  peakHours: any[];
-  byDayOfWeek: ByDayOfWeek[];
-}
-
-export interface Metrics {
-  members: MembersMetrics;
-  courts: CourtsMetrics;
-  sales: SalesMetrics;
-  attendance: AttendanceMetrics;
-}
-
-export interface DateRange {
+// Tipos básicos
+interface DateRange {
   start: Date;
   end: Date;
 }
 
-export interface AnimatedCounterProps {
+interface Transaction {
+  id: string;
+  type: 'income' | 'expense';
+  category: string;
+  amount: number;
+  description?: string;
+  paymentMethod: string;
+  location?: string;
+  createdAt: string;
+}
+
+// Formatter para moneda
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+
+// Helper para fetch con retry
+async function fetchWithRetry(url: string, options = {}, retries = 3, backoff = 500): Promise<any> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!response.ok) throw new Error(`Error: ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      if (i < retries - 1) {
+        await new Promise(res => setTimeout(res, backoff * Math.pow(2, i)));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+
+// Componente AnimatedCounter
+const AnimatedCounter: React.FC<{
   value: number;
   duration?: number;
   previousValue?: number;
-}
-
-
-// Contador animado con transiciones suaves
-const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ value, duration = 800, previousValue = 0 }) => {
+  prefix?: string;
+  suffix?: string;
+  formatAsNumber?: boolean;
+  formatAsCurrency?: boolean;
+}> = ({
+  value,
+  duration = 800,
+  previousValue = 0,
+  prefix = '',
+  suffix = '',
+  formatAsNumber = false,
+  formatAsCurrency = false
+}) => {
   const [displayValue, setDisplayValue] = useState<number>(previousValue);
   const prevValueRef = useRef<number>(previousValue);
   const startTime = useRef<number | null>(null);
@@ -129,282 +104,256 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ value, duration = 800
   }, [value, animate]);
 
   if (typeof value !== 'number' || isNaN(value)) return <>-</>;
-  return <>{Number.isInteger(displayValue) ? displayValue.toFixed(0) : displayValue.toFixed(2)}</>;
+  
+  if (formatAsCurrency) {
+    return <>{formatCurrency(displayValue)}</>;
+  }
+  
+  if (formatAsNumber) {
+    const formatted = new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: Number.isInteger(displayValue) ? 0 : 2,
+      maximumFractionDigits: Number.isInteger(displayValue) ? 0 : 2
+    }).format(displayValue);
+    return <>{prefix}{formatted}{suffix}</>;
+  }
+
+  return <>{prefix}{Number.isInteger(displayValue) ? displayValue.toFixed(0) : displayValue.toFixed(2)}{suffix}</>;
 };
 
-// Helper para reintentos con backoff exponencial y timeout integrado.
-async function fetchWithRetry(url: string, options = {}, retries = 3, backoff = 500): Promise<any> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // timeout de 5s
-      const response = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (!response.ok) throw new Error(`Error: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      if (i < retries - 1) {
-        await new Promise(res => setTimeout(res, backoff * Math.pow(2, i)));
-      } else {
-        throw error;
-      }
-    }
-  }
-}
-
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
-
-/* ======= Dashboard Principal ======= */
-
+// Panel Analítico Principal
 export default function AdminAnalytics() {
-  const [dateRange, setDateRange] = useState<DateRange>({ start: subDays(new Date(), 30), end: new Date() });
+  // Estados principales
+  const [dateRange, setDateRange] = useState<DateRange>({
+    start: subDays(new Date(), 30),
+    end: new Date()
+  });
   const [loading, setLoading] = useState<boolean>(true);
   const [view, setView] = useState<'chart' | 'table' | 'transactions'>('chart');
   const [activePreset, setActivePreset] = useState<string>('last30');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const [metrics, setMetrics] = useState<Metrics>({
+  
+  // Estados de carga para componentes individuales
+  const [loadingStates, setLoadingStates] = useState({
+    members: false,
+    courts: false,
+    sales: false,
+    transactions: false,
+    attendance: false,
+    enhanced: false
+  });
+  
+  // Métricas
+  const [metrics, setMetrics] = useState({
     members: {
       total: 0,
-      active: 0,
+      pointsRevenue: 0,
       newThisMonth: 0,
-      retention: 0,
-      growthData: []
+      pointsRetention: 0
     },
     courts: {
       utilization: 0,
       revenue: 0,
-      popularTimes: [],
-      popularCourts: [],
-      utilizationByDay: [],
-      topClients: []
+      topClients: [],
+      utilizationByDay: []
     },
     sales: {
       total: 0,
-      byCategory: [],
-      topProducts: []
+      byCategory: []
     },
-    attendance: {
-      today: 0,
-      thisWeek: 0,
-      avgDaily: 0,
-      peakHours: [],
-      byDayOfWeek: []
-    }
+    gymPoints: {
+      totalPointsSold: 0,
+      totalPointsUsed: 0,
+      averagePointsPerMember: 0,
+      pointPackagesSold: []
+    },
+    areas: {
+      gym: { totalIncome: 0, totalExpense: 0, netProfit: 0, transactionCount: 0 },
+      courts: { totalIncome: 0, totalExpense: 0, netProfit: 0, transactionCount: 0 },
+      shop: { totalIncome: 0, totalExpense: 0, netProfit: 0, transactionCount: 0 }
+    },
+    financialComparison: []
   });
-
-  const prevMetricsRef = useRef<Metrics>({ ...metrics });
-  const dataHashRef = useRef<{ [key: string]: string }>({});
-
-  const hashData = (data: any): string => {
+  
+  // Filtros para transacciones
+  const [activeFilters, setActiveFilters] = useState({
+    category: '',
+    location: '',
+    type: ''
+  });
+  const prevMetricsRef = useRef({ ...metrics }); 
+  const fetchData = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
-      return JSON.stringify(data);
-    } catch (e) {
-      return '';
-    }
-  };
-
-  /* ======= Funciones de Fetch ======= */
-
-  const fetchTransactions = useCallback(async (showLoading = false) => {
-    try {
-      if (showLoading) setLoading(true);
+      setErrorMessage(null);
       const start = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'HH:mm:ss");
       const end = format(endOfDay(dateRange.end), "yyyy-MM-dd'T'HH:mm:ss");
       const cacheBuster = Date.now();
-      const url = `/api/transactions?start=${start}&end=${end}&_=${cacheBuster}`;
-      const data = await fetchWithRetry(url);
-      const newHash = hashData(data.transactions);
-      if (newHash !== dataHashRef.current.transactions) {
-        setTransactions(data.transactions || []);
-        dataHashRef.current.transactions = newHash;
-      }
-      setErrorMessage(null);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      setErrorMessage("Error al cargar transacciones. Mostrando últimos datos conocidos.");
-    } finally {
-      if (showLoading) setLoading(false);
-    }
-  }, [dateRange]);
-
-  const fetchMembers = useCallback(async (showLoading = false) => {
-    try {
-      const start = dateRange.start.toISOString();
-      const end = dateRange.end.toISOString();
-      const cacheBuster = Date.now();
-      const url = `/api/analytics/members?start=${start}&end=${end}&_=${cacheBuster}`;
-      const data = await fetchWithRetry(url);
-      const newHash = hashData(data);
-      if (newHash !== dataHashRef.current.members) {
-        prevMetricsRef.current.members = { ...metrics.members };
-        setMetrics(prev => ({
-          ...prev,
-          members: {
-            ...data,
-            growthData: data.growthData || []
-          }
-        }));
-        dataHashRef.current.members = newHash;
-      }
-      setErrorMessage(null);
-    } catch (error) {
-      console.error('Error fetching members data:', error);
-      setErrorMessage("Error al cargar datos de miembros.");
-    }
-  }, [dateRange, metrics.members]);
-
-  const fetchCourts = useCallback(async (showLoading = false) => {
-    try {
-      const start = dateRange.start.toISOString();
-      const end = dateRange.end.toISOString();
-      const cacheBuster = Date.now();
-      const url = `/api/analytics/courts?start=${start}&end=${end}&_=${cacheBuster}`;
-      const data = await fetchWithRetry(url);
-      const newHash = hashData(data);
-      if (newHash !== dataHashRef.current.courts) {
-        prevMetricsRef.current.courts = { ...metrics.courts };
-        setMetrics(prev => ({
-          ...prev,
-          courts: {
-            ...data,
-            topClients: data.topClients || [],
-            utilizationByDay: data.utilizationByDay || [],
-            popularTimes: data.popularTimes || []
-          }
-        }));
-        dataHashRef.current.courts = newHash;
-      }
-      setErrorMessage(null);
-    } catch (error) {
-      console.error('Error fetching courts data:', error);
-      setErrorMessage("Error al cargar datos de canchas.");
-    }
-  }, [dateRange, metrics.courts]);
-
-  const fetchSales = useCallback(async (showLoading = false) => {
-    try {
-      const start = dateRange.start.toISOString();
-      const end = dateRange.end.toISOString();
-      const cacheBuster = Date.now();
-      const url = `/api/analytics/sales?start=${start}&end=${end}&_=${cacheBuster}`;
-      const data = await fetchWithRetry(url);
-      const newHash = hashData(data);
-      if (newHash !== dataHashRef.current.sales) {
-        prevMetricsRef.current.sales = { ...metrics.sales };
+      
+      // Peticiones en paralelo
+      const [transactionData, membersData, courtsData, enhancedData] = await Promise.all([
+        fetchWithRetry(`/api/transactions?start=${start}&end=${end}&_=${cacheBuster}`),
+        fetchWithRetry(`/api/analytics/members/count`),
+        fetchWithRetry(`/api/analytics/courts?start=${start}&end=${end}&_=${cacheBuster}`),
+        fetchWithRetry(`/api/analytics/enhanced?start=${start}&end=${end}&_=${cacheBuster}`)
+      ]);
+      // Actualizar transacciones
+      if (transactionData) {
+        setTransactions(transactionData.transactions || []);
+        
+        // Calcular métricas desde transacciones
+        const salesTotal = transactionData.summary?.totalIncome || 0;
         setMetrics(prev => ({
           ...prev,
           sales: {
-            ...data,
-            byCategory: data.byCategory || [],
-            topProducts: data.topProducts || []
+            ...prev.sales,
+            total: salesTotal,
+            byCategory: transactionData.chartData?.categoryData?.map(item => ({
+              name: item.category,
+              value: item.total
+            })) || []
           }
         }));
-        dataHashRef.current.sales = newHash;
       }
-      setErrorMessage(null);
-    } catch (error) {
-      console.error('Error fetching sales data:', error);
-      setErrorMessage("Error al cargar datos de ventas.");
-    }
-  }, [dateRange, metrics.sales]);
-
-  const fetchAttendance = useCallback(async (showLoading = false) => {
-    try {
-      const start = dateRange.start.toISOString();
-      const end = dateRange.end.toISOString();
-      const cacheBuster = Date.now();
-      const url = `/api/analytics/attendance?start=${start}&end=${end}&_=${cacheBuster}`;
-      const data = await fetchWithRetry(url);
-      const newHash = hashData(data);
-      if (newHash !== dataHashRef.current.attendance) {
-        prevMetricsRef.current.attendance = { ...metrics.attendance };
+      
+      // Actualizar miembros
+      if (membersData) {
+        const memberCount = membersData.members?.length || 0;
+        
+        // Intentar obtener datos de puntos
+        let pointsRevenue = 0;
+        let pointsRetention = 0;
+        try {
+          const pointsData = await fetchWithRetry(`/api/members/points?start=${start}&end=${end}&_=${cacheBuster}`);
+          pointsRevenue = pointsData?.pointsRevenue || 0;
+          pointsRetention = pointsData?.retention || 0;
+        } catch (err) {
+          console.error("Error fetching points data:", err);
+        }
+        
         setMetrics(prev => ({
           ...prev,
-          attendance: {
-            today: data.today || 0,
-            thisWeek: data.thisWeek || 0,
-            avgDaily: data.avgDaily || 0,
-            peakHours: data.peakHours || [],
-            byDayOfWeek: data.byDayOfWeek || []
+          members: {
+            ...prev.members,
+            total: memberCount,
+            pointsRevenue: pointsRevenue,
+            pointsRetention: pointsRetention,
           }
         }));
-        dataHashRef.current.attendance = newHash;
       }
-      setErrorMessage(null);
+      
+      // Actualizar datos de canchas
+      if (courtsData) {
+        console.log(courtsData)
+        setMetrics(prev => ({
+          ...prev,
+          courts: {
+            ...prev.courts,
+            utilization: courtsData.utilization || 0,
+            revenue: courtsData.revenue || 0,
+            topClients: courtsData.topClients || [],
+            utilizationByDay: courtsData.utilizationByDay || []
+          }
+        }));
+      }
+      
+      // Actualizar datos mejorados
+      if (enhancedData) {
+        // Guardar valores previos para animaciones
+        prevMetricsRef.current = { ...metrics };
+        
+        // Actualizar datos de áreas y puntos
+        setMetrics(prev => ({
+          ...prev,
+          areas: enhancedData.areas || prev.areas,
+          gymPoints: {
+            totalPointsSold: enhancedData.gymPoints?.totalPointsSold || prev.gymPoints.totalPointsSold,
+            totalPointsUsed: enhancedData.gymPoints?.totalPointsUsed || prev.gymPoints.totalPointsUsed,
+            averagePointsPerMember: enhancedData.gymPoints?.averagePointsPerMember || prev.gymPoints.averagePointsPerMember,
+            pointPackagesSold: enhancedData.gymPoints?.pointPackagesSold || prev.gymPoints.pointPackagesSold
+          },
+          financialComparison: enhancedData.financialComparison || prev.financialComparison
+        }));
+      }
+      
     } catch (error) {
-      console.error('Error fetching attendance data:', error);
-      setErrorMessage("Error al cargar datos de asistencia.");
-    }
-  }, [dateRange, metrics.attendance]);
-
-  const fetchAllAnalytics = useCallback(async () => {
-    setLoading(true);
-    try {
-      setErrorMessage(null);
-      await Promise.allSettled([
-        fetchMembers(),
-        fetchCourts(),
-        fetchSales(),
-        fetchTransactions(),
-        fetchAttendance()
-      ]);
+      console.error('Error fetching data:', error);
+      setErrorMessage("Error al cargar datos. Verifique su conexión.");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
       setLastRefresh(new Date());
     }
-  }, [fetchMembers, fetchCourts, fetchSales, fetchTransactions, fetchAttendance]);
+  }, [dateRange]);
 
+  // Cargar datos al inicio y al cambiar fechas
   useEffect(() => {
-    fetchAllAnalytics();
-  }, [dateRange, fetchAllAnalytics]);
+    fetchData(true);
+  }, [dateRange, fetchData]);
 
+  // Auto-refresh simplificado
   useEffect(() => {
-    if (!autoRefresh || loading) return;
-    const shortInterval = setInterval(() => {
-      fetchTransactions();
-      fetchSales();
-      setLastRefresh(new Date());
-    }, 5000);
-    const longInterval = setInterval(() => {
-      fetchMembers();
-      fetchCourts();
-      fetchAttendance();
-    }, 15000);
-    return () => {
-      clearInterval(shortInterval);
-      clearInterval(longInterval);
-    };
-  }, [autoRefresh, fetchTransactions, fetchSales, fetchMembers, fetchCourts, fetchAttendance, loading]);
+    if (!autoRefresh) return;
+    
+    const intervalId = setInterval(() => {
+      fetchData(false);
+    }, 10000);
+    
+    return () => clearInterval(intervalId);
+  }, [autoRefresh, fetchData]);
 
+  // Filtrar transacciones cuando cambian los filtros
+  useEffect(() => {
+    if (!transactions.length) return;
+    
+    const { category, location, type } = activeFilters;
+    if (!category && !location && !type) {
+      setFilteredTransactions(null);
+      return;
+    }
+    
+    let filtered = [...transactions];
+    if (category) filtered = filtered.filter(t => t.category === category);
+    if (location) filtered = filtered.filter(t => t.location === location);
+    if (type) filtered = filtered.filter(t => t.type === type);
+    
+    setFilteredTransactions(filtered);
+  }, [activeFilters, transactions]);
+
+  // Funciones de utilidad para la UI
   const applyDatePreset = (preset: string) => {
     const today = new Date();
     let start: Date, end: Date = today;
+    
     switch (preset) {
-      case 'last7days':
-        start = subDays(today, 6);
+      case 'last7days': start = subDays(today, 6); break;
+      case 'last30days': start = subDays(today, 29); break;
+      case 'thisMonth': start = startOfMonth(today); break;
+      case 'thisWeek': start = startOfWeek(today); end = endOfWeek(today); break;
+      case 'lastMonth': 
+        start = startOfMonth(subDays(today, 31)); 
+        end = endOfMonth(subDays(today, 31)); 
         break;
-      case 'last30days':
-        start = subDays(today, 29);
-        break;
-      case 'thisMonth':
-        start = startOfMonth(today);
-        break;
-      default:
-        start = subDays(today, 29);
+      default: start = subDays(today, 29);
     }
+    
     setDateRange({ start, end });
     setActivePreset(preset);
+  };
+  
+  const calculateTotalSales = () => {
+    return (metrics.areas.gym.totalIncome || 0) + 
+           (metrics.areas.courts.totalIncome || 0) + 
+           (metrics.areas.shop.totalIncome || 0);
   };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
   return (
     <div className="container mx-auto p-4">
+      {/* Header y controles */}
       <div className="mb-6 flex justify-between items-center flex-wrap gap-2">
         <h1 className="text-2xl font-bold">Panel Analítico</h1>
         {errorMessage && (
@@ -455,6 +404,12 @@ export default function AdminAnalytics() {
             >
               Este mes
             </button>
+            <button
+              onClick={() => applyDatePreset('thisWeek')}
+              className={`px-2 py-1 text-xs rounded ${activePreset === 'thisWeek' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+            >
+              Esta semana
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <label className="text-xs flex items-center">
@@ -467,7 +422,7 @@ export default function AdminAnalytics() {
               Auto-refresh
             </label>
             <button
-              onClick={fetchAllAnalytics}
+              onClick={() => fetchData(true)}
               className="px-3 py-1 bg-blue-500 text-white rounded text-sm flex items-center"
               disabled={loading}
             >
@@ -512,77 +467,65 @@ export default function AdminAnalytics() {
           title="Miembros"
           value={metrics.members.total}
           previousValue={prevMetricsRef.current.members.total}
-          secondary={`${metrics.members.active || 0} activos`}
-          trend={`+${metrics.members.newThisMonth || 0} este mes`}
+          secondary={`${formatCurrency(metrics.members.pointsRevenue || 0)} en puntos`}
+          trend={`${metrics.members.pointsRetention || 0}% activos del total`}
           icon="users"
-          loading={loading}
+          loading={loadingStates.members || loading}
         />
         <MetricCard
           title="Uso de Canchas"
           value={metrics.courts.utilization}
           previousValue={prevMetricsRef.current.courts.utilization}
           secondary={`${formatCurrency(metrics.courts.revenue || 0)} en ingresos`}
-          trend="Comparado con mes anterior"
+          trend={`${metrics.areas.courts.transactionCount || 0} reservas`}
           icon="court"
-          loading={loading}
+          loading={loadingStates.courts || loading}
           suffix="%"
         />
         <MetricCard
           title="Ventas Totales"
-          value={metrics.sales.total || 0}
-          previousValue={prevMetricsRef.current.sales.total || 0}
-          secondary="Productos y servicios"
-          trend="Total del periodo"
+          value={calculateTotalSales()}
+          previousValue={prevMetricsRef.current.sales.total}
+          secondary="Todos los ingresos"
+          trend={`Ganancia: ${formatCurrency(
+            (metrics.areas.gym.netProfit || 0) +
+            (metrics.areas.courts.netProfit || 0) +
+            (metrics.areas.shop.netProfit || 0)
+          )}`}
           icon="money"
           loading={loading}
-          prefix=""
+          formatAsCurrency={true}
         />
         <MetricCard
-          title="Asistencia"
-          value={metrics.attendance.today || 0}
-          previousValue={prevMetricsRef.current.attendance.today || 0}
-          secondary={`${metrics.attendance.thisWeek || 0} esta semana`}
-          trend={`Prom: ${metrics.attendance.avgDaily || 0}/día`}
+          title="Puntos Vendidos"
+          value={metrics.gymPoints.totalPointsSold}
+          previousValue={prevMetricsRef.current.gymPoints.totalPointsSold}
+          secondary={`${metrics.gymPoints.totalPointsUsed || 0} puntos usados`}
+          trend={`Prom: $${metrics.gymPoints.totalPointsSold > 0 ? Math.round(metrics.gymPoints.totalPointsSold / prevMetricsRef.current.members.total) : 0}/miembro`}
           icon="chart"
-          loading={loading}
+          loading={loadingStates.enhanced || loading}
+          formatAsCurrency={true}
         />
       </div>
-      
+
+      {/* Vista de gráficos */}
       {view === 'chart' && (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <ChartCard title="Crecimiento de Miembros" loading={loading}>
-              {metrics.members.growthData && metrics.members.growthData.length > 0 ? (
+          {/* Gráfico comparativo */}
+          <div className="mb-6">
+            <ChartCard title="Comparativa Ingresos vs Gastos" loading={loading}>
+              {metrics.financialComparison && metrics.financialComparison.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={metrics.members.growthData}>
+                  <ComposedChart data={metrics.financialComparison}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
-                    <Tooltip />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                     <Legend />
-                    <Line type="monotone" dataKey="total" stroke="#8884d8" name="Total Miembros" />
-                    <Line type="monotone" dataKey="active" stroke="#82ca9d" name="Miembros Activos" />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-gray-500">
-                  No hay datos suficientes
-                </div>
-              )}
-            </ChartCard>
-            
-            <ChartCard title="Ocupación de Canchas" loading={loading}>
-              {metrics.courts.utilizationByDay && metrics.courts.utilizationByDay.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={metrics.courts.utilizationByDay}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="futbol" name="Fútbol" fill="#8884d8" />
-                    <Bar dataKey="padel" name="Pádel" fill="#82ca9d" />
-                  </BarChart>
+                    <Bar dataKey="income" name="Ingresos" fill="#4CAF50" />
+                    <Bar dataKey="expense" name="Gastos" fill="#F44336" />
+                    <Line type="monotone" dataKey="balance" name="Balance" stroke="#2196F3" />
+                  </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-64 flex items-center justify-center text-gray-500">
@@ -592,17 +535,46 @@ export default function AdminAnalytics() {
             </ChartCard>
           </div>
           
+          {/* Gráficos por área */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <ChartCard title="Horarios Populares" loading={loading}>
-              {metrics.courts.popularTimes && metrics.courts.popularTimes.length > 0 ? (
+            <ChartCard title="Método de pago" loading={loading}>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Gimnasio', value: metrics.areas.gym.totalIncome || 0 },
+                      { name: 'Canchas', value: metrics.areas.courts.totalIncome || 0 },
+                      { name: 'Kiosco', value: metrics.areas.shop.totalIncome || 0 }
+                    ]}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#8884d8"
+                    label={(entry) => `${entry.name}: ${Math.round(entry.percent * 100)}%`}
+                  >
+                    {[0, 1, 2].map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            
+            <ChartCard title="Ocupación de Canchas" loading={loading}>
+              {metrics.courts.utilizationByDay && metrics.courts.utilizationByDay.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={metrics.courts.popularTimes}>
+                  <BarChart data={metrics.courts.utilizationByDay}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="hour" />
+                    <XAxis dataKey="day" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="reservations" name="Reservas" fill="#8884d8" />
+                    <Bar dataKey="futbol" name="Fútbol" fill="#8884d8" />
+                    <Bar dataKey="padel" name="Pádel" fill="#82ca9d" />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -626,6 +598,7 @@ export default function AdminAnalytics() {
                       innerRadius={40}
                       fill="#8884d8"
                       paddingAngle={1}
+                      label
                     >
                       {metrics.sales.byCategory.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -641,220 +614,60 @@ export default function AdminAnalytics() {
                 </div>
               )}
             </ChartCard>
-            
-            <ChartCard title="Asistencia Semanal" loading={loading}>
-              {metrics.attendance.byDayOfWeek && metrics.attendance.byDayOfWeek.length > 0 ? (
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={metrics.attendance.byDayOfWeek}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="count" name="Asistencias" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-gray-500">
-                  No hay datos suficientes
-                </div>
-              )}
-            </ChartCard>
-          </div>
-
-          <div className="mb-6">
-            <ChartCard title="Ganancias Brutas" loading={loading}>
-              {metrics.sales.byCategory && metrics.sales.byCategory.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={metrics.sales.byCategory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), 'Ingresos']} />
-                    <Legend />
-                    <Line type="monotone" dataKey="value" name="Ganancias" stroke="#82ca9d" />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-gray-500">
-                  No hay datos suficientes
-                </div>
-              )}
-            </ChartCard>
           </div>
         </>
       )}
-      
-      {view === 'table' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <TableCard title="Productos Más Vendidos" loading={loading}>
-            <table className="min-w-full">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="px-4 py-2 text-left text-xs font-medium">Producto</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Cantidad</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Ingresos</th>
-                </tr>
-              </thead>
-              <tbody className="transition-opacity duration-300">
-                {loading ? (
-                  Array(5).fill(0).map((_, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-24 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-12 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
-                      </td>
-                    </tr>
-                  ))
-                ) : metrics.sales.topProducts && metrics.sales.topProducts.length > 0 ? (
-                  metrics.sales.topProducts.map((product, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="px-4 py-2 text-sm">{product.name}</td>
-                      <td className="px-4 py-2 text-sm">{product.quantity}</td>
-                      <td className="px-4 py-2 text-sm">{formatCurrency(product.revenue)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-4 text-center text-gray-500">
-                      No hay datos disponibles
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </TableCard>
-          
-          <TableCard title="Clientes Frecuentes" loading={loading}>
-            <table className="min-w-full">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="px-4 py-2 text-left text-xs font-medium">Cliente</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Reservas</th>
-                </tr>
-              </thead>
-              <tbody className="transition-opacity duration-300">
-                {loading ? (
-                  Array(5).fill(0).map((_, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-24 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-12 rounded"></div>
-                      </td>
-                    </tr>
-                  ))
-                ) : metrics.courts.topClients && metrics.courts.topClients.length > 0 ? (
-                  metrics.courts.topClients.map((client, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="px-4 py-2 text-sm">{client.name}</td>
-                      <td className="px-4 py-2 text-sm">{client.reservations}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={2} className="px-4 py-4 text-center text-gray-500">
-                      No hay datos disponibles
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </TableCard>
 
-          <TableCard title="Ocupación por Canchas" loading={loading}>
-            <table className="min-w-full">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="px-4 py-2 text-left text-xs font-medium">Día</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Fútbol (horas)</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Pádel (horas)</th>
-                </tr>
-              </thead>
-              <tbody className="transition-opacity duration-300">
-                {loading ? (
-                  Array(7).fill(0).map((_, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-12 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-12 rounded"></div>
-                      </td>
-                    </tr>
-                  ))
-                ) : metrics.courts.utilizationByDay && metrics.courts.utilizationByDay.length > 0 ? (
-                  metrics.courts.utilizationByDay.map((day, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="px-4 py-2 text-sm">{day.day}</td>
-                      <td className="px-4 py-2 text-sm">{day.futbol}</td>
-                      <td className="px-4 py-2 text-sm">{day.padel}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-4 text-center text-gray-500">
-                      No hay datos disponibles
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </TableCard>
-
-          <TableCard title="Asistencia por Día" loading={loading}>
-            <table className="min-w-full">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="px-4 py-2 text-left text-xs font-medium">Día</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Asistencias</th>
-                </tr>
-              </thead>
-              <tbody className="transition-opacity duration-300">
-                {loading ? (
-                  Array(7).fill(0).map((_, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-12 rounded"></div>
-                      </td>
-                    </tr>
-                  ))
-                ) : metrics.attendance.byDayOfWeek && metrics.attendance.byDayOfWeek.length > 0 ? (
-                  metrics.attendance.byDayOfWeek.map((day, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="px-4 py-2 text-sm">{day.day}</td>
-                      <td className="px-4 py-2 text-sm">{day.count}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={2} className="px-4 py-4 text-center text-gray-500">
-                      No hay datos disponibles
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </TableCard>
-        </div>
-      )}
-      
+      {/* Vista de transacciones */}
       {view === 'transactions' && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="px-4 py-3 border-b">
             <h3 className="text-gray-700 font-medium">Registro de Transacciones</h3>
+            <div className="flex flex-wrap gap-2 mt-2 mb-3">
+              {/* Filtros */}
+              <div className="flex items-center gap-2">
+                <select
+                  className="border rounded p-1 text-sm"
+                  onChange={(e) => setActiveFilters(prev => ({ ...prev, category: e.target.value }))}
+                  value={activeFilters.category}
+                >
+                  <option value="">Todas las categorías</option>
+                  {Array.from(new Set(transactions.map(t => t.category))).map((cat, idx) => (
+                    <option key={idx} value={cat}>{cat}</option>
+                  ))}
+                </select>
+
+                <select
+                  className="border rounded p-1 text-sm"
+                  onChange={(e) => setActiveFilters(prev => ({ ...prev, location: e.target.value }))}
+                  value={activeFilters.location}
+                >
+                  <option value="">Todas las ubicaciones</option>
+                  {Array.from(new Set(transactions.map(t => t.location).filter(Boolean))).map((loc, idx) => (
+                    <option key={idx} value={loc}>{loc}</option>
+                  ))}
+                </select>
+
+                <select
+                  className="border rounded p-1 text-sm"
+                  onChange={(e) => setActiveFilters(prev => ({ ...prev, type: e.target.value }))}
+                  value={activeFilters.type}
+                >
+                  <option value="">Todos los tipos</option>
+                  <option value="income">Ingresos</option>
+                  <option value="expense">Gastos</option>
+                </select>
+
+                {(activeFilters.category || activeFilters.location || activeFilters.type) && (
+                  <button
+                    className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-300"
+                    onClick={() => setActiveFilters({ category: '', location: '', type: '' })}
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full">
@@ -896,14 +709,14 @@ export default function AdminAnalytics() {
                       </td>
                     </tr>
                   ))
-                ) : transactions.length === 0 ? (
+                ) : (filteredTransactions || transactions).length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-4 text-center text-sm text-gray-500">
                       No hay transacciones para mostrar
                     </td>
                   </tr>
                 ) : (
-                  transactions.map((transaction, idx) => (
+                  (filteredTransactions || transactions).map((transaction, idx) => (
                     <tr key={idx} className="border-b hover:bg-gray-50">
                       <td className="px-4 py-2 text-sm">
                         {format(new Date(transaction.createdAt), 'dd/MM/yyyy HH:mm')}
@@ -934,7 +747,7 @@ export default function AdminAnalytics() {
   );
 }
 
-/* ======= Componentes de Presentación ======= */
+/* Componentes de UI */
 
 interface MetricCardProps {
   title: string;
@@ -946,9 +759,12 @@ interface MetricCardProps {
   loading: boolean;
   prefix?: string;
   suffix?: string;
+  formatAsCurrency?: boolean;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ title, value, previousValue = 0, secondary, trend, icon, loading, prefix = '', suffix = '' }) => {
+const MetricCard: React.FC<MetricCardProps> = ({
+  title, value, previousValue = 0, secondary, trend, icon, loading, prefix = '', suffix = '', formatAsCurrency = false
+}) => {
   const icons: { [key in MetricCardProps['icon']]: JSX.Element } = {
     users: (
       <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -981,7 +797,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, previousValue = 0
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md transition-all duration-300">
+    <div className="bg-white p-4 rounded-lg shadow-md transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg">
       <div className="flex justify-between">
         <div>
           <h3 className="text-gray-500 text-sm">{title}</h3>
@@ -994,14 +810,22 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, previousValue = 0
           ) : (
             <>
               <p className="text-2xl font-bold mt-1 transition-all duration-500">
-                {prefix}<AnimatedCounter value={value} previousValue={previousValue} duration={1000} />{suffix}
+                <AnimatedCounter
+                  value={value}
+                  previousValue={previousValue}
+                  duration={1000}
+                  prefix={prefix}
+                  suffix={suffix}
+                  formatAsNumber={!formatAsCurrency}
+                  formatAsCurrency={formatAsCurrency}
+                />
               </p>
               <p className="text-sm text-gray-600 mt-1">{secondary}</p>
               <p className="text-xs text-blue-500 mt-2">{trend}</p>
             </>
           )}
         </div>
-        <div>
+        <div className="transition-transform duration-300 transform hover:scale-110">
           {icons[icon]}
         </div>
       </div>
@@ -1017,32 +841,15 @@ interface ChartCardProps {
 
 const ChartCard: React.FC<ChartCardProps> = ({ title, children, loading }) => {
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md transition-all duration-300">
+    <div className="bg-white p-4 rounded-lg shadow-md transition-all duration-300 hover:shadow-lg">
       <h3 className="text-gray-700 font-medium mb-4">{title}</h3>
       {loading ? (
         <div className="animate-pulse bg-gray-200 h-64 w-full rounded"></div>
       ) : (
-        children
+        <div className="transition-opacity duration-500 opacity-100">
+          {children}
+        </div>
       )}
-    </div>
-  );
-};
-
-interface TableCardProps {
-  title: string;
-  children: React.ReactNode;
-  loading: boolean;
-}
-
-const TableCard: React.FC<TableCardProps> = ({ title, children, loading }) => {
-  return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300">
-      <div className="px-4 py-3 border-b">
-        <h3 className="text-gray-700 font-medium">{title}</h3>
-      </div>
-      <div className="overflow-x-auto p-2">
-        {children}
-      </div>
     </div>
   );
 };

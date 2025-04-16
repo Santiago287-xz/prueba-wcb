@@ -541,6 +541,7 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
       {isTransactionModalOpen && (
         <TransactionModal
           transaction={currentTransaction}
+          category="court_rental"
           onClose={closeTransactionModal}
           onSave={handleSaveTransaction}
           hideFields

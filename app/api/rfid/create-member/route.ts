@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    console.log(body)
     const { 
       name, 
       email, 
@@ -36,7 +35,6 @@ export async function POST(req: NextRequest) {
       dietaryRestrictions,
       notes
     } = body;
-    console.log(body)
     // Validation code...
     if (!name || !email || !rfidCardNumber) {
       return NextResponse.json({ 

@@ -39,7 +39,6 @@ export async function POST(
 			accessPoints?: number;
 			trainer?: string;
 		};
-    console.log(trainer)
 		if (!userId || !rfidCardNumber) {
 			return NextResponse.json(
 				{
@@ -94,7 +93,6 @@ export async function POST(
 		if (trainer) {
 			updateData.trainer = trainer;
 		}
-    console.log(updateData)
 		const user =
 			await prisma.user.update({
 				where: { id: userId },

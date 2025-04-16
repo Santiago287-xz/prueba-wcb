@@ -1,89 +1,10 @@
+// /api/exercise/assign-exercise/route.ts
 import { SessionUser } from "@/types";
 import { getSession } from "../../users/route";
 import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 
-export async function GET(req: Request) {
-  console.log("get");
-  try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
-    }
-
-    // Se consulta la lista de ejercicios maestros
-    const exercises = await prisma.exerciseList.findMany();
-    console.log(exercises);
-    if (!exercises || exercises.length === 0) {
-      return NextResponse.json({ data: [] }, { status: 200 });
-    }
-
-    return NextResponse.json(
-      { status: "success", data: exercises },
-      { status: 200 }
-    );
-  } catch (error) {
-    return NextResponse.json({ error: error, status: false });
-  }
-}
-
 export async function POST(req: Request) {
-  console.log("post");
-  try {
-    const session = await getSession();
-    const sessionUser = session?.user as SessionUser;
-    console.log(sessionUser);
-
-    if (!session) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
-    }
-
-    if (sessionUser.role === "user") {
-      return NextResponse.json(
-        { error: "Not authorized" },
-        { status: 403 }
-      );
-    }
-
-    const { name } = await req.json();
-    if (!name) {
-      return NextResponse.json(
-        { error: "Invalid exercise name" },
-        { status: 400 }
-      );
-    }
-
-    const exerciseExists = await prisma.exerciseList.findFirst({
-      where: { name },
-    });
-
-    if (exerciseExists) {
-      return NextResponse.json(
-        { error: "Exercise already exists" },
-        { status: 400 }
-      );
-    }
-
-    const exercise = await prisma.exerciseList.create({
-      data: { name },
-    });
-
-    return NextResponse.json(
-      { status: "success", data: exercise },
-      { status: 201 }
-    );
-  } catch (error) {
-    return NextResponse.json({ error: error, status: false });
-  }
-}
-
-export async function DELETE(req: Request) {
   try {
     const session = await getSession();
     const sessionUser = session?.user as SessionUser;
@@ -102,45 +23,85 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const { id } = await req.json();
-    if (!id) {
+    const { selectedStudents, workOutArray, fromDate, toDate } = await req.json();
+
+    // Validación detallada
+    const missing = [];
+    if (!selectedStudents) missing.push('selectedStudents');
+    if (!workOutArray) missing.push('workOutArray');
+    if (!fromDate) missing.push('fromDate');
+    if (!toDate) missing.push('toDate');
+    
+    if (missing.length > 0) {
       return NextResponse.json(
-        { error: "Invalid Id" },
+        { error: `Missing fields: ${missing.join(', ')}` },
         { status: 400 }
       );
     }
 
-    const exerciseExist = await prisma.exerciseList.findFirst({
-      where: { id },
-    });
-
-    if (!exerciseExist) {
+    // Validar array de ejercicios
+    if (!Array.isArray(workOutArray) || workOutArray.length === 0) {
       return NextResponse.json(
-        { error: "Exercise does not exist" },
+        { error: "No exercises selected" },
         { status: 400 }
       );
     }
 
-    const deleteExercise = await prisma.exerciseList.delete({
-      where: { id },
-    });
-
-    if (!deleteExercise) {
+    // Validar formato de fechas
+    try {
+      new Date(fromDate);
+      new Date(toDate);
+    } catch (e) {
       return NextResponse.json(
-        { error: "Exercise could not be deleted" },
+        { error: "Invalid date format" },
         { status: 400 }
       );
     }
 
-    return NextResponse.json(
-      {
-        status: "success",
-        message: "Exercise deleted successfully",
-        data: deleteExercise,
+    const students = await prisma.user.findMany({
+      where: {
+        id: { in: selectedStudents },
       },
+    });
+
+    if (students.length === 0) {
+      return NextResponse.json(
+        { error: "No valid students found" },
+        { status: 400 }
+      );
+    }
+
+    // Process each student
+    await Promise.all(
+      students.map(async (student) => {
+        // For each exercise in the workout array
+        for (const workOut of workOutArray) {
+          // Create a UserExercise record for each exercise
+          await prisma.userExercise.create({
+            data: {
+              userId: student.id,
+              exerciseId: workOut.id,
+              sets: workOut.sets || 0,
+              reps: workOut.steps || 0,
+              weight: workOut.kg || 0,
+              // Duration field could be used for rest, but we'll check schema compatibility
+              notes: `Assigned from ${fromDate} to ${toDate}`,
+              assignedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+        }
+      })
+    );
+
+    return NextResponse.json(
+      { message: "Workout assigned successfully" },
       { status: 200 }
     );
-  } catch (error) {
-    return NextResponse.json({ error: error, status: false });
+  } catch (err) {
+    console.error("Error assigning exercises:", err);
+    return NextResponse.json({ 
+      error: err instanceof Error ? err.message : "Unknown error"
+    }, { status: 500 });
   }
 }

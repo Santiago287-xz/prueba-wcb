@@ -116,26 +116,31 @@ export default function AssignExercisePage() {
       return;
     }
     
+    const requestBody = {
+      selectedStudents: [userId],
+      workOutArray: selectedExercises, 
+      fromDate: formData.fromDate,
+      toDate: formData.toDate
+    };
+    
+    console.log("Enviando datos:", JSON.stringify(requestBody, null, 2));
+    
     setSubmitting(true);
     
     try {
-      await axios.post('/api/exercise/assign-exercise', {
-        selectedStudents: [userId],
-        workOutArray: selectedExercises,
-        fromDate: formData.fromDate,
-        toDate: formData.toDate
-      });
+      const response = await axios.post('/api/exercise/assign-exercise', requestBody);
       
       toast.success("Exercises assigned successfully");
       router.push('/manage-user');
     } catch (err) {
       console.error("Error assigning exercises:", err);
-      toast.error("Failed to assign exercises");
+      console.error("Detalles del error:", err.response?.data);
+      toast.error(`Failed to assign exercises: ${err.response?.data?.error || 'Unknown error'}`);
     } finally {
       setSubmitting(false);
     }
   };
-
+  
   if (loading) {
     return (
       <Container sx={{ py: 4, textAlign: 'center' }}>
