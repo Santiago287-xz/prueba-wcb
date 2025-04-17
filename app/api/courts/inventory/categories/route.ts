@@ -8,7 +8,7 @@ import { options } from "@/app/api/auth/[...nextauth]/options";
 export async function GET(req: NextRequest) {
   const session = await getServerSession(options);
   
-  if (!session?.user?.id) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }  
   try {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(options);
   
   // Verificar que el usuario está autenticado y tiene permisos
-  if (!session?.user?.id || (session.user.role !== "admin" && session.user.role !== "court_manager")) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

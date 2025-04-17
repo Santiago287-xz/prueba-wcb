@@ -1,48 +1,44 @@
-import { NextRequest, NextResponse } from "next/server";
+// app/api/users/[userId]/route.ts
+import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
-import { getServerSession } from "next-auth/next";
-import { options } from "@/app/api/auth/[...nextauth]/options";
 
 export async function GET(
-  req: NextRequest,
+  request: Request,
   { params }: { params: { userId: string } }
 ) {
   try {
-    const session = await getServerSession(options);
+    // Extrae el userId de los parámetros de la ruta
+    const userId = params.userId;
     
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    // Valida el formato del ID
+    if (!userId || !/^[0-9a-fA-F]{24}$/.test(userId)) {
+      return NextResponse.json(
+        { error: "ID de usuario inválido" },
+        { status: 400 }
+      );
     }
-    
+
+    // Busca el usuario en la base de datos
     const user = await prisma.user.findUnique({
-      where: { id: params.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        gender: true,
-        age: true,
-        height: true,
-        weight: true,
-        goal: true,
-        level: true,
-        trainer: true
-      }
+      where: { id: userId },
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
-    }
-    
-    // If user is a trainer, check if they're assigned to this user
-    if (session.user.role === "trainer" && user.trainer !== session.user.id) {
-      return NextResponse.json({ error: "No tienes permisos para ver este usuario" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Usuario no encontrado" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(user);
+    // Elimina la contraseña hasheada de la respuesta
+    const { hashedPassword, ...userWithoutPassword } = user;
+
+    return NextResponse.json(userWithoutPassword);
   } catch (error) {
-    console.error("Error fetching user:", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    console.error("Error al obtener usuario:", error);
+    return NextResponse.json(
+      { error: "Error al obtener usuario" },
+      { status: 500 }
+    );
   }
 }

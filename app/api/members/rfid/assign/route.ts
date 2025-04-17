@@ -1,4 +1,4 @@
-// app/api/rfid/assign/route.ts
+// app/api/members/rfid/assign/route.ts
 import {
 	NextRequest,
 	NextResponse,

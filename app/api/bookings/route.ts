@@ -7,7 +7,7 @@ import { options } from '../auth/[...nextauth]/options';
 async function getReservationsEfficiently(courtId: string, startDate: Date, endDate: Date) {
   const session = await getServerSession(options);
   
-  if (!session?.user?.id) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   // Obtener reservas no recurrentes para esta semana
@@ -71,7 +71,7 @@ async function getReservationsEfficiently(courtId: string, startDate: Date, endD
 export async function GET(req: NextRequest) {
   const session = await getServerSession(options);
   
-  if (!session?.user?.id) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const { searchParams } = new URL(req.url);
@@ -255,7 +255,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(options);
   
-  if (!session?.user?.id) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const body = await req.json();
@@ -477,7 +477,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(options);
   
-  if (!session?.user?.id) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   try {
@@ -595,7 +595,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(options);
   
-  if (!session?.user?.id) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   try {

@@ -103,8 +103,9 @@ const API_PERMISSIONS = {
 	"/api/sales": ["admin", "employee"],
 	"/api/transactions": ["admin"],
 	"/api/users": ["admin", "trainer"],
-	"/api/exercise": ["admin", "trainer", "member"],
-	"/api/exercise-assignment": ["admin", "trainer"],
+	"/api/fitness/exercise": ["admin", "trainer", "member"],
+	"/api/fitness/exercise-assignment": ["admin", "trainer"],
+	"/api/fitness": ["admin", "trainer"],
 };
 
 // Public paths that don't require auth

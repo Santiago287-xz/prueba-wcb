@@ -1,4 +1,4 @@
-// app/api/rfid/stats/route.ts - Updated for points-based system
+// app/api/members/rfid/stats/route.ts - Updated for points-based system
 import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 import { getServerSession } from "next-auth";

@@ -1,5 +1,4 @@
-// app/api/exercise/user-exercises/[userId]/route.ts
-import { SessionUser } from "@/types";
+// app/api/fitness/exercise/user-exercises/[userId]/route.ts
 import { getSession } from "../../../../users/route";
 import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
@@ -7,21 +6,9 @@ import prisma from "@/app/libs/prismadb";
 export async function GET(req: Request, { params }: { params: { userId: string } }) {
   try {
     const session = await getSession();
-    const sessionUser = session?.user as SessionUser;
 
-    if (!session) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
-    }
-
-    // Solo admin y trainers pueden ver estos detalles
-    if (sessionUser.role !== "admin" && sessionUser.role !== "trainer") {
-      return NextResponse.json(
-        { error: "Not authorized" },
-        { status: 403 }
-      );
+    if (!session?.user?.id || !['admin', 'trainer'].includes(session.user.role as string)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { userId } = params;

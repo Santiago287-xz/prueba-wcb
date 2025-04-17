@@ -160,7 +160,7 @@ export default function EditMemberModal({
     }
 
     try {
-      await axios.post('/api/rfid/assign', {
+      await axios.post('/api/members/rfid/assign', {
         userId: member.id,
         rfidCardNumber: formState.rfidCardNumber,
         membershipType: formState.membershipTypeId,

@@ -1,4 +1,4 @@
-// /api/exercise/assign-exercise/route.ts
+// /api/fitness/exercise/assign-exercise/route.ts
 import { SessionUser } from "@/types";
 import { getSession } from "../../../users/route";
 import { NextResponse } from "next/server";
@@ -9,18 +9,8 @@ export async function POST(req: Request) {
     const session = await getSession();
     const sessionUser = session?.user as SessionUser;
 
-    if (!session) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
-    }
-
-    if (sessionUser.role === "user") {
-      return NextResponse.json(
-        { error: "Not authorized" },
-        { status: 403 }
-      );
+    if (!session?.user?.id || !['admin', 'trainer'].includes(session.user.role as string)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { selectedStudents, workOutArray, fromDate, toDate } = await req.json();

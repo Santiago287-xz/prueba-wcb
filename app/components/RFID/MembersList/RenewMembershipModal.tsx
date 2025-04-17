@@ -127,7 +127,7 @@ export default function RenewMembershipModal({
       });
 
       // Update the user's points
-      await axios.post('/api/rfid/assign', {
+      await axios.post('/api/members/rfid/assign', {
         userId: member.id,
         rfidCardNumber: member.rfidCardNumber,
         membershipType: renewalState.membershipTypeId,

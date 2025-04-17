@@ -8,13 +8,8 @@ export async function GET(req: Request) {
   try {
     const session = await getSession();
 
-    if (!session) {
-      return NextResponse.json(
-        {
-          error: "Not authenticated",
-        },
-        { status: 401 }
-      );
+    if (!session?.user?.id || !['admin', 'trainer'].includes(session.user.role as string)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const exercises = await prisma.exerciseList.findMany();
@@ -48,24 +43,8 @@ export async function POST(req: Request) {
   try {
     const session = await getSession();
 
-    const sessionUser = session?.user as SessionUser;
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          error: "Not authenticated",
-        },
-        { status: 401 }
-      );
-    }
-
-    if (sessionUser.role === "user") {
-      return NextResponse.json(
-        {
-          error: "Not authorized",
-        },
-        { status: 403 }
-      );
+    if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { name } = await req.json();

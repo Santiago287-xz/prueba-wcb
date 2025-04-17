@@ -19,7 +19,7 @@ async function ensureUploadDir() {
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user?.id) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   try {
@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
 // POST: Crear un nuevo producto
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || session.user.role !== "admin") {
+  
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

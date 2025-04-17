@@ -102,7 +102,7 @@ export default function MembersList() {
 
   const fetchTrainers = useCallback(async () => {
     try {
-      const response = await axios.get('/api/rfid/trainers');
+      const response = await axios.get('/api/members/rfid/trainers');
       setTrainers(response.data);
     } catch (error) {
       console.error('Error fetching trainers:', error);
@@ -144,7 +144,7 @@ export default function MembersList() {
   // Handle password reset
   const handleResetPassword = async (member: Member) => {
     try {
-      const response = await axios.post('/api/rfid/reset-password', {
+      const response = await axios.post('/api/members/rfid/reset-password', {
         userId: member.id
       });
       
@@ -166,7 +166,7 @@ export default function MembersList() {
 
     setIsDeleting(true);
     try {
-      await axios.delete(`/api/rfid/${memberToDelete.id}`);
+      await axios.delete(`/api/members/rfid/${memberToDelete.id}`);
       showNotification('Miembro eliminado correctamente', 'success');
       setDeleteConfirmOpen(false);
       setMemberToDelete(null);

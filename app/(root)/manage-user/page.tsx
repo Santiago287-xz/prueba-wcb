@@ -243,7 +243,7 @@ const ManageUser: React.FC = () => {
 
   // Array de entrenadores extraído de trainersData
   const { data: trainersData, isLoading: isTrainersLoading, mutate: mutateTrainers } = useSWR(
-    '/api/trainers', 
+    '/api/members/rfid/trainers', 
     fetcher, 
     {
       onSuccess: () => setTrainerLoading(false),
@@ -292,7 +292,7 @@ const ManageUser: React.FC = () => {
       const userResponse = await axios.get(`/api/users/${userId}`);
       
       // Obtener ejercicios asignados al usuario
-      const exercisesResponse = await axios.get(`/api/exercise/user-exercises/${userId}`);
+      const exercisesResponse = await axios.get(`/api/fitness/exercise/user-exercises/${userId}`);
       
       setUserDetails({
         ...userResponse.data,

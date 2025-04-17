@@ -15,7 +15,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const session = await getServerSession(authOptions);
   
   // Verificar que el usuario está autenticado y tiene permisos
-  if (!session?.user?.id || (session.user.role !== "admin" && session.user.role !== "court_manager")) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -73,7 +73,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   const session = await getServerSession(authOptions);
   
   // Verificar que el usuario está autenticado y tiene permisos
-  if (!session?.user?.id || (session.user.role !== "admin" && session.user.role !== "court_manager")) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

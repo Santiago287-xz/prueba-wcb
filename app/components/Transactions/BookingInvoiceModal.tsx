@@ -65,7 +65,7 @@ export default function BookingInvoiceModal({
     setError(null);
     
     try {
-      const response = await fetch('/api/invoicing', {
+      const response = await fetch('/api/courts/invoicing', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

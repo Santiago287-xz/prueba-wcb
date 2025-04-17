@@ -92,7 +92,8 @@ const getInitials = (name: string): string => {
 export default function AssignExercisePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { userId } = useParams();
+  const params = useParams();
+  const userId = typeof params.userId === 'string' ? params.userId : params.userId[0];
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   
@@ -149,7 +150,7 @@ export default function AssignExercisePage() {
       setUser(userResponse.data);
       
       // Obtener la lista de ejercicios disponibles
-      const exercisesResponse = await axios.get('/api/fitness/exercises/definitions');
+const exercisesResponse = await axios.get('/api/fitness/exercise/definitions');
       
       // Asignar categorías a los ejercicios si no tienen
       const exercisesWithCategories = (exercisesResponse.data.data || []).map(exercise => {
@@ -243,7 +244,7 @@ export default function AssignExercisePage() {
     setSubmitting(true);
     
     try {
-      const response = await axios.post('/api/exercise/assign-exercise', requestBody);
+      const response = await axios.post('/api/fitness/exercise/assign-exercise', requestBody);
       
       // Mostrar snackbar de éxito
       setSuccessSnackbar(true);

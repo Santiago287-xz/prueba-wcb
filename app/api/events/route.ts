@@ -27,7 +27,7 @@ const extractMongoId = (id: string): string | null => {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user?.id) {
+  if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   try {
