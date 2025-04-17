@@ -74,7 +74,7 @@ export default function RFIDManagementPage() {
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/rfid/stats');
+      const response = await fetch('/api/members/rfid/stats');
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -109,7 +109,7 @@ export default function RFIDManagementPage() {
       if (eventSource) {
         eventSource.close();
       }      
-      eventSource = new EventSource('/api/rfid-events');
+      eventSource = new EventSource('/api/members/rfid/events');
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);

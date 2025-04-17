@@ -23,6 +23,8 @@ export default async function DashboardPage() {
     redirect('/rfid-management');
   } else if (user.role === 'trainer') {
     redirect('/manage-user');
+  } else if (user.role === 'member') {
+    redirect('/profile');
   }
 
   // Si el usuario tiene otro rol (por ejemplo, 'user'), mostramos el dashboard correspondiente

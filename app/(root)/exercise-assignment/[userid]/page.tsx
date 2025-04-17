@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { 
@@ -16,25 +16,35 @@ import {
   CircularProgress,
   Alert,
   Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   IconButton,
   Card,
   CardContent,
+  CardActions,
   Avatar,
   Chip,
   Tooltip,
   InputAdornment,
-  Collapse,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Stack
+  Stack,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  useMediaQuery,
+  useTheme,
+  Fab,
+  Badge,
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Stepper,
+  Step,
+  StepLabel,
+  Snackbar
 } from "@mui/material";
 import { 
   Delete, 
@@ -43,69 +53,29 @@ import {
   FitnessCenter, 
   ArrowBackIos, 
   Add, 
-  Remove 
+  Remove,
+  ExpandMore,
+  KeyboardArrowUp,
+  Accessibility,
+  DirectionsRun,
+  SportsGymnastics,
+  Speed,
+  CheckCircle,
+  SaveAlt,
+  Menu as MenuIcon
 } from "@mui/icons-material";
 import axios from "axios";
 import toast from "react-hot-toast";
 
-// Estilos personalizados
-const styles = {
-  headerContainer: {
-    background: "linear-gradient(145deg, #2a3f54 0%, #1a2a3a 100%)",
-    borderRadius: "16px",
-    color: "white",
-    padding: "20px 24px",
-    marginBottom: "24px",
-    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
-  },
-  userInfoContainer: {
-    borderRadius: "12px",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    padding: "12px 16px",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  userAvatar: {
-    width: 42,
-    height: 42,
-    backgroundColor: "white",
-    color: "#2a3f54",
-    fontWeight: "bold",
-  },
-  tableContainer: {
-    borderRadius: "16px",
-    overflow: "hidden",
-    boxShadow: "0 6px 18px rgba(0, 0, 0, 0.06)",
-  },
-  exerciseCard: {
-    borderRadius: "12px",
-    transition: "transform 0.2s, box-shadow 0.2s",
-    "&:hover": {
-      transform: "translateY(-2px)",
-      boxShadow: "0 8px 16px rgba(0, 0, 0, 0.08)",
-    },
-  },
-  searchField: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    '& .MuiOutlinedInput-root': {
-      '& fieldset': {
-        borderColor: '#e0e0e0',
-      },
-      '&:hover fieldset': {
-        borderColor: '#3f51b5',
-      },
-      '&.Mui-focused fieldset': {
-        borderColor: '#3f51b5',
-      },
-    },
-  },
-  labelText: {
-    color: "#666",
-    fontWeight: 500,
-    fontSize: "0.875rem",
-  },
+// Categorías predefinidas de ejercicios con sus iconos
+const EXERCISE_CATEGORIES = {
+  "Piernas": <DirectionsRun />,
+  "Brazos": <Accessibility />,
+  "Pecho": <SportsGymnastics />,
+  "Espalda": <SportsGymnastics />,
+  "Cardio": <Speed />,
+  "Core": <FitnessCenter />,
+  "Otros": <FitnessCenter />
 };
 
 // Helper para generar las iniciales de un nombre
@@ -123,7 +93,11 @@ export default function AssignExercisePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { userId } = useParams();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   
+  // Estados principales
+  const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState(null);
@@ -136,8 +110,15 @@ export default function AssignExercisePage() {
   });
   const [error, setError] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  
+  // Estados para móvil
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [successSnackbar, setSuccessSnackbar] = useState(false);
 
+  // Pasos del proceso
+  const steps = ['Seleccionar periodo', 'Elegir ejercicios', 'Configurar ejercicios'];
+  
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/signin");
@@ -150,6 +131,14 @@ export default function AssignExercisePage() {
     }
     
     fetchData();
+    
+    // Detectar scroll para mostrar botón "volver arriba"
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [status, session, router, userId]);
 
   const fetchData = async () => {
@@ -158,13 +147,48 @@ export default function AssignExercisePage() {
       // Obtener detalles del usuario
       const userResponse = await axios.get(`/api/users/${userId}`);
       setUser(userResponse.data);
+      
       // Obtener la lista de ejercicios disponibles
-      const exercisesResponse = await axios.get('/api/exercise/manage-exercise');
-      setAvailableExercises(exercisesResponse.data.data || []);
+      const exercisesResponse = await axios.get('/api/fitness/exercises/definitions');
+      
+      // Asignar categorías a los ejercicios si no tienen
+      const exercisesWithCategories = (exercisesResponse.data.data || []).map(exercise => {
+        // Si no tiene categoría, asignar "Otros"
+        if (!exercise.category) {
+          // Inferir categoría basado en el nombre
+          let inferredCategory = "Otros";
+          const nameLower = exercise.name.toLowerCase();
+          
+          if (nameLower.includes("pecho") || nameLower.includes("press") || nameLower.includes("bench")) {
+            inferredCategory = "Pecho";
+          } else if (nameLower.includes("pierna") || nameLower.includes("sentadilla") || nameLower.includes("squat") || 
+                    nameLower.includes("cuadriceps") || nameLower.includes("femoral") || nameLower.includes("gemelo") || 
+                    nameLower.includes("calf")) {
+            inferredCategory = "Piernas";
+          } else if (nameLower.includes("bicep") || nameLower.includes("tricep") || nameLower.includes("curl") || 
+                    nameLower.includes("brazo")) {
+            inferredCategory = "Brazos";
+          } else if (nameLower.includes("espalda") || nameLower.includes("pull") || nameLower.includes("remo") || 
+                    nameLower.includes("dominada") || nameLower.includes("row")) {
+            inferredCategory = "Espalda";
+          } else if (nameLower.includes("abdom") || nameLower.includes("core") || nameLower.includes("plank") || 
+                    nameLower.includes("crunch")) {
+            inferredCategory = "Core";
+          } else if (nameLower.includes("cardio") || nameLower.includes("correr") || nameLower.includes("running") || 
+                    nameLower.includes("eliptica") || nameLower.includes("bicicleta") || nameLower.includes("bike")) {
+            inferredCategory = "Cardio";
+          }
+          
+          return { ...exercise, category: inferredCategory };
+        }
+        return exercise;
+      });
+      
+      setAvailableExercises(exercisesWithCategories);
       setError(null);
     } catch (err) {
       console.error("Error fetching data:", err);
-      setError("Failed to load data");
+      setError("Error al cargar los datos");
     } finally {
       setLoading(false);
     }
@@ -185,6 +209,7 @@ export default function AssignExercisePage() {
         return [...prev, {
           id: exercise.id,
           exerciseName: exercise.name,
+          category: exercise.category || "Otros",
           sets: 3,
           steps: 10,
           kg: 0,
@@ -202,9 +227,7 @@ export default function AssignExercisePage() {
     );
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const handleSubmit = async () => {
     if (selectedExercises.length === 0) {
       toast.error("Por favor, selecciona al menos un ejercicio");
       return;
@@ -222,26 +245,84 @@ export default function AssignExercisePage() {
     try {
       const response = await axios.post('/api/exercise/assign-exercise', requestBody);
       
-      toast.success("Ejercicios asignados correctamente");
-      router.push('/manage-user');
+      // Mostrar snackbar de éxito
+      setSuccessSnackbar(true);
+      
+      // Esperar un momento antes de redirigir
+      setTimeout(() => {
+        router.push('/manage-user');
+      }, 1500);
     } catch (err) {
       console.error("Error assigning exercises:", err);
       toast.error(`Error al asignar ejercicios: ${err.response?.data?.error || 'Error desconocido'}`);
-    } finally {
       setSubmitting(false);
     }
   };
 
-  // Filtrar ejercicios disponibles
-  const filteredExercises = availableExercises.filter(exercise => {
-    const matchesSearch = exercise.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !categoryFilter || (exercise.category === categoryFilter);
-    return matchesSearch && matchesCategory;
-  });
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
-  // Obtener categorías únicas
-  const categories = [...new Set(availableExercises.map(ex => ex.category).filter(Boolean))];
+  const handleNext = () => {
+    setActiveStep((prevStep) => prevStep + 1);
+    window.scrollTo(0, 0);
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
+    window.scrollTo(0, 0);
+  };
+
+  // Agrupar ejercicios por categoría
+  const exercisesByCategory = useMemo(() => {
+    const groupedExercises = {};
+    
+    // Inicializar todas las categorías primero
+    Object.keys(EXERCISE_CATEGORIES).forEach(category => {
+      groupedExercises[category] = [];
+    });
+    
+    // Agrupar ejercicios por categoría
+    availableExercises.forEach(exercise => {
+      const category = exercise.category || "Otros";
+      if (!groupedExercises[category]) {
+        groupedExercises[category] = [];
+      }
+      
+      // Solo agregar si coincide con la búsqueda
+      if (searchTerm === "" || exercise.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        groupedExercises[category].push(exercise);
+      }
+    });
+    
+    return groupedExercises;
+  }, [availableExercises, searchTerm]);
   
+  // Obtener categorías con ejercicios
+  const categoriesWithExercises = useMemo(() => {
+    return Object.keys(exercisesByCategory).filter(
+      category => exercisesByCategory[category].length > 0
+    );
+  }, [exercisesByCategory]);
+  
+  // Organizar ejercicios seleccionados por categoría para la vista previa
+  const selectedExercisesByCategory = useMemo(() => {
+    const grouped = {};
+    
+    selectedExercises.forEach(exercise => {
+      const category = exercise.category || "Otros";
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(exercise);
+    });
+    
+    return grouped;
+  }, [selectedExercises]);
+
   if (loading) {
     return (
       <Container sx={{ py: 4, textAlign: 'center' }}>
@@ -253,7 +334,7 @@ export default function AssignExercisePage() {
 
   if (error) {
     return (
-      <Container sx={{ py: 4 }}>
+      <Container sx={{ py: { xs: 2, md: 4 } }}>
         <Alert severity="error">{error}</Alert>
         <Button variant="outlined" onClick={() => router.push('/manage-user')} sx={{ mt: 2 }}>
           Volver a Gestión de Usuarios
@@ -263,9 +344,15 @@ export default function AssignExercisePage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       {/* Header con información del usuario */}
-      <Box sx={styles.headerContainer}>
+      <Paper elevation={3} sx={{ 
+        p: { xs: 2, md: 3 }, 
+        borderRadius: '16px', 
+        mb: 2,
+        background: "linear-gradient(145deg, #2a3f54 0%, #1a2a3a 100%)",
+        color: "white"
+      }}>
         <Button 
           variant="outlined" 
           startIcon={<ArrowBackIos />} 
@@ -280,441 +367,611 @@ export default function AssignExercisePage() {
             } 
           }}
         >
-          Volver a usuarios
+          Volver
         </Button>
         
-        <Typography variant="h4" gutterBottom fontWeight="bold">
-          Asignar Ejercicios
-        </Typography>
-        
-        {user && (
-          <Box sx={styles.userInfoContainer}>
-            <Avatar sx={styles.userAvatar}>
-              {getInitials(user.name)}
-            </Avatar>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                {user.name}
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                {user.email}
-              </Typography>
-            </Box>
-            <Chip 
-              label={user.isActive ? "Online" : "Offline"} 
-              size="small" 
-              color={user.isActive ? "success" : "default"}
-              sx={{ ml: 'auto', borderRadius: '6px' }} 
-            />
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Avatar sx={{ 
+            width: 50,
+            height: 50,
+            bgcolor: 'white',
+            color: '#2a3f54',
+            fontWeight: 'bold',
+            mr: 2
+          }}>
+            {user ? getInitials(user.name) : ''}
+          </Avatar>
+          
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              {user?.name}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+              {user?.email}
+            </Typography>
           </Box>
-        )}
-      </Box>
+        </Box>
+
+        {/* Stepper para móvil */}
+        <Stepper 
+          activeStep={activeStep} 
+          alternativeLabel={!isMobile}
+          orientation={isMobile ? "vertical" : "horizontal"}
+          sx={{ mt: 3 }}
+        >
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      </Paper>
       
-      <form onSubmit={handleSubmit}>
-        <Paper elevation={3} sx={{ p: 3, borderRadius: '16px', mb: 3 }}>
+      {/* Contenido según el paso actual */}
+      {activeStep === 0 && (
+        <Paper elevation={3} sx={{ p: { xs: 2, md: 3 }, borderRadius: '16px', mb: 2 }}>
           <Typography variant="h6" gutterBottom>
             Periodo de asignación
           </Typography>
-          <Divider sx={{ mb: 2 }} />
+          <Divider sx={{ mb: 3 }} />
           
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
+                Fecha de inicio
+              </Typography>
               <TextField
                 fullWidth
-                label="Fecha de inicio"
                 type="date"
                 name="fromDate"
                 value={formData.fromDate}
                 onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                size={isMobile ? "small" : "medium"}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: '10px',
+                    height: isMobile ? 48 : 56
+                  } 
+                }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
+                Fecha de fin
+              </Typography>
               <TextField
                 fullWidth
-                label="Fecha de fin"
                 type="date"
                 name="toDate"
                 value={formData.toDate}
                 onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                size={isMobile ? "small" : "medium"}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    borderRadius: '10px',
+                    height: isMobile ? 48 : 56
+                  } 
+                }}
               />
             </Grid>
           </Grid>
+          
+          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              size={isMobile ? "large" : "medium"}
+              sx={{
+                borderRadius: '10px',
+                px: 4,
+                py: isMobile ? 1.5 : 1
+              }}
+            >
+              Siguiente
+            </Button>
+          </Box>
         </Paper>
-        
-        <Paper elevation={3} sx={{ p: 3, borderRadius: '16px', mb: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
-              Ejercicios Disponibles
-            </Typography>
-            
-            <Box sx={{ display: 'flex', gap: 1 }}>
+      )}
+      
+      {activeStep === 1 && (
+        <>
+          <Paper elevation={3} sx={{ p: { xs: 2, md: 3 }, borderRadius: '16px', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                Seleccionar Ejercicios
+              </Typography>
+              
               <TextField
                 placeholder="Buscar ejercicios..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="small"
-                sx={styles.searchField}
+                sx={{
+                  width: { xs: '140px', sm: '200px' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '12px' }
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Search color="action" />
+                      <Search fontSize="small" color="action" />
                     </InputAdornment>
                   ),
                 }}
               />
-              
-              <Tooltip title="Filtros">
-                <IconButton onClick={() => setFiltersOpen(!filtersOpen)}>
-                  <FilterList />
-                </IconButton>
-              </Tooltip>
             </Box>
-          </Box>
-          
-          <Collapse in={filtersOpen}>
-            <Box sx={{ mb: 2, p: 2, bgcolor: '#f9f9f9', borderRadius: '10px' }}>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Filtrar por categoría</InputLabel>
-                <Select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  label="Filtrar por categoría"
-                >
-                  <MenuItem value="">Todas las categorías</MenuItem>
-                  {categories.map((category) => (
-                    <MenuItem key={category} value={category}>
-                      {category}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-          </Collapse>
-          
-          <Divider sx={{ mb: 2 }} />
-          
-          <Grid container spacing={2}>
-            {filteredExercises.map(exercise => (
-              <Grid item xs={12} sm={6} md={4} key={exercise.id}>
-                <Card 
-                  variant={selectedExercises.some(ex => ex.id === exercise.id) ? "elevation" : "outlined"}
-                  elevation={selectedExercises.some(ex => ex.id === exercise.id) ? 3 : 0}
-                  sx={{ 
-                    ...styles.exerciseCard,
-                    borderColor: selectedExercises.some(ex => ex.id === exercise.id) 
-                      ? 'primary.main' 
-                      : 'divider',
-                    position: 'relative',
-                    overflow: 'visible'
-                  }}
-                >
-                  <CardContent>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={selectedExercises.some(ex => ex.id === exercise.id)}
-                          onChange={() => handleExerciseSelection(exercise.id)}
-                          color="primary"
-                        />
-                      }
-                      label={
-                        <Box>
-                          <Typography fontWeight="medium">{exercise.name}</Typography>
-                          {exercise.description && (
-                            <Typography variant="body2" color="text.secondary">
-                              {exercise.description.substring(0, 60)}
-                              {exercise.description.length > 60 ? '...' : ''}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                      sx={{ width: '100%' }}
-                    />
-                    
-                    {exercise.category && (
-                      <Chip 
-                        label={exercise.category}
-                        size="small"
-                        sx={{ 
-                          position: 'absolute', 
-                          top: 8, 
-                          right: 8,
-                          fontSize: '0.7rem',
-                          height: '20px' 
-                        }}
-                      />
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
             
-            {filteredExercises.length === 0 && (
-              <Grid item xs={12}>
+            <Divider sx={{ mb: 3 }} />
+            
+            {/* Ejercicios agrupados por categoría en acordeones */}
+            <Box sx={{ mb: 3 }}>
+              {categoriesWithExercises.length > 0 ? (
+                categoriesWithExercises.map((category) => (
+                  <Accordion 
+                    key={category} 
+                    defaultExpanded={false} 
+                    sx={{ 
+                      mb: 1, 
+                      borderRadius: '12px', 
+                      overflow: 'hidden',
+                      '&:before': { display: 'none' } // Quitar línea superior
+                    }}
+                  >
+                    <AccordionSummary
+                      expandIcon={<ExpandMore />}
+                      sx={{ 
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {EXERCISE_CATEGORIES[category] || <FitnessCenter />}
+                        <Typography sx={{ ml: 1, fontWeight: 'medium' }}>
+                          {category} ({exercisesByCategory[category].length})
+                        </Typography>
+                        
+                        {/* Indicador de seleccionados en esta categoría */}
+                        {selectedExercisesByCategory[category] && selectedExercisesByCategory[category].length > 0 && (
+                          <Chip 
+                            size="small" 
+                            color="primary" 
+                            label={`${selectedExercisesByCategory[category].length} seleccionados`} 
+                            sx={{ ml: 1, height: 24 }} 
+                          />
+                        )}
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ p: 1 }}>
+                      <Grid container spacing={1}>
+                        {exercisesByCategory[category].map(exercise => (
+                          <Grid item xs={12} key={exercise.id}>
+                            <Card 
+                              variant={selectedExercises.some(ex => ex.id === exercise.id) ? "elevation" : "outlined"}
+                              elevation={selectedExercises.some(ex => ex.id === exercise.id) ? 3 : 0}
+                              sx={{ 
+                                borderColor: selectedExercises.some(ex => ex.id === exercise.id) 
+                                  ? 'primary.main' 
+                                  : 'divider',
+                                borderRadius: '10px'
+                              }}
+                            >
+                              <CardContent sx={{ py: 1, px: 2, '&:last-child': { pb: 1 } }}>
+                                <FormControlLabel
+                                  control={
+                                    <Checkbox
+                                      checked={selectedExercises.some(ex => ex.id === exercise.id)}
+                                      onChange={() => handleExerciseSelection(exercise.id)}
+                                      color="primary"
+                                    />
+                                  }
+                                  label={
+                                    <Box>
+                                      <Typography fontWeight={selectedExercises.some(ex => ex.id === exercise.id) ? "bold" : "regular"}>
+                                        {exercise.name}
+                                      </Typography>
+                                      {exercise.description && (
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                          {exercise.description.substring(0, 60)}
+                                          {exercise.description.length > 60 ? '...' : ''}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  }
+                                  sx={{ width: '100%', m: 0 }}
+                                />
+                              </CardContent>
+                            </Card>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </AccordionDetails>
+                  </Accordion>
+                ))
+              ) : (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <FitnessCenter sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
                   <Typography color="text.secondary">
-                    No se encontraron ejercicios
+                    No se encontraron ejercicios con esa búsqueda
                   </Typography>
                   <Button 
                     variant="outlined" 
                     size="small" 
-                    startIcon={<Refresh />} 
-                    onClick={() => {
-                      setSearchTerm("");
-                      setCategoryFilter("");
-                    }}
+                    onClick={() => setSearchTerm("")}
                     sx={{ mt: 2 }}
                   >
-                    Limpiar filtros
+                    Limpiar búsqueda
                   </Button>
                 </Box>
-              </Grid>
-            )}
-          </Grid>
-        </Paper>
-        
-        {selectedExercises.length > 0 && (
-          <Paper elevation={3} sx={{ p: 3, borderRadius: '16px', mb: 3 }}>
+              )}
+            </Box>
+            
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+              <Button
+                variant="outlined"
+                onClick={handleBack}
+                sx={{ borderRadius: '10px' }}
+              >
+                Atrás
+              </Button>
+              
+              <Button
+                variant="contained"
+                onClick={handleNext}
+                disabled={selectedExercises.length === 0}
+                sx={{ borderRadius: '10px' }}
+              >
+                Siguiente ({selectedExercises.length})
+              </Button>
+            </Box>
+          </Paper>
+          
+          {/* FAB para mostrar seleccionados en móvil */}
+          {isMobile && selectedExercises.length > 0 && (
+            <Fab
+              color="primary"
+              variant="extended"
+              onClick={() => setDrawerOpen(true)}
+              sx={{
+                position: 'fixed',
+                bottom: 20,
+                right: 20,
+                zIndex: 1050
+              }}
+            >
+              <Badge badgeContent={selectedExercises.length} color="error">
+                <FitnessCenter sx={{ mr: 1 }} />
+                Ver seleccionados
+              </Badge>
+            </Fab>
+          )}
+          
+          {/* Drawer para móvil con ejercicios seleccionados */}
+          <Drawer
+            anchor="bottom"
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            PaperProps={{
+              sx: {
+                maxHeight: '70vh',
+                borderTopLeftRadius: '16px',
+                borderTopRightRadius: '16px',
+                px: 2,
+                py: 2
+              }
+            }}
+          >
+            <Typography variant="h6" gutterBottom align="center">
+              Ejercicios Seleccionados ({selectedExercises.length})
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            <List sx={{ overflow: 'auto', maxHeight: 'calc(70vh - 100px)' }}>
+              {Object.keys(selectedExercisesByCategory).map(category => (
+                <Box key={category} sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                    {EXERCISE_CATEGORIES[category] || <FitnessCenter fontSize="small" />}
+                    <span style={{ marginLeft: '8px' }}>{category}</span>
+                  </Typography>
+                  
+                  {selectedExercisesByCategory[category].map(exercise => (
+                    <ListItem
+                      key={exercise.id}
+                      secondaryAction={
+                        <IconButton edge="end" onClick={() => handleExerciseSelection(exercise.id)}>
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      }
+                      sx={{ py: 0.5 }}
+                    >
+                      <ListItemText 
+                        primary={exercise.exerciseName}
+                        primaryTypographyProps={{ variant: 'body2' }}
+                      />
+                    </ListItem>
+                  ))}
+                </Box>
+              ))}
+            </List>
+            
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+              <Button
+                variant="outlined"
+                onClick={() => setDrawerOpen(false)}
+                fullWidth
+                sx={{ borderRadius: '10px' }}
+              >
+                Cerrar
+              </Button>
+            </Box>
+          </Drawer>
+        </>
+      )}
+      
+      {activeStep === 2 && (
+        <>
+          <Paper elevation={3} sx={{ p: { xs: 2, md: 3 }, borderRadius: '16px', mb: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Configurar Ejercicios Seleccionados
+              Configurar Ejercicios
             </Typography>
             <Typography variant="body2" color="text.secondary" paragraph>
-              Configura los detalles para cada ejercicio seleccionado
+              Ajusta los detalles para cada ejercicio seleccionado
             </Typography>
             <Divider sx={{ mb: 3 }} />
             
-            {selectedExercises.map((exercise, index) => (
-              <Card 
-                key={exercise.id} 
-                variant="outlined" 
-                sx={{ mb: 2, borderRadius: '12px', borderColor: 'primary.light' }}
-              >
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <FitnessCenter color="primary" sx={{ mr: 1 }} />
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        {exercise.exerciseName}
-                      </Typography>
-                    </Box>
-                    
-                    <IconButton 
-                      color="error" 
-                      onClick={() => handleExerciseSelection(exercise.id)}
-                      size="small"
-                    >
-                      <Delete />
-                    </IconButton>
-                  </Box>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={6} sm={3}>
-                      <Typography variant="body2" sx={styles.labelText}>
-                        Series
-                      </Typography>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExerciseDataChange(
-                            exercise.id, 
-                            'sets', 
-                            Math.max(1, (exercise.sets || 0) - 1)
-                          )}
-                        >
-                          <Remove fontSize="small" />
-                        </IconButton>
+            {Object.keys(selectedExercisesByCategory).map(category => (
+              <Box key={category} sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  {EXERCISE_CATEGORIES[category] || <FitnessCenter />}
+                  <Typography variant="subtitle1" fontWeight="bold" sx={{ ml: 1 }}>
+                    {category}
+                  </Typography>
+                </Box>
+                
+                {selectedExercisesByCategory[category].map((exercise, index) => (
+                  <Card 
+                    key={exercise.id} 
+                    variant="outlined" 
+                    sx={{ 
+                      mb: 2, 
+                      borderRadius: '10px', 
+                      borderColor: 'primary.light'
+                    }}
+                  >
+                    <CardContent sx={{ py: 2, px: { xs: 2, sm: 3 } }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography fontWeight="bold">
+                          {exercise.exerciseName}
+                        </Typography>
                         
-                        <TextField
-                          type="number"
+                        <IconButton 
+                          color="error" 
+                          onClick={() => handleExerciseSelection(exercise.id)}
                           size="small"
-                          value={exercise.sets}
-                          onChange={(e) => handleExerciseDataChange(exercise.id, 'sets', e.target.value)}
-                          InputProps={{ inputProps: { min: 1 } }}
-                          sx={{ 
-                            width: '60px',
-                            '& .MuiOutlinedInput-root': { borderRadius: '8px' }
-                          }}
-                        />
-                        
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExerciseDataChange(
-                            exercise.id, 
-                            'sets', 
-                            (exercise.sets || 0) + 1
-                          )}
                         >
-                          <Add fontSize="small" />
+                          <Delete fontSize="small" />
                         </IconButton>
-                      </Stack>
-                    </Grid>
-                    
-                    <Grid item xs={6} sm={3}>
-                      <Typography variant="body2" sx={styles.labelText}>
-                        Repeticiones
-                      </Typography>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExerciseDataChange(
-                            exercise.id, 
-                            'steps', 
-                            Math.max(1, (exercise.steps || 0) - 1)
-                          )}
-                        >
-                          <Remove fontSize="small" />
-                        </IconButton>
+                      </Box>
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={6} sm={3}>
+                          <Typography variant="body2" fontWeight="medium" color="text.secondary" sx={{ mb: 0.5 }}>
+                            Series
+                          </Typography>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExerciseDataChange(
+                                exercise.id, 
+                                'sets', 
+                                Math.max(1, (exercise.sets || 0) - 1)
+                              )}
+                            >
+                              <Remove fontSize="small" />
+                            </IconButton>
+                            
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={exercise.sets}
+                              onChange={(e) => handleExerciseDataChange(exercise.id, 'sets', e.target.value)}
+                              InputProps={{ inputProps: { min: 1 } }}
+                              sx={{ width: '55px' }}
+                            />
+                            
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExerciseDataChange(
+                                exercise.id, 
+                                'sets', 
+                                (exercise.sets || 0) + 1
+                              )}
+                            >
+                              <Add fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </Grid>
                         
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={exercise.steps}
-                          onChange={(e) => handleExerciseDataChange(exercise.id, 'steps', e.target.value)}
-                          InputProps={{ inputProps: { min: 1 } }}
-                          sx={{ 
-                            width: '60px',
-                            '& .MuiOutlinedInput-root': { borderRadius: '8px' }
-                          }}
-                        />
+                        <Grid item xs={6} sm={3}>
+                          <Typography variant="body2" fontWeight="medium" color="text.secondary" sx={{ mb: 0.5 }}>
+                            Repeticiones
+                          </Typography>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExerciseDataChange(
+                                exercise.id, 
+                                'steps', 
+                                Math.max(1, (exercise.steps || 0) - 1)
+                              )}
+                            >
+                              <Remove fontSize="small" />
+                            </IconButton>
+                            
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={exercise.steps}
+                              onChange={(e) => handleExerciseDataChange(exercise.id, 'steps', e.target.value)}
+                              InputProps={{ inputProps: { min: 1 } }}
+                              sx={{ width: '55px' }}
+                            />
+                            
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExerciseDataChange(
+                                exercise.id, 
+                                'steps', 
+                                (exercise.steps || 0) + 1
+                              )}
+                            >
+                              <Add fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </Grid>
                         
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExerciseDataChange(
-                            exercise.id, 
-                            'steps', 
-                            (exercise.steps || 0) + 1
-                          )}
-                        >
-                          <Add fontSize="small" />
-                        </IconButton>
-                      </Stack>
-                    </Grid>
-                    
-                    <Grid item xs={6} sm={3}>
-                      <Typography variant="body2" sx={styles.labelText}>
-                        Peso (kg)
-                      </Typography>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExerciseDataChange(
-                            exercise.id, 
-                            'kg', 
-                            Math.max(0, (exercise.kg || 0) - 2.5)
-                          )}
-                        >
-                          <Remove fontSize="small" />
-                        </IconButton>
+                        <Grid item xs={6} sm={3}>
+                          <Typography variant="body2" fontWeight="medium" color="text.secondary" sx={{ mb: 0.5 }}>
+                            Peso (kg)
+                          </Typography>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExerciseDataChange(
+                                exercise.id, 
+                                'kg', 
+                                Math.max(0, (exercise.kg || 0) - 2.5)
+                              )}
+                            >
+                              <Remove fontSize="small" />
+                            </IconButton>
+                            
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={exercise.kg}
+                              onChange={(e) => handleExerciseDataChange(exercise.id, 'kg', e.target.value)}
+                              InputProps={{ inputProps: { min: 0, step: 2.5 } }}
+                              sx={{ width: '55px' }}
+                            />
+                            
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExerciseDataChange(
+                                exercise.id, 
+                                'kg', 
+                                (exercise.kg || 0) + 2.5
+                              )}
+                            >
+                              <Add fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </Grid>
                         
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={exercise.kg}
-                          onChange={(e) => handleExerciseDataChange(exercise.id, 'kg', e.target.value)}
-                          InputProps={{ inputProps: { min: 0, step: 2.5 } }}
-                          sx={{ 
-                            width: '60px',
-                            '& .MuiOutlinedInput-root': { borderRadius: '8px' }
-                          }}
-                        />
-                        
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExerciseDataChange(
-                            exercise.id, 
-                            'kg', 
-                            (exercise.kg || 0) + 2.5
-                          )}
-                        >
-                          <Add fontSize="small" />
-                        </IconButton>
-                      </Stack>
-                    </Grid>
-                    
-                    <Grid item xs={6} sm={3}>
-                      <Typography variant="body2" sx={styles.labelText}>
-                        Descanso (seg)
-                      </Typography>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExerciseDataChange(
-                            exercise.id, 
-                            'rest', 
-                            Math.max(0, (exercise.rest || 0) - 10)
-                          )}
-                        >
-                          <Remove fontSize="small" />
-                        </IconButton>
-                        
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={exercise.rest}
-                          onChange={(e) => handleExerciseDataChange(exercise.id, 'rest', e.target.value)}
-                          InputProps={{ inputProps: { min: 0, step: 10 } }}
-                          sx={{ 
-                            width: '60px',
-                            '& .MuiOutlinedInput-root': { borderRadius: '8px' }
-                          }}
-                        />
-                        
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExerciseDataChange(
-                            exercise.id, 
-                            'rest', 
-                            (exercise.rest || 0) + 10
-                          )}
-                        >
-                          <Add fontSize="small" />
-                        </IconButton>
-                      </Stack>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
+                        <Grid item xs={6} sm={3}>
+                          <Typography variant="body2" fontWeight="medium" color="text.secondary" sx={{ mb: 0.5 }}>
+                            Descanso (seg)
+                          </Typography>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExerciseDataChange(
+                                exercise.id, 
+                                'rest', 
+                                Math.max(0, (exercise.rest || 0) - 10)
+                              )}
+                            >
+                              <Remove fontSize="small" />
+                            </IconButton>
+                            
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={exercise.rest}
+                              onChange={(e) => handleExerciseDataChange(exercise.id, 'rest', e.target.value)}
+                              InputProps={{ inputProps: { min: 0, step: 10 } }}
+                              sx={{ width: '55px' }}
+                            />
+                            
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExerciseDataChange(
+                                exercise.id, 
+                                'rest', 
+                                (exercise.rest || 0) + 10
+                              )}
+                            >
+                              <Add fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
             ))}
+            
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+              <Button
+                variant="outlined"
+                onClick={handleBack}
+                sx={{ borderRadius: '10px' }}
+              >
+                Atrás
+              </Button>
+              
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSubmit}
+                disabled={submitting || selectedExercises.length === 0}
+                startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : <SaveAlt />}
+                sx={{ 
+                  borderRadius: '10px',
+                  px: { xs: 3, sm: 4 },
+                  py: { xs: 1.5, sm: 1 }
+                }}
+              >
+                {submitting ? 'Guardando...' : 'Guardar Ejercicios'}
+              </Button>
+            </Box>
           </Paper>
-        )}
-        
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-          <Button
-            variant="outlined"
-            onClick={() => router.push('/manage-user')}
-            sx={{ 
-              borderRadius: '10px',
-              px: 3,
-              py: 1
-            }}
-          >
-            Cancelar
-          </Button>
-          
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            disabled={submitting || selectedExercises.length === 0}
-            sx={{ 
-              borderRadius: '10px',
-              px: 4,
-              py: 1
-            }}
-          >
-            {submitting ? (
-              <CircularProgress size={24} color="inherit" />
-            ) : (
-              `Asignar ${selectedExercises.length} ejercicio${selectedExercises.length !== 1 ? 's' : ''}`
-            )}
-          </Button>
-        </Box>
-      </form>
+        </>
+      )}
+      
+      {/* Botón flotante para volver arriba */}
+      {showScrollTop && (
+        <Fab
+          size="small"
+          color="primary"
+          aria-label="scroll back to top"
+          onClick={scrollToTop}
+          sx={{
+            position: 'fixed',
+            bottom: { xs: 86, sm: 20 },
+            right: 16,
+            zIndex: 10,
+          }}
+        >
+          <KeyboardArrowUp />
+        </Fab>
+      )}
+      
+      {/* Snackbar de éxito */}
+      <Snackbar
+        open={successSnackbar}
+        autoHideDuration={2000}
+        onClose={() => setSuccessSnackbar(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          variant="filled" 
+          severity="success" 
+          icon={<CheckCircle />}
+          sx={{ width: '100%' }}
+        >
+          ¡Ejercicios asignados correctamente!
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

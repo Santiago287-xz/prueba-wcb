@@ -76,7 +76,7 @@ const RFIDLogs: React.FC = () => {
       params.append('page', currentPage.toString());
       params.append('limit', pageSize.toString());
 
-      const response = await axios.get(`/api/rfid/logs?${params.toString()}`);
+      const response = await axios.get(`/api/members/rfid/logs?${params.toString()}`);
       
       if (response.data && response.data.logs) {
         if (resetPage) {

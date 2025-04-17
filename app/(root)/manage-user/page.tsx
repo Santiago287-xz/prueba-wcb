@@ -214,7 +214,7 @@ const ManageUser: React.FC = () => {
   const [order, setOrder] = useState<"asc" | "desc">("asc")
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [filterRole, setFilterRole] = useState<string>("")
-  const [filterStatus, setFilterStatus] = useState<string>("")
+  // Eliminado filtro de estado que no se usa en el sistema
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false)
   const [userToDelete, setUserToDelete] = useState<string | null>(null)
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false)
@@ -237,7 +237,7 @@ const ManageUser: React.FC = () => {
 
   // Usamos SWR con los filtros aplicados
   const { data, isLoading, mutate } = useSWR(
-    `/api/users?page=${currentPage}&limit=${rowsPerPage}&role=${filterRole}&search=${searchTerm}&status=${filterStatus}`, 
+    `/api/users?page=${currentPage}&limit=${rowsPerPage}&role=${filterRole}&search=${searchTerm}`, 
     fetcher
   )
 
@@ -360,9 +360,7 @@ const ManageUser: React.FC = () => {
     setFilterRole(event.target.value as string)
   }
 
-  const handleFilterStatusChange = (event: any) => {
-    setFilterStatus(event.target.value as string)
-  }
+  // Eliminada función de filtro de estado que no se usa
 
   const resetFilters = () => {
     setSearchTerm("")
@@ -370,7 +368,6 @@ const ManageUser: React.FC = () => {
     if (sessionUser?.role !== "trainer") {
       setFilterRole("")
     }
-    setFilterStatus("")
   }
 
   const toggleFilters = () => {
@@ -403,11 +400,7 @@ const ManageUser: React.FC = () => {
       )
     }
 
-    // Apply status filter
-    if (filterStatus) {
-      const isActive = filterStatus === "online"
-      filtered = filtered.filter((user: User) => user.isActive === isActive)
-    }
+    // Eliminado filtro de estado
 
     // Apply sorting
     return filtered.sort((a: User, b: User) => {
@@ -428,11 +421,11 @@ const ManageUser: React.FC = () => {
         return valueB < valueA ? -1 : valueB > valueA ? 1 : 0
       }
     })
-  }, [data, orderBy, order, searchTerm, filterRole, filterStatus, sessionUser])
+  }, [data, orderBy, order, searchTerm, filterRole, sessionUser])
 
   useEffect(() => {
     mutate()
-  }, [currentPage, rowsPerPage, searchTerm, filterRole, filterStatus, mutate])
+  }, [currentPage, rowsPerPage, searchTerm, filterRole, mutate])
 
   // Función para mapear roles a nombres más amigables
   const getRoleName = (role: string): string => {
@@ -581,20 +574,6 @@ const ManageUser: React.FC = () => {
                   </Select>
                 </FormControl>
               )}
-
-              <FormControl size="small" variant="outlined" sx={{ minWidth: { xs: "100%", sm: "200px" } }}>
-                <InputLabel id="status-filter-label">Estado</InputLabel>
-                <Select
-                  labelId="status-filter-label"
-                  value={filterStatus}
-                  onChange={handleFilterStatusChange}
-                  label="Estado"
-                >
-                  <MenuItem value="">Todos</MenuItem>
-                  <MenuItem value="online">Online</MenuItem>
-                  <MenuItem value="offline">Offline</MenuItem>
-                </Select>
-              </FormControl>
             </Box>
           </Fade>
         </CardContent>
@@ -621,7 +600,6 @@ const ManageUser: React.FC = () => {
                     Email
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={styles.tableHeaderCell}>Estado</TableCell>
                 <TableCell sx={styles.tableHeaderCell}>Entrenador</TableCell>
                 <TableCell sx={styles.tableHeaderCell}>
                   <TableSortLabel
@@ -685,19 +663,7 @@ const ManageUser: React.FC = () => {
                       </Box>
                     </TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>{user?.email}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user?.isActive ? "Online" : "Offline"}
-                        size="small"
-                        color={user?.isActive ? "success" : "default"}
-                        sx={{ 
-                          fontWeight: 500, 
-                          borderRadius: "6px",
-                          fontSize: "0.75rem",
-                          height: "24px",
-                        }}
-                      />
-                    </TableCell>
+
                     <TableCell>
                       {user?.trainer ? (
                         <Chip

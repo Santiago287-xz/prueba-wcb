@@ -15,7 +15,7 @@ const useExerciseStore = create<ExercisesStore>((set) => ({
   fetchExercises: async () => {
     try {
       const { data } = await axios.get<{ data: ExerciseList[] }>(
-        "/api/exercise/manage-exercise"
+        "/api/fitness/exercises/definitions"
       );
       set({ exercises: data.data});
     } catch (error) {

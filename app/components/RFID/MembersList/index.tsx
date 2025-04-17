@@ -113,7 +113,7 @@ export default function MembersList() {
     setPricesLoading(true);
     setPricesError(null);
     try {
-      const response = await axios.get('/api/membership-prices');
+      const response = await axios.get('/api/analytics/members/prices');
       if (response.data && response.data.types) {
         setMembershipPrices(response.data.types);
       } else {

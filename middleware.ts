@@ -72,7 +72,7 @@ const API_PERMISSIONS = {
 		"employee",
 		"court_manager",
 	],
-	"/api/categories": [
+	"/api/inventory/categories": [
 		"admin",
 		"court_manager",
 	],
@@ -98,12 +98,12 @@ const API_PERMISSIONS = {
 		"employee",
 		"court_manager",
 	],
-	"/api/payment": ["member"],
+	"/api/payments/stripe": ["member"],
 	"/api/rfid": ["admin", "employee"],
 	"/api/sales": ["admin", "employee"],
 	"/api/transactions": ["admin"],
 	"/api/users": ["admin", "trainer"],
-	"/api/exercise": ["admin", "trainer"],
+	"/api/exercise": ["admin", "trainer", "member"],
 	"/api/exercise-assignment": ["admin", "trainer"],
 };
 
@@ -143,9 +143,9 @@ export async function middleware(
 
 	// Handle API routes
 	if (path.startsWith("/api/")) {
-		// Permitir las solicitudes de Arduino sin token para /api/rfid/access
+		// Permitir las solicitudes de Arduino sin token para /api/members/rfid/access
 		if (
-			path === "/api/rfid/access" &&
+			path === "/api/members/rfid/access" &&
 			request.method === "POST"
 		) {
 			return NextResponse.next();

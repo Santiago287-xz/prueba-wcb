@@ -132,7 +132,7 @@ export default function InventoryDashboard() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch("/api/categories");
+      const res = await fetch("/api/inventory/categories");
       if (res.ok) {
         const data = await res.json();
         setCategories(data);

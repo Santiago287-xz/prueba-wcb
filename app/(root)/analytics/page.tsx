@@ -7,7 +7,6 @@ import {
   Tooltip, Legend, Bar, Line, Pie, Cell, ResponsiveContainer
 } from 'recharts';
 
-// Tipos básicos
 interface DateRange {
   start: Date;
   end: Date;
@@ -22,10 +21,9 @@ interface Transaction {
   paymentMethod: string;
   location?: string;
   createdAt: string;
-  user?: { name: string; id: string };  // Add user object
+  user?: { name: string; id: string };
 }
 
-// Formatter para moneda
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -34,7 +32,36 @@ const formatCurrency = (amount: number) =>
     maximumFractionDigits: 2
   }).format(amount);
 
-// Helper para fetch con retry
+const categoryTranslations: Record<string, string> = {
+  'court_rental': 'Alquiler de Canchas',
+  'membership': 'Membresía',
+  'food': 'Alimentos',
+  'drinks': 'Bebidas',
+  'equipment': 'Equipamiento',
+  'salary': 'Salarios',
+  'maintenance': 'Mantenimiento',
+  'utilities': 'Servicios',
+  'supplies': 'Suministros',
+  'events': 'Eventos',
+  'other': 'Otros'
+};
+
+const paymentMethodTranslations: Record<string, string> = {
+  'cash': 'Efectivo',
+  'card': 'Tarjeta',
+  'transfer': 'Transferencia',
+  'points': 'Puntos',
+  'check': 'Cheque'
+};
+
+const translateCategory = (category: string): string => {
+  return categoryTranslations[category] || category;
+};
+
+const translatePaymentMethod = (method: string): string => {
+  return paymentMethodTranslations[method] || method;
+};
+
 async function fetchWithRetry(url: string, options = {}, retries = 3, backoff = 500): Promise<any> {
   for (let i = 0; i < retries; i++) {
     try {
@@ -54,7 +81,6 @@ async function fetchWithRetry(url: string, options = {}, retries = 3, backoff = 
   }
 }
 
-// Componente AnimatedCounter
 const AnimatedCounter: React.FC<{
   value: number;
   duration?: number;
@@ -120,23 +146,27 @@ const AnimatedCounter: React.FC<{
     return <>{prefix}{Number.isInteger(displayValue) ? displayValue.toFixed(0) : displayValue.toFixed(2)}{suffix}</>;
   };
 
-// Panel Analítico Principal
 export default function AdminAnalytics() {
-  // Estados principales
   const [dateRange, setDateRange] = useState<DateRange>({
     start: subDays(new Date(), 30),
     end: new Date()
   });
   const [loading, setLoading] = useState<boolean>(true);
-  const [view, setView] = useState<'chart' | 'table' | 'transactions'>('chart');
+  const [view, setView] = useState<'chart' | 'transactions'>('chart');
   const [activePreset, setActivePreset] = useState<string>('last30');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState<boolean>(false);
+  const [purgeLoading, setPurgeLoading] = useState<boolean>(false);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
+  const [showRfidPurgeConfirm, setShowRfidPurgeConfirm] = useState<boolean>(false);
+  const [rfidPurgeLoading, setRfidPurgeLoading] = useState<boolean>(false);
+  const [rfidPurgeError, setRfidPurgeError] = useState<string | null>(null);
+  const [purgeType, setPurgeType] = useState<string>('none');
 
-  // Estados de carga para componentes individuales
   const [loadingStates, setLoadingStates] = useState({
     members: false,
     courts: false,
@@ -146,7 +176,6 @@ export default function AdminAnalytics() {
     enhanced: false
   });
 
-  // Métricas
   const [metrics, setMetrics] = useState({
     members: {
       total: 0,
@@ -178,13 +207,13 @@ export default function AdminAnalytics() {
     financialComparison: []
   });
 
-  // Filtros para transacciones
   const [activeFilters, setActiveFilters] = useState({
     category: '',
     location: '',
     type: ''
   });
   const prevMetricsRef = useRef({ ...metrics });
+  
   const fetchData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
@@ -193,18 +222,16 @@ export default function AdminAnalytics() {
       const end = format(endOfDay(dateRange.end), "yyyy-MM-dd'T'HH:mm:ss");
       const cacheBuster = Date.now();
 
-      // Peticiones en paralelo
       const [transactionData, membersData, courtsData, enhancedData] = await Promise.all([
         fetchWithRetry(`/api/transactions?start=${start}&end=${end}&_=${cacheBuster}`),
-        fetchWithRetry(`/api/analytics/members/count`),
+        fetchWithRetry(`/api/analytics/members/summary`),
         fetchWithRetry(`/api/analytics/courts?start=${start}&end=${end}&_=${cacheBuster}`),
-        fetchWithRetry(`/api/analytics/enhanced?start=${start}&end=${end}&_=${cacheBuster}`)
+        fetchWithRetry(`/api/analytics/financial?start=${start}&end=${end}&_=${cacheBuster}`)
       ]);
-      // Actualizar transacciones
+      
       if (transactionData) {
         setTransactions(transactionData.transactions || []);
-
-        // Calcular métricas desde transacciones
+        
         const salesTotal = transactionData.summary?.totalIncome || 0;
         setMetrics(prev => ({
           ...prev,
@@ -212,22 +239,21 @@ export default function AdminAnalytics() {
             ...prev.sales,
             total: salesTotal,
             byCategory: transactionData.chartData?.categoryData?.map(item => ({
-              name: item.category,
-              value: item.total
+              name: translateCategory(item.category),
+              value: item.total,
+              originalName: item.category
             })) || []
           }
         }));
       }
 
-      // Actualizar miembros
       if (membersData) {
         const memberCount = membersData.total || 0;
 
-        // Intentar obtener datos de puntos
         let pointsRevenue = 0;
         let pointsRetention = 0;
         try {
-          const pointsData = await fetchWithRetry(`/api/members/points?start=${start}&end=${end}&_=${cacheBuster}`);
+          const pointsData = await fetchWithRetry(`/api/analytics/members/points?start=${start}&end=${end}&_=${cacheBuster}`);
           pointsRevenue = pointsData?.pointsRevenue || 0;
           pointsRetention = pointsData?.retention || 0;
         } catch (err) {
@@ -245,9 +271,7 @@ export default function AdminAnalytics() {
         }));
       }
 
-      // Actualizar datos de canchas
       if (courtsData) {
-        console.log(courtsData)
         setMetrics(prev => ({
           ...prev,
           courts: {
@@ -260,12 +284,9 @@ export default function AdminAnalytics() {
         }));
       }
 
-      // Actualizar datos mejorados
       if (enhancedData) {
-        // Guardar valores previos para animaciones
         prevMetricsRef.current = { ...metrics };
 
-        // Actualizar datos de áreas y puntos
         setMetrics(prev => ({
           ...prev,
           areas: enhancedData.areas || prev.areas,
@@ -288,12 +309,10 @@ export default function AdminAnalytics() {
     }
   }, [dateRange]);
 
-  // Cargar datos al inicio y al cambiar fechas
   useEffect(() => {
     fetchData(true);
   }, [dateRange, fetchData]);
 
-  // Auto-refresh simplificado
   useEffect(() => {
     if (!autoRefresh) return;
 
@@ -304,7 +323,6 @@ export default function AdminAnalytics() {
     return () => clearInterval(intervalId);
   }, [autoRefresh, fetchData]);
 
-  // Filtrar transacciones cuando cambian los filtros
   useEffect(() => {
     if (!transactions.length) return;
 
@@ -322,7 +340,6 @@ export default function AdminAnalytics() {
     setFilteredTransactions(filtered);
   }, [activeFilters, transactions]);
 
-  // Funciones de utilidad para la UI
   const applyDatePreset = (preset: string) => {
     const today = new Date();
     let start: Date, end: Date = today;
@@ -349,20 +366,110 @@ export default function AdminAnalytics() {
       (metrics.areas.shop.totalIncome || 0);
   };
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+  const handlePurgeData = async () => {
+    setPurgeLoading(true);
+    setPurgeError(null);
+    try {
+      const response = await fetch('/api/transactions/purge', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al purgar datos');
+      }
+      
+      setShowPurgeConfirm(false);
+      await fetchData(true);
+    } catch (error) {
+      console.error('Error purging data:', error);
+      setPurgeError(error instanceof Error ? error.message : 'Error al purgar datos');
+    } finally {
+      setPurgeLoading(false);
+    }
+  };
+  
+  const handlePurgeRfidLogs = async () => {
+    setRfidPurgeLoading(true);
+    setRfidPurgeError(null);
+    try {
+      const response = await fetch('/api/members/rfid/logs/purge', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al purgar logs RFID');
+      }
+      
+      setShowRfidPurgeConfirm(false);
+    } catch (error) {
+      console.error('Error purging RFID logs:', error);
+      setRfidPurgeError(error instanceof Error ? error.message : 'Error al purgar logs RFID');
+    } finally {
+      setRfidPurgeLoading(false);
+    }
+  };
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7f0e', '#d62728', '#9467bd', '#e377c2'];
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto px-4 py-6">
       {/* Header y controles */}
       <div className="mb-6 flex justify-between items-center flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Panel Analítico</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-800">Panel Analítico</h1>
+          <div className="relative inline-block">
+            <button
+              onClick={() => setPurgeType(purgeType === 'none' ? 'show' : 'none')}
+              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm transition-colors duration-200 shadow-sm flex items-center"
+            >
+              Purgar Datos
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {purgeType === 'show' && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setShowPurgeConfirm(true);
+                      setPurgeType('none');
+                    }}
+                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
+                  >
+                    Purgar Transacciones
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowRfidPurgeConfirm(true);
+                      setPurgeType('none');
+                    }}
+                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full text-left"
+                  >
+                    Purgar Logs RFID
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {errorMessage && (
-          <div className="w-full mb-4 bg-red-100 text-red-700 px-4 py-2 rounded">
+          <div className="w-full mb-4 bg-red-100 text-red-700 px-4 py-2 rounded-md shadow-sm">
             {errorMessage}
           </div>
         )}
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="flex items-center border rounded p-2">
+        
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex items-center border rounded-md overflow-hidden shadow-sm bg-white">
             <input
               type="date"
               value={format(dateRange.start, 'yyyy-MM-dd')}
@@ -370,10 +477,10 @@ export default function AdminAnalytics() {
                 setDateRange({ ...dateRange, start: new Date(e.target.value) });
                 setActivePreset('custom');
               }}
-              className="text-sm border-none"
+              className="text-sm border-none px-3 py-2 focus:outline-none"
               max={format(new Date(), 'yyyy-MM-dd')}
             />
-            <span className="mx-2">-</span>
+            <span className="mx-1 text-gray-400">-</span>
             <input
               type="date"
               value={format(dateRange.end, 'yyyy-MM-dd')}
@@ -381,38 +488,40 @@ export default function AdminAnalytics() {
                 setDateRange({ ...dateRange, end: new Date(e.target.value) });
                 setActivePreset('custom');
               }}
-              className="text-sm border-none"
+              className="text-sm border-none px-3 py-2 focus:outline-none"
               max={format(new Date(), 'yyyy-MM-dd')}
             />
           </div>
+          
           <div className="flex gap-1 flex-wrap">
             <button
               onClick={() => applyDatePreset('last7days')}
-              className={`px-2 py-1 text-xs rounded ${activePreset === 'last7days' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              className={`px-3 py-2 text-xs rounded-md shadow-sm transition-colors duration-200 ${activePreset === 'last7days' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
             >
               7 días
             </button>
             <button
               onClick={() => applyDatePreset('last30days')}
-              className={`px-2 py-1 text-xs rounded ${activePreset === 'last30days' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              className={`px-3 py-2 text-xs rounded-md shadow-sm transition-colors duration-200 ${activePreset === 'last30days' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
             >
               30 días
             </button>
             <button
               onClick={() => applyDatePreset('thisMonth')}
-              className={`px-2 py-1 text-xs rounded ${activePreset === 'thisMonth' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              className={`px-3 py-2 text-xs rounded-md shadow-sm transition-colors duration-200 ${activePreset === 'thisMonth' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
             >
               Este mes
             </button>
             <button
               onClick={() => applyDatePreset('thisWeek')}
-              className={`px-2 py-1 text-xs rounded ${activePreset === 'thisWeek' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              className={`px-3 py-2 text-xs rounded-md shadow-sm transition-colors duration-200 ${activePreset === 'thisWeek' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
             >
               Esta semana
             </button>
           </div>
+          
           <div className="flex items-center gap-2">
-            <label className="text-xs flex items-center">
+            <label className="text-xs flex items-center bg-white px-2 py-1 rounded-md shadow-sm">
               <input
                 type="checkbox"
                 checked={autoRefresh}
@@ -423,7 +532,7 @@ export default function AdminAnalytics() {
             </label>
             <button
               onClick={() => fetchData(true)}
-              className="px-3 py-1 bg-blue-500 text-white rounded text-sm flex items-center"
+              className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm flex items-center transition-colors duration-200 shadow-sm"
               disabled={loading}
             >
               {loading ? (
@@ -431,29 +540,28 @@ export default function AdminAnalytics() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-              ) : null}
+              ) : (
+                <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
               Actualizar
             </button>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md shadow-sm">
               {format(lastRefresh, 'HH:mm:ss')}
             </div>
           </div>
         </div>
+        
         <div className="w-full flex border-b mt-2">
           <button
-            className={`px-3 py-1 sm:px-4 sm:py-2 text-sm ${view === 'chart' ? 'border-b-2 border-blue-500 font-medium' : ''}`}
+            className={`px-4 py-2 text-sm transition-colors duration-200 ${view === 'chart' ? 'border-b-2 border-blue-500 text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-800'}`}
             onClick={() => setView('chart')}
           >
             Gráficos
           </button>
           <button
-            className={`px-3 py-1 sm:px-4 sm:py-2 text-sm ${view === 'table' ? 'border-b-2 border-blue-500 font-medium' : ''}`}
-            onClick={() => setView('table')}
-          >
-            Tablas
-          </button>
-          <button
-            className={`px-3 py-1 sm:px-4 sm:py-2 text-sm ${view === 'transactions' ? 'border-b-2 border-blue-500 font-medium' : ''}`}
+            className={`px-4 py-2 text-sm transition-colors duration-200 ${view === 'transactions' ? 'border-b-2 border-blue-500 text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-800'}`}
             onClick={() => setView('transactions')}
           >
             Transacciones
@@ -626,21 +734,20 @@ export default function AdminAnalytics() {
           <div className="px-4 py-3 border-b">
             <h3 className="text-gray-700 font-medium">Registro de Transacciones</h3>
             <div className="flex flex-wrap gap-2 mt-2 mb-3">
-              {/* Filtros */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <select
-                  className="border rounded p-1 text-sm"
+                  className="border rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onChange={(e) => setActiveFilters(prev => ({ ...prev, category: e.target.value }))}
                   value={activeFilters.category}
                 >
                   <option value="">Todas las categorías</option>
                   {Array.from(new Set(transactions.map(t => t.category))).map((cat, idx) => (
-                    <option key={idx} value={cat}>{cat}</option>
+                    <option key={idx} value={cat}>{translateCategory(cat)}</option>
                   ))}
                 </select>
 
                 <select
-                  className="border rounded p-1 text-sm"
+                  className="border rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onChange={(e) => setActiveFilters(prev => ({ ...prev, location: e.target.value }))}
                   value={activeFilters.location}
                 >
@@ -651,7 +758,7 @@ export default function AdminAnalytics() {
                 </select>
 
                 <select
-                  className="border rounded p-1 text-sm"
+                  className="border rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onChange={(e) => setActiveFilters(prev => ({ ...prev, type: e.target.value }))}
                   value={activeFilters.type}
                 >
@@ -662,7 +769,7 @@ export default function AdminAnalytics() {
 
                 {(activeFilters.category || activeFilters.location || activeFilters.type) && (
                   <button
-                    className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-300"
+                    className="bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-xs hover:bg-gray-300 transition-colors duration-200 shadow-sm"
                     onClick={() => setActiveFilters({ category: '', location: '', type: '' })}
                   >
                     Limpiar filtros
@@ -675,14 +782,14 @@ export default function AdminAnalytics() {
             <table className="min-w-full">
               <thead>
                 <tr className="bg-gray-100">
-                  <th className="px-4 py-2 text-left text-xs font-medium">Fecha</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Tipo</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Usuario</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Categoría</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Monto</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Método de Pago</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Ubicación</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium">Descripción</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Fecha</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Tipo</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Usuario</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Categoría</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Monto</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Método de Pago</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Ubicación</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Descripción</th>
                 </tr>
               </thead>
               <tbody className="transition-opacity duration-300">
@@ -717,7 +824,7 @@ export default function AdminAnalytics() {
                   ))
                 ) : (filteredTransactions || transactions).length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={8} className="px-4 py-4 text-center text-sm text-gray-500">
                       No hay transacciones para mostrar
                     </td>
                   </tr>
@@ -728,20 +835,20 @@ export default function AdminAnalytics() {
                         {format(new Date(transaction.createdAt), 'dd/MM/yyyy HH:mm')}
                       </td>
                       <td className="px-4 py-2 text-sm">
-                        <span className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
+                        <span className={`px-2 py-1 rounded-full text-xs ${transaction.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                           {transaction.type === 'income' ? 'Ingreso' : 'Gasto'}
                         </span>
                       </td>
                       <td className="px-4 py-2 text-sm">
                         {transaction.user?.name || '-'}
                       </td>
-                      <td className="px-4 py-2 text-sm">{transaction.category}</td>
+                      <td className="px-4 py-2 text-sm">{translateCategory(transaction.category)}</td>
                       <td className="px-4 py-2 text-sm font-medium">
                         <span className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
                           {formatCurrency(transaction.amount)}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-sm">{transaction.paymentMethod}</td>
+                      <td className="px-4 py-2 text-sm">{translatePaymentMethod(transaction.paymentMethod)}</td>
                       <td className="px-4 py-2 text-sm">{transaction.location || '-'}</td>
                       <td className="px-4 py-2 text-sm">{transaction.description || '-'}</td>
                     </tr>
@@ -749,6 +856,96 @@ export default function AdminAnalytics() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para purgar transacciones */}
+      {showPurgeConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-gray-900 mb-3">Confirmar Purga de Transacciones</h3>
+            <p className="text-sm text-gray-700 mb-4">
+              ¿Estás seguro de que deseas eliminar todas las transacciones? Esta acción no se puede deshacer.
+            </p>
+            
+            {purgeError && (
+              <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">
+                {purgeError}
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowPurgeConfirm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                disabled={purgeLoading}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePurgeData}
+                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                disabled={purgeLoading}
+              >
+                {purgeLoading ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Eliminando...
+                  </span>
+                ) : (
+                  'Confirmar Eliminación'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de confirmación para purgar logs RFID */}
+      {showRfidPurgeConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-gray-900 mb-3">Confirmar Purga de Logs RFID</h3>
+            <p className="text-sm text-gray-700 mb-4">
+              ¿Estás seguro de que deseas eliminar todos los logs de acceso RFID? Esta acción no se puede deshacer.
+            </p>
+            
+            {rfidPurgeError && (
+              <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">
+                {rfidPurgeError}
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowRfidPurgeConfirm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                disabled={rfidPurgeLoading}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePurgeRfidLogs}
+                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                disabled={rfidPurgeLoading}
+              >
+                {rfidPurgeLoading ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Eliminando...
+                  </span>
+                ) : (
+                  'Confirmar Eliminación'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -806,10 +1003,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg">
+    <div className="bg-white p-6 rounded-lg shadow-md transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg">
       <div className="flex justify-between">
         <div>
-          <h3 className="text-gray-500 text-sm">{title}</h3>
+          <h3 className="text-gray-500 text-sm font-medium">{title}</h3>
           {loading ? (
             <>
               <div className="animate-pulse bg-gray-200 h-8 w-24 rounded mt-1"></div>
@@ -830,7 +1027,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
                 />
               </p>
               <p className="text-sm text-gray-600 mt-1">{secondary}</p>
-              <p className="text-xs text-blue-500 mt-2">{trend}</p>
+              <p className="text-xs text-blue-600 mt-2 font-medium">{trend}</p>
             </>
           )}
         </div>
@@ -850,7 +1047,7 @@ interface ChartCardProps {
 
 const ChartCard: React.FC<ChartCardProps> = ({ title, children, loading }) => {
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md transition-all duration-300 hover:shadow-lg">
+    <div className="bg-white p-5 rounded-lg shadow-md transition-all duration-300 hover:shadow-lg">
       <h3 className="text-gray-700 font-medium mb-4">{title}</h3>
       {loading ? (
         <div className="animate-pulse bg-gray-200 h-64 w-full rounded"></div>
