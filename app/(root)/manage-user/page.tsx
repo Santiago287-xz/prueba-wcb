@@ -44,26 +44,29 @@ import {
   Fade,
   Container,
   Grid,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  ListItemAvatar,
+  CircularProgress,
 } from "@mui/material"
 import {
   Search,
   Delete,
   Refresh,
-  PersonAdd,
-  CheckCircle,
-  Cancel,
   FilterList,
-  MoreVert,
   Edit,
   Visibility,
   Download,
-  Menu as MenuIcon,
+  FitnessCenter,
+  Tag,
+  CalendarToday,
+  AccessTime,
 } from "@mui/icons-material"
 import axios from "axios"
 import type { User } from "@prisma/client"
 import useSWR from "swr"
-import { se } from "date-fns/locale"
-// Eliminamos la importación de useTrainersStore
 
 // Definición de estilos personalizados
 const styles = {
@@ -138,6 +141,18 @@ const styles = {
     backgroundColor: (theme) => theme.palette.primary.main,
     fontWeight: "bold",
   },
+  detailsDialog: {
+    borderRadius: "16px",
+    overflow: "hidden",
+  },
+  exerciseItem: {
+    borderRadius: "8px",
+    marginBottom: "8px",
+    backgroundColor: "#f5f9ff",
+    "&:hover": {
+      backgroundColor: "#edf4ff",
+    },
+  },
 };
 
 // Custom data fetching function using SWR and Axios
@@ -157,6 +172,32 @@ const getInitials = (name: string): string => {
     .substring(0, 2);
 };
 
+// Interfaces para los datos
+interface UserExercise {
+  id: string;
+  exerciseName: string;
+  sets: number;
+  reps: number;
+  weight: number;
+  rest: number;
+  assignedAt: string;
+}
+
+interface UserDetails {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  gender: string;
+  age: number;
+  height: number;
+  weight: number;
+  goal: string;
+  level: string;
+  exercises: UserExercise[];
+}
+
 const ManageUser: React.FC = () => {
   const router = useRouter();
   const sessionData = useSession().data;
@@ -164,7 +205,6 @@ const ManageUser: React.FC = () => {
   
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"))
-  // Reemplazo del useTrainersStore con estado local y SWR
   const [trainerLoading, setTrainerLoading] = useState<boolean>(false)
 
   // State and data fetching using useSWR
@@ -181,19 +221,38 @@ const ManageUser: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState<string>("")
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "info" | "warning">("success")
   const [filtersOpen, setFiltersOpen] = useState<boolean>(!isMobile) // Por defecto cerrado en móvil
-  const [addUserDialogOpen, setAddUserDialogOpen] = useState<boolean>(false)
-  const { data, isLoading, mutate } = useSWR(`/api/users?page=${currentPage}&limit=${rowsPerPage}`, fetcher)
+  
+  // User details dialog
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState<boolean>(false)
+  const [selectedUser, setSelectedUser] = useState<string | null>(null)
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null)
+  const [loadingDetails, setLoadingDetails] = useState<boolean>(false)
 
-  // Usamos SWR para cargar los entrenadores - reemplaza la funcionalidad de useTrainersStore
-  const { data: trainersData, isLoading: isTrainersLoading, mutate: mutateTrainers } = useSWR('/api/trainers', fetcher, {
-    onSuccess: () => setTrainerLoading(false),
-    onError: () => setTrainerLoading(false)
-  })
+  // Si el usuario es un entrenador, automáticamente filtrar por miembros
+  useEffect(() => {
+    if (sessionUser?.role === "trainer") {
+      setFilterRole("member");
+    }
+  }, [sessionUser]);
+
+  // Usamos SWR con los filtros aplicados
+  const { data, isLoading, mutate } = useSWR(
+    `/api/users?page=${currentPage}&limit=${rowsPerPage}&role=${filterRole}&search=${searchTerm}&status=${filterStatus}`, 
+    fetcher
+  )
 
   // Array de entrenadores extraído de trainersData
+  const { data: trainersData, isLoading: isTrainersLoading, mutate: mutateTrainers } = useSWR(
+    '/api/trainers', 
+    fetcher, 
+    {
+      onSuccess: () => setTrainerLoading(false),
+      onError: () => setTrainerLoading(false)
+    }
+  )
   const trainers = useMemo(() => trainersData?.data || [], [trainersData])
 
-  // Reemplaza la función fetchTrainers de useTrainersStore
+  // Cargar entrenadores al iniciar
   const fetchTrainers = async () => {
     setTrainerLoading(true)
     await mutateTrainers()
@@ -203,6 +262,7 @@ const ManageUser: React.FC = () => {
     fetchTrainers()
   }, [])
 
+  // Manejar asignación de entrenador
   const handleChangeTrainer = async (trainerId: string, userId: string) => {
     try {
       const data = {
@@ -224,14 +284,40 @@ const ManageUser: React.FC = () => {
     }
   }
 
+  // Obtener detalles del usuario
+  const fetchUserDetails = async (userId: string) => {
+    setLoadingDetails(true);
+    try {
+      // Obtener detalles del usuario
+      const userResponse = await axios.get(`/api/users/${userId}`);
+      
+      // Obtener ejercicios asignados al usuario
+      const exercisesResponse = await axios.get(`/api/exercise/user-exercises/${userId}`);
+      
+      setUserDetails({
+        ...userResponse.data,
+        exercises: exercisesResponse.data?.data || []
+      });
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+      showSnackbar("Error al cargar los detalles del usuario", "error");
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleOpenDetails = (userId: string) => {
+    setSelectedUser(userId);
+    setDetailsDialogOpen(true);
+    fetchUserDetails(userId);
+  };
+
   const handleDeleteUser = async () => {
     if (!userToDelete) return
 
     try {
-      // Aquí iría la llamada a la API para eliminar el usuario
-      // const res = await axios.delete(`/api/users/${userToDelete}`);
-
-      // Simulamos una respuesta exitosa
+      const res = await axios.delete(`/api/users/${userToDelete}`);
+      
       showSnackbar("Usuario eliminado correctamente", "success")
       await mutate()
     } catch (err) {
@@ -280,7 +366,10 @@ const ManageUser: React.FC = () => {
 
   const resetFilters = () => {
     setSearchTerm("")
-    setFilterRole("")
+    // Si es entrenador, mantener el filtro de "member"
+    if (sessionUser?.role !== "trainer") {
+      setFilterRole("")
+    }
     setFilterStatus("")
   }
 
@@ -288,12 +377,22 @@ const ManageUser: React.FC = () => {
     setFiltersOpen(!filtersOpen)
   }
 
-
   // Memoized filtered and sorted data
   const filteredAndSortedData = useMemo(() => {
     if (!data?.data) return []
 
-    let filtered = data.data.filter((user: User) => user.role !== "admin")
+    let filtered = data.data
+
+    // Si es entrenador, solo mostrar miembros
+    if (sessionUser?.role === "trainer") {
+      filtered = filtered.filter((user: User) => user.role === "member")
+    } else {
+      // Para administradores, filtrar admin y aplicar filtros de rol si existen
+      filtered = filtered.filter((user: User) => user.role !== "admin")
+      if (filterRole) {
+        filtered = filtered.filter((user: User) => user.role === filterRole)
+      }
+    }
 
     // Apply search filter
     if (searchTerm) {
@@ -302,11 +401,6 @@ const ManageUser: React.FC = () => {
         (user: User) =>
           user.name?.toLowerCase().includes(searchLower) || user.email?.toLowerCase().includes(searchLower),
       )
-    }
-
-    // Apply role filter
-    if (filterRole) {
-      filtered = filtered.filter((user: User) => user.role === filterRole)
     }
 
     // Apply status filter
@@ -334,11 +428,11 @@ const ManageUser: React.FC = () => {
         return valueB < valueA ? -1 : valueB > valueA ? 1 : 0
       }
     })
-  }, [data, orderBy, order, searchTerm, filterRole, filterStatus])
+  }, [data, orderBy, order, searchTerm, filterRole, filterStatus, sessionUser])
 
   useEffect(() => {
     mutate()
-  }, [currentPage, rowsPerPage, mutate])
+  }, [currentPage, rowsPerPage, searchTerm, filterRole, filterStatus, mutate])
 
   // Función para mapear roles a nombres más amigables
   const getRoleName = (role: string): string => {
@@ -346,7 +440,8 @@ const ManageUser: React.FC = () => {
       user: "Usuario",
       employee: "Empleado",
       court_manager: "Gestor de pista",
-      member: "Miembro"
+      member: "Miembro",
+      trainer: "Entrenador"
     };
     return roleMap[role] || role;
   };
@@ -357,9 +452,48 @@ const ManageUser: React.FC = () => {
       user: "default",
       employee: "info",
       court_manager: "secondary",
-      member: "primary"
+      member: "primary",
+      trainer: "success"
     };
     return roleColorMap[role] || "default";
+  };
+
+  // Formatea la fecha para mostrarla en el componente
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
+  };
+
+  // Función para obtener el nombre del objetivo
+  const getGoalName = (goal: string): string => {
+    const goalMap: Record<string, string> = {
+      gain_weight: "Ganar peso",
+      lose_weight: "Perder peso",
+      get_fitter: "Mejorar estado físico",
+      get_stronger: "Fortalecerse",
+      get_healthier: "Mejorar salud",
+      get_more_flexible: "Mejorar flexibilidad",
+      get_more_muscular: "Ganar masa muscular",
+      learn_the_basics: "Aprender lo básico"
+    };
+    return goalMap[goal] || goal;
+  };
+
+  // Función para obtener el nombre del nivel
+  const getLevelName = (level: string): string => {
+    const levelMap: Record<string, string> = {
+      beginner: "Principiante",
+      intermediate: "Intermedio",
+      advanced: "Avanzado",
+      expert: "Experto",
+      professional: "Profesional"
+    };
+    return levelMap[level] || level;
   };
 
   return (
@@ -367,33 +501,13 @@ const ManageUser: React.FC = () => {
       {/* Header */}
       <Box sx={styles.headerContainer}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={7}>
+          <Grid item xs={12}>
             <Typography variant="h4" component="h1" fontWeight="bold" sx={{ mb: 1 }}>
               Panel de Administración de Usuarios
             </Typography>
             <Typography variant="body1" color="rgba(255,255,255,0.8)" sx={{ mb: 1 }}>
               Gestiona todos los usuarios, asigna entrenadores y administra roles
             </Typography>
-          </Grid>
-          <Grid item xs={12} md={5} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-            <Button
-              variant="contained"
-              color="secondary"
-              startIcon={<PersonAdd />}
-              onClick={() => setAddUserDialogOpen(true)}
-              sx={{
-                ...styles.actionButton,
-                backgroundColor: "white",
-                color: "#2a3f54",
-                "&:hover": {
-                  backgroundColor: "rgba(255,255,255,0.9)",
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 4px 10px rgba(0,0,0,0.15)"
-                }
-              }}
-            >
-              Añadir Usuario
-            </Button>
           </Grid>
         </Grid>
       </Box>
@@ -448,21 +562,25 @@ const ManageUser: React.FC = () => {
 
           <Fade in={filtersOpen}>
             <Box sx={{ display: filtersOpen ? "flex" : "none", flexWrap: "wrap", gap: 2, mt: 2 }}>
-              <FormControl size="small" variant="outlined" sx={{ minWidth: { xs: "100%", sm: "200px" } }}>
-                <InputLabel id="role-filter-label">Filtrar por rol</InputLabel>
-                <Select
-                  labelId="role-filter-label"
-                  value={filterRole}
-                  onChange={handleFilterRoleChange}
-                  label="Filtrar por rol"
-                >
-                  <MenuItem value="">Todos</MenuItem>
-                  <MenuItem value="user">Usuario</MenuItem>
-                  <MenuItem value="employee">Empleado</MenuItem>
-                  <MenuItem value="court_manager">Gestor de pista</MenuItem>
-                  <MenuItem value="member">Miembro</MenuItem>
-                </Select>
-              </FormControl>
+              {/* Solo mostrar el filtro de rol si no es entrenador */}
+              {sessionUser?.role !== "trainer" && (
+                <FormControl size="small" variant="outlined" sx={{ minWidth: { xs: "100%", sm: "200px" } }}>
+                  <InputLabel id="role-filter-label">Filtrar por rol</InputLabel>
+                  <Select
+                    labelId="role-filter-label"
+                    value={filterRole}
+                    onChange={handleFilterRoleChange}
+                    label="Filtrar por rol"
+                  >
+                    <MenuItem value="">Todos</MenuItem>
+                    <MenuItem value="user">Usuario</MenuItem>
+                    <MenuItem value="employee">Empleado</MenuItem>
+                    <MenuItem value="court_manager">Gestor de pista</MenuItem>
+                    <MenuItem value="member">Miembro</MenuItem>
+                    <MenuItem value="trainer">Entrenador</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
 
               <FormControl size="small" variant="outlined" sx={{ minWidth: { xs: "100%", sm: "200px" } }}>
                 <InputLabel id="status-filter-label">Estado</InputLabel>
@@ -541,7 +659,7 @@ const ManageUser: React.FC = () => {
                       No se encontraron usuarios
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Prueba a cambiar los filtros o añade un nuevo usuario
+                      Prueba a cambiar los filtros o la búsqueda
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -567,84 +685,129 @@ const ManageUser: React.FC = () => {
                       </Box>
                     </TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>{user?.email}</TableCell>
-                    <TableCell align="center">
-                    <Stack direction="row" spacing={1} justifyContent="center">
-                      <Tooltip title="Ver detalles" arrow>
-                        <IconButton
-                          color="primary"
+                    <TableCell>
+                      <Chip
+                        label={user?.isActive ? "Online" : "Offline"}
+                        size="small"
+                        color={user?.isActive ? "success" : "default"}
+                        sx={{ 
+                          fontWeight: 500, 
+                          borderRadius: "6px",
+                          fontSize: "0.75rem",
+                          height: "24px",
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {user?.trainer ? (
+                        <Chip
+                          avatar={<Avatar>{getInitials(user.trainer)}</Avatar>}
+                          label={user.trainer}
+                          variant="outlined"
                           size="small"
-                          sx={{
-                            transition: "all 0.2s",
-                            "&:hover": {
-                              transform: "scale(1.1)",
-                              backgroundColor: "rgba(63, 81, 181, 0.08)"
-                            },
+                          sx={{ 
+                            borderRadius: "6px",
+                            height: "28px"
                           }}
-                        >
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      {sessionUser?.role === 'trainer' ? (
-                        // For trainers, only show the exercise assignment button
-                        <Tooltip title="Asignar ejercicios" arrow>
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          No asignado
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={getRoleName(user?.role)}
+                        size="small"
+                        color={getRoleColor(user?.role)}
+                        sx={{ 
+                          fontWeight: 500, 
+                          borderRadius: "6px",
+                          fontSize: "0.75rem",
+                          height: "24px"
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={1} justifyContent="center">
+                        <Tooltip title="Ver detalles" arrow>
                           <IconButton
-                            color="success"
+                            color="primary"
                             size="small"
-                            onClick={() => router.push(`/exercise-assignment/${user.id}`)}
+                            onClick={() => handleOpenDetails(user.id)}
                             sx={{
                               transition: "all 0.2s",
                               "&:hover": {
                                 transform: "scale(1.1)",
-                                backgroundColor: "rgba(76, 175, 80, 0.08)"
+                                backgroundColor: "rgba(63, 81, 181, 0.08)"
                               },
                             }}
                           >
-                            <SportsMartialArts fontSize="small" />
+                            <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      ) : (
-                        // For admins, show edit and delete buttons
-                        <>
-                          <Tooltip title="Editar usuario" arrow>
+                        
+                        {sessionUser?.role === 'trainer' ? (
+                          // Para entrenadores, solo mostrar el botón de asignar ejercicios
+                          <Tooltip title="Asignar ejercicios" arrow>
                             <IconButton
-                              color="info"
+                              color="success"
                               size="small"
+                              onClick={() => router.push(`/exercise-assignment/${user.id}`)}
                               sx={{
                                 transition: "all 0.2s",
                                 "&:hover": {
                                   transform: "scale(1.1)",
-                                  backgroundColor: "rgba(3, 169, 244, 0.08)"
+                                  backgroundColor: "rgba(76, 175, 80, 0.08)"
                                 },
                               }}
                             >
-                              <Edit fontSize="small" />
+                              <SportsMartialArts fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          
-                          <Tooltip title="Eliminar usuario" arrow>
-                            <IconButton
-                              color="error"
-                              size="small"
-                              onClick={() => {
-                                setUserToDelete(user.id);
-                                setDeleteDialogOpen(true);
-                              }}
-                              sx={{
-                                transition: "all 0.2s",
-                                "&:hover": {
-                                  transform: "scale(1.1)",
-                                  backgroundColor: "rgba(244, 67, 54, 0.08)"
-                                },
-                              }}
-                            >
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                    </Stack>
-                  </TableCell>
+                        ) : (
+                          // Para administradores, mostrar botones de editar y eliminar
+                          <>
+                            <Tooltip title="Editar usuario" arrow>
+                              <IconButton
+                                color="info"
+                                size="small"
+                                sx={{
+                                  transition: "all 0.2s",
+                                  "&:hover": {
+                                    transform: "scale(1.1)",
+                                    backgroundColor: "rgba(3, 169, 244, 0.08)"
+                                  },
+                                }}
+                              >
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Eliminar usuario" arrow>
+                              <IconButton
+                                color="error"
+                                size="small"
+                                onClick={() => {
+                                  setUserToDelete(user.id);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                sx={{
+                                  transition: "all 0.2s",
+                                  "&:hover": {
+                                    transform: "scale(1.1)",
+                                    backgroundColor: "rgba(244, 67, 54, 0.08)"
+                                  },
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </Stack>
+                    </TableCell>
 
                   </TableRow>
                 ))
@@ -728,6 +891,277 @@ const ManageUser: React.FC = () => {
             autoFocus
           >
             Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* User Details Dialog */}
+      <Dialog
+        open={detailsDialogOpen}
+        onClose={() => setDetailsDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)"
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+            {userDetails ? getInitials(userDetails.name) : '...'}
+          </Avatar>
+          <Typography variant="h6">Detalles del Usuario</Typography>
+        </DialogTitle>
+        
+        <DialogContent dividers>
+          {loadingDetails ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : userDetails ? (
+            <>
+              {/* Información del usuario */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={6}>
+                  <Card variant="outlined" sx={{ height: '100%' }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Información Personal
+                      </Typography>
+                      <Divider sx={{ mb: 2 }} />
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={4}>
+                          <Typography variant="body2" color="text.secondary">
+                            Nombre:
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body2" fontWeight="medium">
+                            {userDetails.name}
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={4}>
+                          <Typography variant="body2" color="text.secondary">
+                            Email:
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body2">
+                            {userDetails.email}
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={4}>
+                          <Typography variant="body2" color="text.secondary">
+                            Rol:
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Chip 
+                            label={getRoleName(userDetails.role)} 
+                            color={getRoleColor(userDetails.role)}
+                            size="small"
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={4}>
+                          <Typography variant="body2" color="text.secondary">
+                            Género:
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body2">
+                            {userDetails.gender === 'male' ? 'Masculino' : 'Femenino'}
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={4}>
+                          <Typography variant="body2" color="text.secondary">
+                            Edad:
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body2">
+                            {userDetails.age} años
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <Card variant="outlined" sx={{ height: '100%' }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Perfil Deportivo
+                      </Typography>
+                      <Divider sx={{ mb: 2 }} />
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Altura:
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Typography variant="body2">
+                            {userDetails.height} cm
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Peso:
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Typography variant="body2">
+                            {userDetails.weight} kg
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Objetivo:
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Typography variant="body2">
+                            {getGoalName(userDetails.goal)}
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Nivel:
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Typography variant="body2">
+                            {getLevelName(userDetails.level)}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+              
+              {/* Lista de ejercicios asignados */}
+              <Typography variant="h6" gutterBottom>
+                Ejercicios Asignados
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              {userDetails.exercises && userDetails.exercises.length > 0 ? (
+                <List disablePadding>
+                  {userDetails.exercises.map((exercise, index) => (
+                    <Card key={exercise.id || index} variant="outlined" sx={{ mb: 1 }}>
+                      <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
+                        <Grid container spacing={2} alignItems="center">
+                          <Grid item xs={12} sm={3}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <FitnessCenter color="primary" sx={{ mr: 1 }} fontSize="small" />
+                              <Typography variant="subtitle2" fontWeight="bold">
+                                {exercise.exerciseName}
+                              </Typography>
+                            </Box>
+                          </Grid>
+                          
+                          <Grid item xs={6} sm={2}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              Series:
+                            </Typography>
+                            <Typography variant="body2" fontWeight="medium">
+                              {exercise.sets}
+                            </Typography>
+                          </Grid>
+                          
+                          <Grid item xs={6} sm={2}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              Repeticiones:
+                            </Typography>
+                            <Typography variant="body2" fontWeight="medium">
+                              {exercise.reps}
+                            </Typography>
+                          </Grid>
+                          
+                          <Grid item xs={6} sm={2}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              Peso:
+                            </Typography>
+                            <Typography variant="body2" fontWeight="medium">
+                              {exercise.weight} kg
+                            </Typography>
+                          </Grid>
+                          
+                          <Grid item xs={6} sm={3}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              Asignado:
+                            </Typography>
+                            <Typography variant="body2" fontWeight="medium">
+                              {formatDate(exercise.assignedAt)}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </List>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 3 }}>
+                  <FitnessCenter sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+                  <Typography color="text.secondary">
+                    No hay ejercicios asignados
+                  </Typography>
+                  {sessionUser?.role === 'trainer' && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="primary"
+                      startIcon={<SportsMartialArts />}
+                      onClick={() => {
+                        setDetailsDialogOpen(false);
+                        router.push(`/exercise-assignment/${selectedUser}`);
+                      }}
+                      sx={{ mt: 2 }}
+                    >
+                      Asignar ejercicios
+                    </Button>
+                  )}
+                </Box>
+              )}
+            </>
+          ) : (
+            <Typography color="text.secondary">No se pudo cargar la información del usuario</Typography>
+          )}
+        </DialogContent>
+        
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          {sessionUser?.role === 'trainer' && userDetails && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<SportsMartialArts />}
+              onClick={() => {
+                setDetailsDialogOpen(false);
+                router.push(`/exercise-assignment/${selectedUser}`);
+              }}
+            >
+              Asignar ejercicios
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            onClick={() => setDetailsDialogOpen(false)}
+            sx={{ ml: 'auto' }}
+          >
+            Cerrar
           </Button>
         </DialogActions>
       </Dialog>

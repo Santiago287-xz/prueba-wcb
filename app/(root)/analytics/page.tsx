@@ -544,9 +544,9 @@ export default function AdminAnalytics() {
                 <PieChart>
                   <Pie
                     data={[
-                      { name: 'Gimnasio', value: metrics.areas.gym.totalIncome || 0 },
-                      { name: 'Canchas', value: metrics.areas.courts.totalIncome || 0 },
-                      { name: 'Kiosco', value: metrics.areas.shop.totalIncome || 0 }
+                      { name: 'Efectivo', value: transactions.filter(t => t.paymentMethod === 'cash').reduce((sum, t) => sum + t.amount, 0) },
+                      { name: 'Transferencia', value: transactions.filter(t => t.paymentMethod === 'transfer').reduce((sum, t) => sum + t.amount, 0) },
+                      { name: 'Tarjeta', value: transactions.filter(t => t.paymentMethod === 'card').reduce((sum, t) => sum + t.amount, 0) }
                     ]}
                     dataKey="value"
                     nameKey="name"
