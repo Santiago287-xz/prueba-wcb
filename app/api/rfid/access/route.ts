@@ -13,6 +13,7 @@ const TOLERANCE_MINUTES = 20; // Período de tolerancia de 20 minutos
 export async function POST(
 	req: NextRequest
 ) {
+	console.log("POST /api/rfid/access");
 	const authHeader = req.headers.get(
 		"authorization"
 	);

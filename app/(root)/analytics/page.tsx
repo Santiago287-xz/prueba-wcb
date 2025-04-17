@@ -3,10 +3,9 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
 import {
-  BarChart, LineChart, PieChart, ComposedChart, XAxis, YAxis, CartesianGrid,
+  BarChart, PieChart, ComposedChart, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, Bar, Line, Pie, Cell, ResponsiveContainer
 } from 'recharts';
-import { isEqual } from 'lodash';
 
 // Tipos básicos
 interface DateRange {
@@ -23,6 +22,7 @@ interface Transaction {
   paymentMethod: string;
   location?: string;
   createdAt: string;
+  user?: { name: string; id: string };  // Add user object
 }
 
 // Formatter para moneda
@@ -72,53 +72,53 @@ const AnimatedCounter: React.FC<{
   formatAsNumber = false,
   formatAsCurrency = false
 }) => {
-  const [displayValue, setDisplayValue] = useState<number>(previousValue);
-  const prevValueRef = useRef<number>(previousValue);
-  const startTime = useRef<number | null>(null);
-  const requestRef = useRef<number>();
+    const [displayValue, setDisplayValue] = useState<number>(previousValue);
+    const prevValueRef = useRef<number>(previousValue);
+    const startTime = useRef<number | null>(null);
+    const requestRef = useRef<number>();
 
-  const animate = useCallback((timestamp: number) => {
-    if (startTime.current === null) startTime.current = timestamp;
-    const elapsed = timestamp - startTime.current;
-    const progress = Math.min(elapsed / duration, 1);
-    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
-    const easedProgress = easeOut(progress);
-    const newValue = prevValueRef.current + (value - prevValueRef.current) * easedProgress;
-    setDisplayValue(newValue);
-    if (progress < 1) {
-      requestRef.current = requestAnimationFrame(animate);
-    } else {
-      startTime.current = null;
-      prevValueRef.current = value;
+    const animate = useCallback((timestamp: number) => {
+      if (startTime.current === null) startTime.current = timestamp;
+      const elapsed = timestamp - startTime.current;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+      const easedProgress = easeOut(progress);
+      const newValue = prevValueRef.current + (value - prevValueRef.current) * easedProgress;
+      setDisplayValue(newValue);
+      if (progress < 1) {
+        requestRef.current = requestAnimationFrame(animate);
+      } else {
+        startTime.current = null;
+        prevValueRef.current = value;
+      }
+    }, [value, duration]);
+
+    useEffect(() => {
+      if (typeof value === 'number' && !isNaN(value) && value !== prevValueRef.current) {
+        if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        requestRef.current = requestAnimationFrame(animate);
+      }
+      return () => {
+        if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      };
+    }, [value, animate]);
+
+    if (typeof value !== 'number' || isNaN(value)) return <>-</>;
+
+    if (formatAsCurrency) {
+      return <>{formatCurrency(displayValue)}</>;
     }
-  }, [value, duration]);
 
-  useEffect(() => {
-    if (typeof value === 'number' && !isNaN(value) && value !== prevValueRef.current) {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      requestRef.current = requestAnimationFrame(animate);
+    if (formatAsNumber) {
+      const formatted = new Intl.NumberFormat('es-AR', {
+        minimumFractionDigits: Number.isInteger(displayValue) ? 0 : 2,
+        maximumFractionDigits: Number.isInteger(displayValue) ? 0 : 2
+      }).format(displayValue);
+      return <>{prefix}{formatted}{suffix}</>;
     }
-    return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    };
-  }, [value, animate]);
 
-  if (typeof value !== 'number' || isNaN(value)) return <>-</>;
-  
-  if (formatAsCurrency) {
-    return <>{formatCurrency(displayValue)}</>;
-  }
-  
-  if (formatAsNumber) {
-    const formatted = new Intl.NumberFormat('es-AR', {
-      minimumFractionDigits: Number.isInteger(displayValue) ? 0 : 2,
-      maximumFractionDigits: Number.isInteger(displayValue) ? 0 : 2
-    }).format(displayValue);
-    return <>{prefix}{formatted}{suffix}</>;
-  }
-
-  return <>{prefix}{Number.isInteger(displayValue) ? displayValue.toFixed(0) : displayValue.toFixed(2)}{suffix}</>;
-};
+    return <>{prefix}{Number.isInteger(displayValue) ? displayValue.toFixed(0) : displayValue.toFixed(2)}{suffix}</>;
+  };
 
 // Panel Analítico Principal
 export default function AdminAnalytics() {
@@ -135,7 +135,7 @@ export default function AdminAnalytics() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
+
   // Estados de carga para componentes individuales
   const [loadingStates, setLoadingStates] = useState({
     members: false,
@@ -145,7 +145,7 @@ export default function AdminAnalytics() {
     attendance: false,
     enhanced: false
   });
-  
+
   // Métricas
   const [metrics, setMetrics] = useState({
     members: {
@@ -177,14 +177,14 @@ export default function AdminAnalytics() {
     },
     financialComparison: []
   });
-  
+
   // Filtros para transacciones
   const [activeFilters, setActiveFilters] = useState({
     category: '',
     location: '',
     type: ''
   });
-  const prevMetricsRef = useRef({ ...metrics }); 
+  const prevMetricsRef = useRef({ ...metrics });
   const fetchData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
@@ -192,7 +192,7 @@ export default function AdminAnalytics() {
       const start = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'HH:mm:ss");
       const end = format(endOfDay(dateRange.end), "yyyy-MM-dd'T'HH:mm:ss");
       const cacheBuster = Date.now();
-      
+
       // Peticiones en paralelo
       const [transactionData, membersData, courtsData, enhancedData] = await Promise.all([
         fetchWithRetry(`/api/transactions?start=${start}&end=${end}&_=${cacheBuster}`),
@@ -203,7 +203,7 @@ export default function AdminAnalytics() {
       // Actualizar transacciones
       if (transactionData) {
         setTransactions(transactionData.transactions || []);
-        
+
         // Calcular métricas desde transacciones
         const salesTotal = transactionData.summary?.totalIncome || 0;
         setMetrics(prev => ({
@@ -218,11 +218,11 @@ export default function AdminAnalytics() {
           }
         }));
       }
-      
+
       // Actualizar miembros
       if (membersData) {
-        const memberCount = membersData.members?.length || 0;
-        
+        const memberCount = membersData.total || 0;
+
         // Intentar obtener datos de puntos
         let pointsRevenue = 0;
         let pointsRetention = 0;
@@ -233,7 +233,7 @@ export default function AdminAnalytics() {
         } catch (err) {
           console.error("Error fetching points data:", err);
         }
-        
+
         setMetrics(prev => ({
           ...prev,
           members: {
@@ -244,7 +244,7 @@ export default function AdminAnalytics() {
           }
         }));
       }
-      
+
       // Actualizar datos de canchas
       if (courtsData) {
         console.log(courtsData)
@@ -259,12 +259,12 @@ export default function AdminAnalytics() {
           }
         }));
       }
-      
+
       // Actualizar datos mejorados
       if (enhancedData) {
         // Guardar valores previos para animaciones
         prevMetricsRef.current = { ...metrics };
-        
+
         // Actualizar datos de áreas y puntos
         setMetrics(prev => ({
           ...prev,
@@ -278,7 +278,7 @@ export default function AdminAnalytics() {
           financialComparison: enhancedData.financialComparison || prev.financialComparison
         }));
       }
-      
+
     } catch (error) {
       console.error('Error fetching data:', error);
       setErrorMessage("Error al cargar datos. Verifique su conexión.");
@@ -296,29 +296,29 @@ export default function AdminAnalytics() {
   // Auto-refresh simplificado
   useEffect(() => {
     if (!autoRefresh) return;
-    
+
     const intervalId = setInterval(() => {
       fetchData(false);
     }, 10000);
-    
+
     return () => clearInterval(intervalId);
   }, [autoRefresh, fetchData]);
 
   // Filtrar transacciones cuando cambian los filtros
   useEffect(() => {
     if (!transactions.length) return;
-    
+
     const { category, location, type } = activeFilters;
     if (!category && !location && !type) {
       setFilteredTransactions(null);
       return;
     }
-    
+
     let filtered = [...transactions];
     if (category) filtered = filtered.filter(t => t.category === category);
     if (location) filtered = filtered.filter(t => t.location === location);
     if (type) filtered = filtered.filter(t => t.type === type);
-    
+
     setFilteredTransactions(filtered);
   }, [activeFilters, transactions]);
 
@@ -326,27 +326,27 @@ export default function AdminAnalytics() {
   const applyDatePreset = (preset: string) => {
     const today = new Date();
     let start: Date, end: Date = today;
-    
+
     switch (preset) {
       case 'last7days': start = subDays(today, 6); break;
       case 'last30days': start = subDays(today, 29); break;
       case 'thisMonth': start = startOfMonth(today); break;
       case 'thisWeek': start = startOfWeek(today); end = endOfWeek(today); break;
-      case 'lastMonth': 
-        start = startOfMonth(subDays(today, 31)); 
-        end = endOfMonth(subDays(today, 31)); 
+      case 'lastMonth':
+        start = startOfMonth(subDays(today, 31));
+        end = endOfMonth(subDays(today, 31));
         break;
       default: start = subDays(today, 29);
     }
-    
+
     setDateRange({ start, end });
     setActivePreset(preset);
   };
-  
+
   const calculateTotalSales = () => {
-    return (metrics.areas.gym.totalIncome || 0) + 
-           (metrics.areas.courts.totalIncome || 0) + 
-           (metrics.areas.shop.totalIncome || 0);
+    return (metrics.areas.gym.totalIncome || 0) +
+      (metrics.areas.courts.totalIncome || 0) +
+      (metrics.areas.shop.totalIncome || 0);
   };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
@@ -460,7 +460,7 @@ export default function AdminAnalytics() {
           </button>
         </div>
       </div>
-      
+
       {/* Tarjetas de métricas clave */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <MetricCard
@@ -501,7 +501,9 @@ export default function AdminAnalytics() {
           value={metrics.gymPoints.totalPointsSold}
           previousValue={prevMetricsRef.current.gymPoints.totalPointsSold}
           secondary={`${metrics.gymPoints.totalPointsUsed || 0} puntos usados`}
-          trend={`Prom: $${metrics.gymPoints.totalPointsSold > 0 ? Math.round(metrics.gymPoints.totalPointsSold / prevMetricsRef.current.members.total) : 0}/miembro`}
+          trend={`Prom: $${(metrics.gymPoints.totalPointsSold > 0 && metrics.members.total > 0)
+            ? Math.round(metrics.gymPoints.totalPointsSold / metrics.members.total)
+            : 0}/miembro`}
           icon="chart"
           loading={loadingStates.enhanced || loading}
           formatAsCurrency={true}
@@ -534,7 +536,7 @@ export default function AdminAnalytics() {
               )}
             </ChartCard>
           </div>
-          
+
           {/* Gráficos por área */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <ChartCard title="Método de pago" loading={loading}>
@@ -563,7 +565,7 @@ export default function AdminAnalytics() {
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
-            
+
             <ChartCard title="Ocupación de Canchas" loading={loading}>
               {metrics.courts.utilizationByDay && metrics.courts.utilizationByDay.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
@@ -583,7 +585,7 @@ export default function AdminAnalytics() {
                 </div>
               )}
             </ChartCard>
-            
+
             <ChartCard title="Ventas por Categoría" loading={loading}>
               {metrics.sales.byCategory && metrics.sales.byCategory.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
@@ -675,6 +677,7 @@ export default function AdminAnalytics() {
                 <tr className="bg-gray-100">
                   <th className="px-4 py-2 text-left text-xs font-medium">Fecha</th>
                   <th className="px-4 py-2 text-left text-xs font-medium">Tipo</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium">Usuario</th>
                   <th className="px-4 py-2 text-left text-xs font-medium">Categoría</th>
                   <th className="px-4 py-2 text-left text-xs font-medium">Monto</th>
                   <th className="px-4 py-2 text-left text-xs font-medium">Método de Pago</th>
@@ -688,6 +691,9 @@ export default function AdminAnalytics() {
                     <tr key={idx} className="border-b">
                       <td className="px-4 py-2 text-sm">
                         <div className="animate-pulse bg-gray-200 h-4 w-20 rounded"></div>
+                      </td>
+                      <td className="px-4 py-2 text-sm">
+                        <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
                       </td>
                       <td className="px-4 py-2 text-sm">
                         <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
@@ -725,6 +731,9 @@ export default function AdminAnalytics() {
                         <span className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
                           {transaction.type === 'income' ? 'Ingreso' : 'Gasto'}
                         </span>
+                      </td>
+                      <td className="px-4 py-2 text-sm">
+                        {transaction.user?.name || '-'}
                       </td>
                       <td className="px-4 py-2 text-sm">{transaction.category}</td>
                       <td className="px-4 py-2 text-sm font-medium">
@@ -768,30 +777,30 @@ const MetricCard: React.FC<MetricCardProps> = ({
   const icons: { [key in MetricCardProps['icon']]: JSX.Element } = {
     users: (
       <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-           xmlns="http://www.w3.org/2000/svg">
+        xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
     ),
     court: (
       <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-           xmlns="http://www.w3.org/2000/svg">
+        xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+          d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
       </svg>
     ),
     money: (
       <svg className="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-           xmlns="http://www.w3.org/2000/svg">
+        xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
     chart: (
       <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-           xmlns="http://www.w3.org/2000/svg">
+        xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+          d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
       </svg>
     )
   };

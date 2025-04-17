@@ -1,105 +1,196 @@
 // app/api/transactions/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import {
+	NextRequest,
+	NextResponse,
+} from "next/server";
 import prisma from "@/app/libs/prismadb";
+import { getServerSession } from "next-auth/next";
+import { options as authOptions } from "../auth/[...nextauth]/options";
+export async function GET(
+	req: NextRequest
+) {
+	const { searchParams } = new URL(
+		req.url
+	);
+	const start =
+		searchParams.get("start");
+	const end = searchParams.get("end");
+	const category =
+		searchParams.get("category");
+	const type = searchParams.get("type");
+	const paymentMethod =
+		searchParams.get("paymentMethod");
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const start = searchParams.get("start");
-  const end = searchParams.get("end");
-  const category = searchParams.get("category");
-  const type = searchParams.get("type");
-  const paymentMethod = searchParams.get("paymentMethod");
+	try {
+		// Build query filters
+		const filters: any = {};
 
-  try {
-    // Build query filters
-    const filters: any = {};
-    
-    if (start && end) {
-      filters.createdAt = {
-        gte: new Date(start),
-        lte: new Date(end)
-      };
-    }
-    
-    if (category) filters.category = category;
-    if (type) filters.type = type;
-    if (paymentMethod) filters.paymentMethod = paymentMethod;
+		if (start && end) {
+			filters.createdAt = {
+				gte: new Date(start),
+				lte: new Date(end),
+			};
+		}
 
-    // Get transactions
-    const transactions = await prisma.transaction.findMany({
-      where: filters,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { name: true } }
-      }
-    });
+		if (category)
+			filters.category = category;
+		if (type) filters.type = type;
+		if (paymentMethod)
+			filters.paymentMethod =
+				paymentMethod;
 
-    // Calculate summary stats
-    const incomeTransactions = transactions.filter(t => t.type === 'income');
-    const expenseTransactions = transactions.filter(t => t.type === 'expense');
-    const cashTransactions = transactions.filter(t => t.paymentMethod === 'cash');
-    
-    const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const totalExpense = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const cashTotal = cashTransactions.reduce((sum, t) => sum + t.amount, 0);
+		// Get transactions
+		const transactions =
+			await prisma.transaction.findMany(
+				{
+					where: filters,
+					orderBy: {
+						createdAt: "desc",
+					},
+					include: {
+						user: {
+							select: {
+								id: true,
+								name: true,
+								email: true,
+							},
+						},
+					},
+				}
+			);
+		// Calculate summary stats
+		const incomeTransactions =
+			transactions.filter(
+				(t) => t.type === "income"
+			);
+		const expenseTransactions =
+			transactions.filter(
+				(t) => t.type === "expense"
+			);
+		const cashTransactions =
+			transactions.filter(
+				(t) =>
+					t.paymentMethod === "cash"
+			);
 
-    // Group by category
-    const categorySums: Record<string, number> = {};
-    transactions.forEach(t => {
-      if (!categorySums[t.category]) categorySums[t.category] = 0;
-      categorySums[t.category] += t.amount;
-    });
-    
-    const totalAmount = Object.values(categorySums).reduce((sum, val) => sum + val, 0);
-    
-    const categoryData = Object.entries(categorySums).map(([category, total]) => ({
-      category,
-      total: Math.round((total / totalAmount) * 100)
-    }));
+		const totalIncome =
+			incomeTransactions.reduce(
+				(sum, t) => sum + t.amount,
+				0
+			);
+		const totalExpense =
+			expenseTransactions.reduce(
+				(sum, t) => sum + t.amount,
+				0
+			);
+		const cashTotal =
+			cashTransactions.reduce(
+				(sum, t) => sum + t.amount,
+				0
+			);
 
-    // Group by month
-    const monthlyData: Record<string, { income: number; expense: number }> = {};
-    
-    transactions.forEach(t => {
-      const month = new Date(t.createdAt).toISOString().slice(0, 7);
-      
-      if (!monthlyData[month]) {
-        monthlyData[month] = { income: 0, expense: 0 };
-      }
-      
-      if (t.type === 'income') {
-        monthlyData[month].income += t.amount;
-      } else {
-        monthlyData[month].expense += t.amount;
-      }
-    });
-    
-    const trendData = Object.entries(monthlyData).map(([month, data]) => ({
-      month,
-      income: data.income,
-      expense: data.expense
-    })).sort((a, b) => a.month.localeCompare(b.month));
+		// Group by category
+		const categorySums: Record<
+			string,
+			number
+		> = {};
+		transactions.forEach((t) => {
+			if (!categorySums[t.category])
+				categorySums[t.category] = 0;
+			categorySums[t.category] +=
+				t.amount;
+		});
 
-    return NextResponse.json({
-      transactions,
-      summary: {
-        totalIncome,
-        totalExpense,
-        balance: totalIncome - totalExpense,
-        cashTotal,
-        incomeCount: incomeTransactions.length,
-        expenseCount: expenseTransactions.length,
-        cashCount: cashTransactions.length
-      },
-      chartData: {
-        categoryData,
-        trendData
-      }
-    });
-  } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
-  }
+		const totalAmount = Object.values(
+			categorySums
+		).reduce(
+			(sum, val) => sum + val,
+			0
+		);
+
+		const categoryData = Object.entries(
+			categorySums
+		).map(([category, total]) => ({
+			category,
+			total: Math.round(
+				(total / totalAmount) * 100
+			),
+		}));
+
+		// Group by month
+		const monthlyData: Record<
+			string,
+			{
+				income: number;
+				expense: number;
+			}
+		> = {};
+
+		transactions.forEach((t) => {
+			const month = new Date(
+				t.createdAt
+			)
+				.toISOString()
+				.slice(0, 7);
+
+			if (!monthlyData[month]) {
+				monthlyData[month] = {
+					income: 0,
+					expense: 0,
+				};
+			}
+
+			if (t.type === "income") {
+				monthlyData[month].income +=
+					t.amount;
+			} else {
+				monthlyData[month].expense +=
+					t.amount;
+			}
+		});
+
+		const trendData = Object.entries(
+			monthlyData
+		)
+			.map(([month, data]) => ({
+				month,
+				income: data.income,
+				expense: data.expense,
+			}))
+			.sort((a, b) =>
+				a.month.localeCompare(b.month)
+			);
+
+		return NextResponse.json({
+			transactions,
+			summary: {
+				totalIncome,
+				totalExpense,
+				balance:
+					totalIncome - totalExpense,
+				cashTotal,
+				incomeCount:
+					incomeTransactions.length,
+				expenseCount:
+					expenseTransactions.length,
+				cashCount:
+					cashTransactions.length,
+			},
+			chartData: {
+				categoryData,
+				trendData,
+			},
+		});
+	} catch (error) {
+		console.error("Error:", error);
+		return NextResponse.json(
+			{
+				error:
+					"Error interno del servidor",
+			},
+			{ status: 500 }
+		);
+	}
 }
 
 export async function POST(req: NextRequest) {
@@ -112,11 +203,14 @@ export async function POST(req: NextRequest) {
       description,
       paymentMethod,
       location,
-      userId,
       saleId,
       reservationId,
       membershipId
     } = body;
+
+    // Get authenticated user from session
+    const session = await getServerSession(authOptions);
+    const currentUserId = session?.user?.id;
 
     // Validation
     if (!type || !category || amount === undefined || !paymentMethod) {
@@ -139,8 +233,12 @@ export async function POST(req: NextRequest) {
     if (description) transactionData.description = description;
     if (location) transactionData.location = location;
     
+    // Connect the transaction to the current user
+    if (currentUserId) {
+      transactionData.user = { connect: { id: currentUserId } };
+    }
+
     // Add references if provided
-    if (userId) transactionData.user = { connect: { id: userId } };
     if (saleId) transactionData.sale = { connect: { id: saleId } };
     if (reservationId) transactionData.reservation = { connect: { id: reservationId } };
     if (membershipId) transactionData.membership = { connect: { id: membershipId } };
