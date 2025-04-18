@@ -81,14 +81,14 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
-  
+
   // For the overhead view, fetch reservations and events for the current week
   const weekStart = useMemo(() => startOfWeek(currentDate, { weekStartsOn: 1 }), [currentDate]);
   const weekEnd = useMemo(() => endOfWeek(weekStart, { weekStartsOn: 1 }), [weekStart]);
-  
+
   const startDateStr = useMemo(() => format(weekStart, "yyyy-MM-dd"), [weekStart]);
   const endDateStr = useMemo(() => format(weekEnd, "yyyy-MM-dd"), [weekEnd]);
-  
+
   const { data: weekData, error: weekDataError } = useSWR(
     courts.length > 0 ? `/api/bookings/week?start=${startDateStr}&end=${endDateStr}` : null,
     fetcher,
@@ -97,11 +97,11 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
       dedupingInterval: 30000,
     }
   );
-  
+
   const allReservations = useMemo(() => {
     return weekData?.reservations || [];
   }, [weekData]);
-  
+
   const allEvents = useMemo(() => {
     return weekData?.events || [];
   }, [weekData]);
@@ -169,15 +169,15 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     try {
       const method = transaction.id ? 'PUT' : 'POST';
       const url = transaction.id ? `/api/transactions/${transaction.id}` : '/api/transactions';
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transaction)
       });
-      
+
       if (!response.ok) throw new Error('Error al guardar la transacción');
-      
+
       setIsTransactionModalOpen(false);
       mutateAll();
     } catch (error) {
@@ -461,29 +461,31 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
   return (
     <div className="max-w-full md:max-w-7xl mx-auto bg-white rounded shadow">
       <div className="p-4 border-b flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-800">Reservas de Canchas</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => openReservationModal(currentDate)}
-            className="px-4 py-2 bg-blue-600 text-white rounded flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 3a1 1 0 00-1 1v5H4a1 1 0 100 2h5v5a1 1 0 102 0v-5h5a1 1 0 100-2h-5V4a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            Crear Reserva
-          </button>
-          <button
-            onClick={() => openEventModal()}
-            className="px-4 py-2 bg-green-600 text-white rounded flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-            </svg>
-            Crear Evento
-          </button>
+        <h1 className="text-xl font-bold text-gray-800 hidden md:block">Reservas de Canchas</h1>
+        <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 w-full md:w-auto">
+            <button
+              onClick={() => openReservationModal(currentDate)}
+              className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 3a1 1 0 00-1 1v5H4a1 1 0 100 2h5v5a1 1 0 102 0v-5h5a1 1 0 100-2h-5V4a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Crear Reserva
+            </button>
+            <button
+              onClick={() => openEventModal()}
+              className="w-full md:w-auto px-4 py-2 bg-green-600 text-white rounded flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+              </svg>
+              Crear Evento
+            </button>
+          </div>
           <button
             onClick={() => openTransactionModal()}
-            className="px-4 py-2 bg-purple-600 text-white rounded flex items-center"
+            className="w-full md:w-auto px-4 py-2 bg-purple-600 text-white rounded flex items-center"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V12a2 2 0 002 2h8a2 2 0 002-2v-.5a2 2 0 002-2V6a2 2 0 00-2-2H4z" />
@@ -514,7 +516,7 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
         />
       ) : (
         <div className="p-4">
-          <OverheadView 
+          <OverheadView
             courts={courts}
             reservations={allReservations}
             events={allEvents}

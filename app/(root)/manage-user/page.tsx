@@ -806,331 +806,460 @@ const ManageUser: React.FC = () => {
         </Box>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-        PaperProps={{
-          sx: {
-            borderRadius: "12px",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)"
-          }
-        }}
-      >
-        <DialogTitle id="alert-dialog-title" sx={{ pb: 1 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Delete color="error" />
-            <Typography variant="h6">¿Confirmar eliminación?</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="alert-dialog-description" sx={{ mb: 1 }}>
-            Esta acción eliminará permanentemente al usuario del sistema y no podrá ser recuperado.
-          </DialogContentText>
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            Esta acción no se puede deshacer
-          </Alert>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            variant="outlined"
-            sx={{
-              borderRadius: "8px",
-              textTransform: "none",
-              px: 3
-            }}
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleDeleteUser}
-            color="error"
-            variant="contained"
-            sx={{
-              borderRadius: "8px",
-              textTransform: "none",
-              px: 3
-            }}
-            autoFocus
-          >
-            Eliminar
-          </Button>
-        </DialogActions>
-      </Dialog>
 
-      {/* User Details Dialog */}
-      <Dialog
-        open={detailsDialogOpen}
-        onClose={() => setDetailsDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: "12px",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)"
-          }
-        }}
-      >
-        <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-            {userDetails ? getInitials(userDetails.name) : '...'}
-          </Avatar>
-          <Typography variant="h6">Detalles del Usuario</Typography>
-        </DialogTitle>
-        
-        <DialogContent dividers>
-          {loadingDetails ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : userDetails ? (
-            <>
-              {/* Información del usuario */}
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} md={6}>
-                  <Card variant="outlined" sx={{ height: '100%' }}>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Información Personal
-                      </Typography>
-                      <Divider sx={{ mb: 2 }} />
-                      
-                      <Grid container spacing={2}>
-                        <Grid item xs={4}>
-                          <Typography variant="body2" color="text.secondary">
-                            Nombre:
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body2" fontWeight="medium">
-                            {userDetails.name}
-                          </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={4}>
-                          <Typography variant="body2" color="text.secondary">
-                            Email:
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body2">
-                            {userDetails.email}
-                          </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={4}>
-                          <Typography variant="body2" color="text.secondary">
-                            Rol:
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Chip 
-                            label={getRoleName(userDetails.role)} 
-                            color={getRoleColor(userDetails.role)}
-                            size="small"
-                          />
-                        </Grid>
-                        
-                        <Grid item xs={4}>
-                          <Typography variant="body2" color="text.secondary">
-                            Género:
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body2">
-                            {userDetails.gender === 'male' ? 'Masculino' : 'Femenino'}
-                          </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={4}>
-                          <Typography variant="body2" color="text.secondary">
-                            Edad:
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body2">
-                            {userDetails.age} años
-                          </Typography>
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
+{/* User Details Dialog */}
+<Dialog
+  open={detailsDialogOpen}
+  onClose={() => setDetailsDialogOpen(false)}
+  maxWidth="md"
+  fullWidth
+  PaperProps={{
+    sx: {
+      borderRadius: "12px",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)"
+    }
+  }}
+>
+  <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+      {userDetails ? getInitials(userDetails.name) : '...'}
+    </Avatar>
+    <Typography variant="h6">Detalles del Usuario</Typography>
+  </DialogTitle>
+  
+  <DialogContent dividers>
+    {loadingDetails ? (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <CircularProgress />
+      </Box>
+    ) : userDetails ? (
+      <>
+        {/* Información del usuario */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={6}>
+            <Card variant="outlined" sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Información Personal
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
                 
-                <Grid item xs={12} md={6}>
-                  <Card variant="outlined" sx={{ height: '100%' }}>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Perfil Deportivo
-                      </Typography>
-                      <Divider sx={{ mb: 2 }} />
-                      
-                      <Grid container spacing={2}>
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">
-                            Altura:
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2">
-                            {userDetails.height} cm
-                          </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">
-                            Peso:
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2">
-                            {userDetails.weight} kg
-                          </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">
-                            Objetivo:
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2">
-                            {getGoalName(userDetails.goal)}
-                          </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">
-                            Nivel:
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2">
-                            {getLevelName(userDetails.level)}
-                          </Typography>
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-              
-              {/* Lista de ejercicios asignados */}
-              <Typography variant="h6" gutterBottom>
-                Ejercicios Asignados
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              {userDetails.exercises && userDetails.exercises.length > 0 ? (
-                <List disablePadding>
-                  {userDetails.exercises.map((exercise, index) => (
-                    <Card key={exercise.id || index} variant="outlined" sx={{ mb: 1 }}>
-                      <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid item xs={12} sm={3}>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <FitnessCenter color="primary" sx={{ mr: 1 }} fontSize="small" />
-                              <Typography variant="subtitle2" fontWeight="bold">
-                                {exercise.exerciseName}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                          
-                          <Grid item xs={6} sm={2}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              Series:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {exercise.sets}
-                            </Typography>
-                          </Grid>
-                          
-                          <Grid item xs={6} sm={2}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              Repeticiones:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {exercise.reps}
-                            </Typography>
-                          </Grid>
-                          
-                          <Grid item xs={6} sm={2}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              Peso:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {exercise.weight} kg
-                            </Typography>
-                          </Grid>
-                          
-                          <Grid item xs={6} sm={3}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              Asignado:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {formatDate(exercise.assignedAt)}
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </List>
-              ) : (
-                <Box sx={{ textAlign: 'center', py: 3 }}>
-                  <FitnessCenter sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-                  <Typography color="text.secondary">
-                    No hay ejercicios asignados
-                  </Typography>
-                  {sessionUser?.role === 'trainer' && (
-                    <Button
-                      variant="outlined"
+                <Grid container spacing={2}>
+                  <Grid item xs={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Nombre:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={8}>
+                    <Typography variant="body2" fontWeight="medium">
+                      {userDetails.name}
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Email:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={8}>
+                    <Typography variant="body2">
+                      {userDetails.email}
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Rol:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={8}>
+                    <Chip 
+                      label={getRoleName(userDetails.role)} 
+                      color={getRoleColor(userDetails.role)}
                       size="small"
-                      color="primary"
-                      startIcon={<SportsMartialArts />}
-                      onClick={() => {
-                        setDetailsDialogOpen(false);
-                        router.push(`/exercise-assignment/${selectedUser}`);
-                      }}
-                      sx={{ mt: 2 }}
-                    >
-                      Asignar ejercicios
-                    </Button>
-                  )}
-                </Box>
-              )}
-            </>
-          ) : (
-            <Typography color="text.secondary">No se pudo cargar la información del usuario</Typography>
-          )}
-        </DialogContent>
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Género:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={8}>
+                    <Typography variant="body2">
+                      {userDetails.gender === 'male' ? 'Masculino' : 'Femenino'}
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Edad:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={8}>
+                    <Typography variant="body2">
+                      {userDetails.age} años
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <Card variant="outlined" sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Perfil Deportivo
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Altura:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      {userDetails.height} cm
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Peso:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      {userDetails.weight} kg
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Objetivo:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      {getGoalName(userDetails.goal)}
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Nivel:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      {getLevelName(userDetails.level)}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
         
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          {sessionUser?.role === 'trainer' && userDetails && (
+        {/* Lista de ejercicios asignados */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">
+            Ejercicios Asignados
+          </Typography>
+          {sessionUser?.role === 'trainer' && (
             <Button
-              variant="contained"
-              color="primary"
+              variant="outlined"
+              size="small"
               startIcon={<SportsMartialArts />}
               onClick={() => {
                 setDetailsDialogOpen(false);
                 router.push(`/exercise-assignment/${selectedUser}`);
               }}
             >
-              Asignar ejercicios
+              Añadir ejercicios
             </Button>
           )}
-          <Button
+        </Box>
+        <Divider sx={{ mb: 2 }} />
+        
+        {userDetails.exercises && userDetails.exercises.length > 0 ? (
+          <List disablePadding>
+            {userDetails.exercises.map((exercise, index) => (
+              <Card key={exercise.id || index} variant="outlined" sx={{ mb: 1 }}>
+                <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={3}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <FitnessCenter color="primary" sx={{ mr: 1 }} fontSize="small" />
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          {exercise.exerciseName}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    
+                    <Grid item xs={6} sm={1.5}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                        Series:
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {exercise.sets}
+                      </Typography>
+                    </Grid>
+                    
+                    <Grid item xs={6} sm={1.5}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                        Repeticiones:
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {exercise.reps}
+                      </Typography>
+                    </Grid>
+                    
+                    <Grid item xs={6} sm={1.5}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                        Peso:
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {exercise.weight} kg
+                      </Typography>
+                    </Grid>
+                    
+                    <Grid item xs={6} sm={2.5}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                        Asignado:
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {formatDate(exercise.assignedAt)}
+                      </Typography>
+                    </Grid>
+
+                    {/* Botones de acción */}
+                    {sessionUser?.role === 'trainer' && (
+                      <Grid item xs={12} sm={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <Tooltip title="Editar ejercicio">
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={() => handleEditExercise(exercise.id)}
+                            sx={{
+                              transition: "all 0.2s",
+                              "&:hover": {
+                                transform: "scale(1.1)",
+                                backgroundColor: "rgba(63, 81, 181, 0.08)"
+                              }
+                            }}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar ejercicio">
+                          <IconButton 
+                            size="small" 
+                            color="error"
+                            onClick={() => handleDeleteExercise(exercise.id)}
+                            sx={{
+                              ml: 1,
+                              transition: "all 0.2s",
+                              "&:hover": {
+                                transform: "scale(1.1)",
+                                backgroundColor: "rgba(244, 67, 54, 0.08)"
+                              }
+                            }}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Grid>
+                    )}
+                  </Grid>
+                </CardContent>
+              </Card>
+            ))}
+          </List>
+        ) : (
+          <Box sx={{ textAlign: 'center', py: 3 }}>
+            <FitnessCenter sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+            <Typography color="text.secondary">
+              No hay ejercicios asignados
+            </Typography>
+            {sessionUser?.role === 'trainer' && (
+              <Button
+                variant="outlined"
+                size="small"
+                color="primary"
+                startIcon={<SportsMartialArts />}
+                onClick={() => {
+                  setDetailsDialogOpen(false);
+                  router.push(`/exercise-assignment/${selectedUser}`);
+                }}
+                sx={{ mt: 2 }}
+              >
+                Asignar ejercicios
+              </Button>
+            )}
+          </Box>
+        )}
+      </>
+    ) : (
+      <Typography color="text.secondary">No se pudo cargar la información del usuario</Typography>
+    )}
+  </DialogContent>
+  
+  <DialogActions sx={{ px: 3, py: 2 }}>
+    <Button
+      variant="outlined"
+      onClick={() => setDetailsDialogOpen(false)}
+    >
+      Cerrar
+    </Button>
+  </DialogActions>
+</Dialog>
+
+{/* Edit Exercise Dialog */}
+<Dialog
+  open={editExerciseDialogOpen}
+  onClose={() => setEditExerciseDialogOpen(false)}
+  maxWidth="sm"
+  fullWidth
+  PaperProps={{
+    sx: {
+      borderRadius: "12px",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)"
+    }
+  }}
+>
+  <DialogTitle>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Edit color="primary" />
+      <Typography variant="h6">Editar Ejercicio</Typography>
+    </Box>
+  </DialogTitle>
+  
+  <DialogContent dividers>
+    {loadingExerciseEdit ? (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <CircularProgress />
+      </Box>
+    ) : (
+      <Grid container spacing={2}>
+        <Grid item xs={12}>
+          <TextField
+            label="Nombre del ejercicio"
+            value={editExerciseData.exerciseName}
+            onChange={(e) => setEditExerciseData({...editExerciseData, exerciseName: e.target.value})}
+            fullWidth
             variant="outlined"
-            onClick={() => setDetailsDialogOpen(false)}
-            sx={{ ml: 'auto' }}
-          >
-            Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
+            margin="dense"
+          />
+        </Grid>
+        
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Series"
+            type="number"
+            value={editExerciseData.sets}
+            onChange={(e) => setEditExerciseData({...editExerciseData, sets: parseInt(e.target.value) || 0})}
+            fullWidth
+            variant="outlined"
+            margin="dense"
+            InputProps={{ inputProps: { min: 1 } }}
+          />
+        </Grid>
+        
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Repeticiones"
+            type="number"
+            value={editExerciseData.reps}
+            onChange={(e) => setEditExerciseData({...editExerciseData, reps: parseInt(e.target.value) || 0})}
+            fullWidth
+            variant="outlined"
+            margin="dense"
+            InputProps={{ inputProps: { min: 1 } }}
+          />
+        </Grid>
+        
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Peso (kg)"
+            type="number"
+            value={editExerciseData.weight}
+            onChange={(e) => setEditExerciseData({...editExerciseData, weight: parseInt(e.target.value) || 0})}
+            fullWidth
+            variant="outlined"
+            margin="dense"
+            InputProps={{ inputProps: { min: 0 } }}
+          />
+        </Grid>
+      </Grid>
+    )}
+  </DialogContent>
+  
+  <DialogActions sx={{ px: 3, py: 2 }}>
+    <Button 
+      variant="outlined" 
+      onClick={() => setEditExerciseDialogOpen(false)}
+    >
+      Cancelar
+    </Button>
+    <Button 
+      variant="contained" 
+      color="primary"
+      onClick={handleSaveExercise}
+      disabled={loadingExerciseEdit}
+    >
+      Guardar cambios
+    </Button>
+  </DialogActions>
+</Dialog>
+
+{/* Delete Exercise Dialog */}
+<Dialog
+  open={deleteExerciseDialogOpen}
+  onClose={() => setDeleteExerciseDialogOpen(false)}
+  maxWidth="xs"
+  fullWidth
+  PaperProps={{
+    sx: {
+      borderRadius: "12px",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)"
+    }
+  }}
+>
+  <DialogTitle>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Delete color="error" />
+      <Typography variant="h6">Eliminar Ejercicio</Typography>
+    </Box>
+  </DialogTitle>
+  
+  <DialogContent>
+    <DialogContentText id="alert-dialog-description">
+      ¿Está seguro de que desea eliminar este ejercicio? Esta acción no se puede deshacer.
+    </DialogContentText>
+  </DialogContent>
+  
+  <DialogActions sx={{ px: 3, py: 2 }}>
+    <Button 
+      variant="outlined" 
+      onClick={() => setDeleteExerciseDialogOpen(false)}
+    >
+      Cancelar
+    </Button>
+    <Button 
+      variant="contained" 
+      color="error"
+      onClick={handleConfirmDeleteExercise}
+      disabled={loadingExerciseDelete}
+      startIcon={loadingExerciseDelete ? <CircularProgress size={16} /> : null}
+    >
+      Eliminar
+    </Button>
+  </DialogActions>
+</Dialog>
 
       {/* Snackbar for notifications */}
       <Snackbar

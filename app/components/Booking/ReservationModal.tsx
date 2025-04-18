@@ -2,7 +2,7 @@
 
 import { format, parseISO, differenceInWeeks, isValid, isBefore } from "date-fns";
 import { es } from 'date-fns/locale';
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Court, ModalDataType } from "../../types/bookings/types";
 
 interface BookingModalProps {
@@ -28,91 +28,129 @@ export function ReservationModal({
   error,
   setError
 }: BookingModalProps) {
-  const initialRenderRef = useRef(true);
-  const modalOpenRef = useRef(false);
+  // Refs
   const nameRef = useRef<HTMLInputElement>(null);
-  const userTimeChangeRef = useRef(false);
-
-  const [selectedCourtId, setSelectedCourtId] = useState<string>(modalData.courtId || "");
-  const [endTimeDisplay, setEndTimeDisplay] = useState<string>("");
-  const [selectedDate, setSelectedDate] = useState<Date>(modalData.selectedDay || new Date());
-  const [selectedHour, setSelectedHour] = useState<string>(() => {
-    if (typeof modalData.selectedHour === 'string') {
-      // Ensure it's in HH:MM format
-      if (modalData.selectedHour.includes(':')) {
-        return modalData.selectedHour;
-      }
+  
+  // Local state (minimal)
+  const [expandedSection, setExpandedSection] = useState<string>("client");
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  const [timeError, setTimeError] = useState<string | null>(null);
+  const [transactionLoading, setTransactionLoading] = useState(false);
+  
+  // Computed state (instead of storing directly)
+  const selectedCourtId = modalData.courtId || "";
+  
+  const selectedDate = useMemo(() => 
+    modalData.selectedDay || new Date(), 
+  [modalData.selectedDay]);
+  
+  const selectedHour = useMemo(() => {
+    if (typeof modalData.selectedHour === 'string' && modalData.selectedHour.includes(':')) {
+      return modalData.selectedHour;
     } else if (typeof modalData.selectedHour === 'number') {
       return modalData.selectedHour < 10 ? `0${modalData.selectedHour}:00` : `${modalData.selectedHour}:00`;
     }
     return "10:00";
-  });
-
-  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
-  const [isTimeUnavailable, setIsTimeUnavailable] = useState<boolean>(false);
-  const [timeError, setTimeError] = useState<string | null>(null);
-  const [totalSessions, setTotalSessions] = useState<number>(0);
-  const [remainingSessions, setRemainingSessions] = useState<number>(0);
-  const [recurrenceEndError, setRecurrenceEndError] = useState<string | null>(null);
-
-  const [expandedSection, setExpandedSection] = useState<string>("client");
-
-  useEffect(() => {
-    if (modalData.type && !modalOpenRef.current) {
-      modalOpenRef.current = true;
-      setTimeout(() => {
-        if (nameRef.current) {
-          nameRef.current.focus();
-        }
-      }, 100);
-    }
-
-    if (!modalData.type) {
-      modalOpenRef.current = false;
-    }
-  }, [modalData.type]);
-
-  // Initialize values
-  useEffect(() => {
-    if (initialRenderRef.current) {
-      initialRenderRef.current = false;
-      return;
-    }
-
-    setSelectedCourtId(modalData.courtId || "");
-
-    if (modalData.selectedDay) {
-      setSelectedDate(modalData.selectedDay);
-    }
-
-    // Skip updating selectedHour if the change came from user input
-    if (!userTimeChangeRef.current) {
-      if (modalData.selectedHour !== undefined) {
-        if (typeof modalData.selectedHour === 'number') {
-          const hour = modalData.selectedHour;
-          setSelectedHour(hour < 10 ? `0${hour}:00` : `${hour}:00`);
-        } else if (typeof modalData.selectedHour === 'string') {
-          setSelectedHour(modalData.selectedHour);
-        }
+  }, [modalData.selectedHour]);
+  
+  const isPaid = useMemo(() => 
+    modalData.paymentMethod !== 'pending' && modalData.paymentMethod !== undefined,
+  [modalData.paymentMethod]);
+  
+  const alreadyPaid = useMemo(() => 
+    modalData.type === 'edit' && 
+    modalData.reservation && 
+    modalData.reservation.paymentMethod !== 'pending',
+  [modalData.type, modalData.reservation]);
+  
+  const selectedCourt = useMemo(() => 
+    modalData.courts?.find(c => c.id === selectedCourtId),
+  [modalData.courts, selectedCourtId]);
+  
+  const courtType = selectedCourt?.type;
+  
+  // Calculate end time
+  const endTimeDisplay = useMemo(() => {
+    if (!selectedHour || !courtType) return "";
+    
+    const [hoursStr, minutesStr] = selectedHour.split(':');
+    const hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+    
+    if (courtType === 'futbol') {
+      const endHour = (hours + 1) % 24;
+      return `${endHour < 10 ? '0' + endHour : endHour}:${minutes < 10 ? '0' + minutes : minutes}`;
+    } else {
+      let endHour = hours;
+      let endMinutes = minutes + 30;
+      
+      if (endMinutes >= 60) {
+        endHour = (endHour + 1) % 24;
+        endMinutes -= 60;
       }
-
-      if (modalData.reservation) {
-        const startTime = new Date(modalData.reservation.startTime);
-        setSelectedDate(startTime);
-        const hourStr = startTime.getHours().toString().padStart(2, '0');
-        const minuteStr = startTime.getMinutes().toString().padStart(2, '0');
-        setSelectedHour(`${hourStr}:${minuteStr}`);
-      }
+      
+      endHour = (endHour + 1) % 24;
+      return `${endHour < 10 ? '0' + endHour : endHour}:${endMinutes < 10 ? '0' + endMinutes : endMinutes}`;
+    }
+  }, [selectedHour, courtType]);
+  
+  // Check if time is unavailable
+  const isTimeUnavailable = useMemo(() => 
+    !availableTimeSlots.includes(selectedHour),
+  [availableTimeSlots, selectedHour]);
+  
+  // Computed values for recurring sessions
+  const { totalSessions, remainingSessions, recurrenceEndError } = useMemo(() => {
+    if (!modalData.isRecurring || !modalData.recurrenceEnd) {
+      return { totalSessions: 0, remainingSessions: 0, recurrenceEndError: null };
     }
 
-    // Reset the flag after processing
-    userTimeChangeRef.current = false;
-  }, [modalData.courtId, modalData.selectedDay, modalData.selectedHour, modalData.reservation]);
+    const startDate = selectedDate;
+    const endDate = new Date(modalData.recurrenceEnd);
 
-  // Check availability based on selected date and court
+    if (!isValid(endDate)) {
+      return { 
+        totalSessions: 0, 
+        remainingSessions: 0, 
+        recurrenceEndError: "La fecha ingresada no es válida" 
+      };
+    }
+
+    if (isBefore(endDate, startDate)) {
+      return { 
+        totalSessions: 0, 
+        remainingSessions: 0, 
+        recurrenceEndError: "La fecha final debe ser posterior a la fecha de inicio" 
+      };
+    }
+
+    const weeksBetween = differenceInWeeks(endDate, startDate);
+    const total = Math.max(1, weeksBetween + 1);
+    const remaining = total - (modalData.paidSessions || 0);
+    
+    return { totalSessions: total, remainingSessions: remaining, recurrenceEndError: null };
+  }, [modalData.isRecurring, modalData.recurrenceEnd, selectedDate, modalData.paidSessions]);
+  
+  // Check futbol time validation
+  useEffect(() => {
+    if (courtType === 'futbol' && selectedHour) {
+      const [_, minutesStr] = selectedHour.split(':');
+      const minutes = parseInt(minutesStr, 10);
+      
+      if (minutes !== 0) {
+        setTimeError("Para canchas de fútbol, sólo se permiten reservas en horas exactas.");
+      } else {
+        setTimeError(null);
+      }
+    } else {
+      setTimeError(null);
+    }
+  }, [courtType, selectedHour]);
+  
+  // Check availability effect
   useEffect(() => {
     if (!selectedDate || !selectedCourtId) return;
-
+    
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const now = new Date();
     const isSameDay = format(now, 'yyyy-MM-dd') === dateStr;
@@ -166,201 +204,171 @@ export function ReservationModal({
 
             return !bookedSlots.has(timeSlot);
           });
+          
           setAvailableTimeSlots(available);
-
-          setIsTimeUnavailable(!available.includes(selectedHour));
-
         }
       })
       .catch(err => {
         console.error("Error fetching reservations:", err);
       });
-  }, [selectedDate, selectedCourtId, selectedHour, modalData.type, modalData.reservation]);
+  }, [selectedDate, selectedCourtId, modalData.type, modalData.reservation]);
 
-  // Calculate end time based on court type and selected time
+  // Initial focus
   useEffect(() => {
-    if (!selectedCourtId || !modalData.courts || !selectedHour) return;
-
-    const court = modalData.courts.find(c => c.id === selectedCourtId);
-    if (!court) return;
-
-    const [hoursStr, minutesStr] = selectedHour.split(':');
-    const hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr, 10);
-
-    if (court.type === 'futbol' && minutes !== 0) {
-      setTimeError("Para canchas de fútbol, sólo se permiten reservas en horas exactas.");
-    } else {
-      setTimeError(null);
+    if (modalData.type && nameRef.current) {
+      setTimeout(() => nameRef.current?.focus(), 100);
     }
+  }, [modalData.type]);
 
-    if (court.type === 'futbol') {
-      const endHour = hours + 1;
-      setEndTimeDisplay(`${endHour < 10 ? '0' + endHour : endHour}:${minutes < 10 ? '0' + minutes : minutes}`);
-    } else {
-      let endHour = hours;
-      let endMinutes = minutes + 30;
+  // Form validation
+  const isNameValid = (modalData.name?.trim().length || 0) >= 3 && (modalData.name?.length || 0) <= 50;
+  const isPhoneValid = (modalData.phone?.trim().length || 0) >= 3 && (modalData.phone?.length || 0) <= 20;
+  const isTimeValid = timeError === null && !isTimeUnavailable;
+  const isCourtSelected = !!selectedCourtId;
+  const isViewMode = modalData.type === 'view';
+  const isDisabled = loading || isViewMode || transactionLoading;
+  
+  const isFormValid = 
+    (modalData.name?.trim().length || 0) > 0 &&
+    (modalData.phone?.trim().length || 0) > 0 &&
+    isCourtSelected &&
+    selectedHour &&
+    isTimeValid &&
+    (!isPaid || (modalData.paymentAmount || 0) > 0);
 
-      if (endMinutes >= 60) {
-        endHour += 1;
-        endMinutes -= 60;
-      }
+  // Form handlers
+  const handleFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target;
 
-      endHour += 1;
-
-      setEndTimeDisplay(
-        `${endHour < 10 ? '0' + endHour : endHour}:${endMinutes < 10 ? '0' + endMinutes : endMinutes}`
-      );
-    }
-  }, [selectedCourtId, selectedHour, modalData.courts]);
-
-  // Calculate session info for recurring bookings
-  useEffect(() => {
-    if (!modalData.isRecurring || !modalData.recurrenceEnd) {
-      setTotalSessions(0);
-      setRemainingSessions(0);
-      setRecurrenceEndError(null);
+    // Handle checkbox inputs
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setModalData(prev => ({ ...prev, [name]: checked }));
       return;
     }
 
-    const startDate = new Date(selectedDate);
-    const endDate = new Date(modalData.recurrenceEnd);
-
-    if (!isValid(endDate)) {
-      setRecurrenceEndError("La fecha ingresada no es válida");
-      setTotalSessions(0);
-      setRemainingSessions(0);
+    // Handle phone numbers - strip non-numeric characters
+    if (name === 'phone') {
+      const numericValue = value.replace(/\D/g, '');
+      setModalData(prev => ({ ...prev, [name]: numericValue }));
       return;
     }
 
-    if (isBefore(endDate, startDate)) {
-      setRecurrenceEndError("La fecha final debe ser posterior a la fecha de inicio");
-      setTotalSessions(0);
-      setRemainingSessions(0);
+    // Handle payment status
+    if (name === 'paymentStatus') {
+      const newIsPaid = value === 'paid';
+      setModalData(prev => ({
+        ...prev,
+        paymentMethod: newIsPaid ? 'cash' : 'pending',
+        paymentAmount: newIsPaid ? prev.paymentAmount || 0 : 0
+      }));
+      return;
+    }
+    
+    // Handle date field
+    if (name === 'date') {
+      const newDate = new Date(value);
+      setModalData(prev => ({ ...prev, selectedDay: newDate }));
       return;
     }
 
-    setRecurrenceEndError(null);
-
-    const weeksBetween = differenceInWeeks(endDate, startDate);
-    const total = Math.max(1, weeksBetween + 1);
-    setTotalSessions(total);
-
-    const remaining = total - (modalData.paidSessions || 0);
-    setRemainingSessions(remaining);
-  }, [modalData.isRecurring, modalData.recurrenceEnd, selectedDate, modalData.paidSessions]);
-
-  const handleCourtChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const courtId = e.target.value;
-    setSelectedCourtId(courtId);
-
-    setModalData((prev) => ({
-      ...prev,
-      courtId
-    }));
-  }, [setModalData]);
-
-  const handleDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = new Date(e.target.value);
-    setSelectedDate(newDate);
-
-    setModalData((prev) => ({
-      ...prev,
-      selectedDay: newDate
-    }));
-  }, [setModalData]);
-
-  const handleTimeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const timeValue = e.target.value;
-
-    // Set the flag to indicate this change came from user input
-    userTimeChangeRef.current = true;
-
-    setSelectedHour(timeValue);
-
-    setModalData((prev) => ({
-      ...prev,
-      selectedHour: timeValue
-    }));
-  }, [setModalData]);
-
-  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setModalData((prev) => ({
-      ...prev,
-      name: e.target.value
-    }));
-  }, [setModalData]);
-
-  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const numericValue = e.target.value.replace(/\D/g, '');
-    setModalData((prev) => ({
-      ...prev,
-      phone: numericValue
-    }));
-  }, [setModalData]);
-
-  const handleRecurrenceEndChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setModalData((prev) => ({
-      ...prev,
-      recurrenceEnd: e.target.value
-    }));
-  }, [setModalData]);
-
-  const handlePaymentMethodChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setModalData((prev) => ({
-      ...prev,
-      paymentMethod: e.target.value
-    }));
-  }, [setModalData]);
-
-  const handlePaymentNotesChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setModalData((prev) => ({
-      ...prev,
-      paymentNotes: e.target.value
-    }));
-  }, [setModalData]);
-
-  const handlePaidSessionsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setModalData((prev) => ({
-      ...prev,
-      paidSessions: parseInt(e.target.value) || 0
-    }));
-  }, [setModalData]);
-
-  const handleRecurringChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setModalData((prev) => ({
-      ...prev,
-      isRecurring: e.target.checked
-    }));
-  }, [setModalData]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (modalData.type === 'create') {
-      handleBooking();
-    } else if (modalData.type === 'edit') {
-      handleUpdatePayment();
+    // Handle court selection
+    if (name === 'court') {
+      setModalData(prev => ({ ...prev, courtId: value }));
+      return;
     }
+    
+    // Handle hour selection
+    if (name === 'time') {
+      setModalData(prev => ({ ...prev, selectedHour: value }));
+      return;
+    }
+    
+    // Handle all other inputs directly
+    setModalData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Toggle sections in mobile view
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? "" : section);
   };
 
-  const isNameValid = modalData.name?.trim().length >= 3 && modalData.name?.length <= 50;
-  const isPhoneValid = modalData.phone?.trim().length >= 3 && modalData.phone?.length <= 20;
-  const isCourtSelected = modalData.type === 'edit' || modalData.type === 'view' || !!selectedCourtId;
-  const isHourSelected = modalData.type === 'edit' || modalData.type === 'view' || !!selectedHour;
-  const isRecurrenceEndValid = !modalData.isRecurring || (modalData.recurrenceEnd && !recurrenceEndError);
-  const isTimeValid = timeError === null;
+  // Create transaction for payment
+  const createTransaction = async (reservationId: string): Promise<boolean> => {
+    if (!isPaid || (modalData.paymentAmount || 0) <= 0) return false;
 
-  const isFormValid = isNameValid && isPhoneValid && isCourtSelected && isHourSelected && isRecurrenceEndValid && !isTimeUnavailable && isTimeValid;
+    setTransactionLoading(true);
 
-  const selectedCourt = modalData.courts?.find(c => c.id === selectedCourtId);
-  const courtType = selectedCourt?.type;
+    try {
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'income',
+          category: 'court_rental',
+          amount: modalData.paymentAmount,
+          description: `Reserva: ${selectedCourt?.name || ''} - ${modalData.name}`,
+          paymentMethod: modalData.paymentMethod,
+          reservationId
+        })
+      });
 
-  const isViewMode = modalData.type === 'view';
-  const isDisabled = loading || isViewMode;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al crear la transacción');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+      setError(error instanceof Error ? error.message : 'Error al registrar el pago');
+      return false;
+    } finally {
+      setTransactionLoading(false);
+    }
+  };
+
+  // Form submission handler
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (isPaid && (modalData.paymentAmount || 0) <= 0) {
+      setError("Por favor ingrese un monto válido para el pago");
+      return;
+    }
+
+    if (modalData.type === 'create') {
+      try {
+        await handleBooking();
+        if (isPaid && modalData.reservation?.id) {
+          await createTransaction(modalData.reservation.id);
+        }
+      } catch (error) {
+        console.error('Error al procesar la reserva:', error);
+      }
+    } else if (modalData.type === 'edit') {
+      try {
+        await handleUpdatePayment();
+        if (isPaid && !alreadyPaid && modalData.reservation?.id) {
+          await createTransaction(modalData.reservation.id);
+        }
+      } catch (error) {
+        console.error('Error al actualizar la reserva:', error);
+      }
+    }
+  };
+
+  // Helper function to get payment method display text
+  const getPaymentMethodDisplay = (method: string) => {
+    switch (method) {
+      case 'cash': return 'Efectivo';
+      case 'transfer': return 'Transferencia';
+      case 'card': return 'Tarjeta';
+      default: return 'Otro';
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -388,29 +396,40 @@ export function ReservationModal({
           </div>
         )}
 
+        {/* Información de reserva */}
         {selectedHour && endTimeDisplay && (
-          <div className="p-3 bg-blue-50 rounded mb-6">
-            <div className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-              </svg>
-              <div>
-                <div>{format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}</div>
-                <div className="text-sm">
-                  {selectedHour} - {endTimeDisplay}
+          <div className="p-3 bg-blue-50 rounded mb-3">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <div>{format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}</div>
+                  <div className="text-sm">
+                    {selectedHour} - {endTimeDisplay}
+                    <span className="text-xs text-gray-500 ml-2">
+                      ({courtType === 'padel' ? '90 minutos' : '60 minutos'})
+                    </span>
+                  </div>
                 </div>
-                {courtType === 'padel' && (
-                  <div className="text-xs text-gray-500">90 minutos</div>
-                )}
-                {courtType === 'futbol' && (
-                  <div className="text-xs text-gray-500">60 minutos</div>
-                )}
               </div>
+
+              {/* Badge "Reserva pagada" solo si alreadyPaid es true */}
+              {alreadyPaid && modalData.type === 'edit' && (
+                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Reserva pagada
+                </div>
+              )}
             </div>
           </div>
         )}
 
         <form onSubmit={handleSubmit} noValidate>
+          {/* Vista móvil */}
           <div className="md:hidden space-y-4">
             <div className="border rounded overflow-hidden">
               <button
@@ -438,10 +457,10 @@ export function ReservationModal({
                     <input
                       ref={nameRef}
                       type="text"
+                      name="name"
                       value={modalData.name || ''}
-                      onChange={handleNameChange}
-                      className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${modalData.name?.length > 0 && !isNameValid ? 'border-red-500' : ''
-                        }`}
+                      onChange={handleFormChange}
+                      className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${modalData.name?.length > 0 && !isNameValid ? 'border-red-500' : ''}`}
                       placeholder="Nombre del cliente"
                       disabled={isDisabled}
                       maxLength={50}
@@ -458,10 +477,10 @@ export function ReservationModal({
                     </label>
                     <input
                       type="text"
+                      name="phone"
                       value={modalData.phone || ''}
-                      onChange={handlePhoneChange}
-                      className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${modalData.phone?.length > 0 && !isPhoneValid ? 'border-red-500' : ''
-                        }`}
+                      onChange={handleFormChange}
+                      className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${modalData.phone?.length > 0 && !isPhoneValid ? 'border-red-500' : ''}`}
                       placeholder="Número de teléfono"
                       disabled={isDisabled}
                       maxLength={20}
@@ -472,35 +491,112 @@ export function ReservationModal({
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Método de pago
-                    </label>
-                    <select
-                      value={modalData.paymentMethod || ''}
-                      onChange={handlePaymentMethodChange}
-                      className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                      disabled={isDisabled}
-                    >
-                      <option value="pending">Pendiente</option>
-                      <option value="transfer">Transferencia</option>
-                      <option value="cash">Efectivo</option>
-                    </select>
-                  </div>
+                  {/* Sección de pago */}
+                  {alreadyPaid ? (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Estado de pago
+                      </label>
+                      <div className="text-sm p-2 bg-green-50 border border-green-100 rounded">
+                        Pagado con {getPaymentMethodDisplay(modalData.reservation?.paymentMethod || '')}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Estado de pago
+                        </label>
+                        <div className="relative">
+                          <select
+                            name="paymentStatus"
+                            value={isPaid ? 'paid' : 'pending'}
+                            onChange={handleFormChange}
+                            className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                            disabled={isDisabled}
+                          >
+                            <option value="pending">Pendiente</option>
+                            <option value="paid">Pagado</option>
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      {isPaid && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Monto <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                              <input
+                                type="number"
+                                name="paymentAmount"
+                                value={modalData.paymentAmount || ''}
+                                onChange={handleFormChange}
+                                className="w-full p-2 pl-7 border rounded focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="0.00"
+                                disabled={isDisabled}
+                                step="0.01"
+                                min="0"
+                                required={isPaid}
+                              />
+                            </div>
+                            {isPaid && (modalData.paymentAmount || 0) <= 0 && (
+                              <p className="text-xs text-red-500 mt-1">Ingrese un monto válido</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Método de pago
+                            </label>
+                            <div className="relative">
+                              <select
+                                name="paymentMethod"
+                                value={modalData.paymentMethod}
+                                onChange={handleFormChange}
+                                className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                                disabled={isDisabled}
+                              >
+                                <option value="cash">Efectivo</option>
+                                <option value="transfer">Transferencia</option>
+                                <option value="card">Tarjeta</option>
+                              </select>
+                              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Notas de pago
                     </label>
                     <textarea
+                      name="paymentNotes"
                       value={modalData.paymentNotes || ''}
-                      onChange={handlePaymentNotesChange}
+                      onChange={handleFormChange}
                       className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Notas adicionales sobre el pago"
                       rows={3}
                       disabled={isDisabled}
                       maxLength={255}
                     />
+                    <div className="text-xs text-gray-500 mt-1">
+                      {(modalData.paymentNotes?.length || 0)}/255 caracteres
+                    </div>
                   </div>
                 </div>
               )}
@@ -530,21 +626,28 @@ export function ReservationModal({
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Cancha <span className="text-red-500">*</span>
                       </label>
-                      <select
-                        value={selectedCourtId}
-                        onChange={handleCourtChange}
-                        className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${!isCourtSelected ? 'border-red-500' : ''
-                          }`}
-                        disabled={isDisabled}
-                        required
-                      >
-                        <option value="" disabled>Selecciona una cancha</option>
-                        {modalData.courts.map(court => (
-                          <option key={court.id} value={court.id}>
-                            {court.name} ({court.type === 'futbol' ? 'Fútbol' : 'Pádel'})
-                          </option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <select
+                          name="court"
+                          value={selectedCourtId}
+                          onChange={handleFormChange}
+                          className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${!isCourtSelected ? 'border-red-500' : ''}`}
+                          disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
+                          required
+                        >
+                          <option value="" disabled>Selecciona una cancha</option>
+                          {modalData.courts.map(court => (
+                            <option key={court.id} value={court.id}>
+                              {court.name} ({court.type === 'futbol' ? 'Fútbol' : 'Pádel'})
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      </div>
                       {!isCourtSelected && (
                         <p className="text-xs text-red-500 mt-1">Selecciona una cancha</p>
                       )}
@@ -559,10 +662,11 @@ export function ReservationModal({
                       <div className="relative">
                         <input
                           type="date"
+                          name="date"
                           value={format(selectedDate, 'yyyy-MM-dd')}
-                          onChange={handleDateChange}
+                          onChange={handleFormChange}
                           className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                          disabled={isDisabled}
+                          disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
                           min={format(new Date(), 'yyyy-MM-dd')}
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -583,11 +687,11 @@ export function ReservationModal({
                       <div className="relative">
                         <input
                           type="time"
+                          name="time"
                           value={selectedHour}
-                          onChange={handleTimeChange}
-                          className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${isTimeUnavailable || timeError ? 'border-red-500 bg-red-50' : ''
-                            }`}
-                          disabled={isDisabled}
+                          onChange={handleFormChange}
+                          className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${isTimeUnavailable || timeError ? 'border-red-500 bg-red-50' : ''}`}
+                          disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
                           required
                           min="10:00"
                           max="24:00"
@@ -628,8 +732,9 @@ export function ReservationModal({
                     <label className="flex items-center">
                       <input
                         type="checkbox"
+                        name="isRecurring"
                         checked={modalData.isRecurring || false}
-                        onChange={handleRecurringChange}
+                        onChange={handleFormChange}
                         className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 mr-2"
                         disabled={isDisabled}
                       />
@@ -646,10 +751,10 @@ export function ReservationModal({
                         </label>
                         <input
                           type="date"
+                          name="recurrenceEnd"
                           value={modalData.recurrenceEnd || ''}
-                          onChange={handleRecurrenceEndChange}
-                          className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${recurrenceEndError ? 'border-red-500' : ''
-                            }`}
+                          onChange={handleFormChange}
+                          className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${recurrenceEndError ? 'border-red-500' : ''}`}
                           disabled={isDisabled}
                           min={format(selectedDate, 'yyyy-MM-dd')}
                           required={modalData.isRecurring}
@@ -670,8 +775,9 @@ export function ReservationModal({
                         </label>
                         <input
                           type="number"
+                          name="paidSessions"
                           value={modalData.paidSessions || 0}
-                          onChange={handlePaidSessionsChange}
+                          onChange={handleFormChange}
                           className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0"
                           min="0"
@@ -691,6 +797,7 @@ export function ReservationModal({
             </div>
           </div>
 
+          {/* Vista desktop */}
           <div className="hidden md:grid md:grid-cols-2 gap-6 mb-6">
             <div className="space-y-4">
               <div className="flex items-center mb-2">
@@ -707,10 +814,10 @@ export function ReservationModal({
                 <input
                   ref={nameRef}
                   type="text"
+                  name="name"
                   value={modalData.name || ''}
-                  onChange={handleNameChange}
-                  className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${modalData.name?.length > 0 && !isNameValid ? 'border-red-500' : ''
-                    }`}
+                  onChange={handleFormChange}
+                  className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${modalData.name?.length > 0 && !isNameValid ? 'border-red-500' : ''}`}
                   placeholder="Nombre del cliente"
                   disabled={isDisabled}
                   maxLength={50}
@@ -727,10 +834,10 @@ export function ReservationModal({
                 </label>
                 <input
                   type="text"
+                  name="phone"
                   value={modalData.phone || ''}
-                  onChange={handlePhoneChange}
-                  className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${modalData.phone?.length > 0 && !isPhoneValid ? 'border-red-500' : ''
-                    }`}
+                  onChange={handleFormChange}
+                  className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${modalData.phone?.length > 0 && !isPhoneValid ? 'border-red-500' : ''}`}
                   placeholder="Número de teléfono"
                   disabled={isDisabled}
                   maxLength={20}
@@ -747,30 +854,83 @@ export function ReservationModal({
                 </svg>
                 <h2 className="text-lg font-medium">Detalles de Pago</h2>
               </div>
+              {alreadyPaid ? (
+                <div className="p-3 bg-green-50 rounded mb-4">
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <div className="font-medium text-green-800">Método de pago: {getPaymentMethodDisplay(modalData.reservation?.paymentMethod || '')}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Estado de pago
+                    </label>
+                    <select
+                      name="paymentStatus"
+                      value={isPaid ? 'paid' : 'pending'}
+                      onChange={handleFormChange}
+                      className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                      disabled={isDisabled}
+                    >
+                      <option value="pending">Pendiente</option>
+                      <option value="paid">Pagado</option>
+                    </select>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Método de pago
-                </label>
-                <select
-                  value={modalData.paymentMethod || ''}
-                  onChange={handlePaymentMethodChange}
-                  className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                  disabled={isDisabled}
-                >
-                  <option value="pending">Pendiente</option>
-                  <option value="transfer">Transferencia</option>
-                  <option value="cash">Efectivo</option>
-                </select>
-              </div>
+                  {isPaid && (
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Monto <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="paymentAmount"
+                          value={modalData.paymentAmount || ''}
+                          onChange={handleFormChange}
+                          className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0.00"
+                          disabled={isDisabled}
+                          step="0.01"
+                          min="0"
+                          required={isPaid}
+                        />
+                      </div>
 
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Método de pago
+                        </label>
+                        <select
+                          name="paymentMethod"
+                          value={modalData.paymentMethod}
+                          onChange={handleFormChange}
+                          className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                          disabled={isDisabled}
+                        >
+                          <option value="cash">Efectivo</option>
+                          <option value="transfer">Transferencia</option>
+                          <option value="card">Tarjeta</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Notas de pago
                 </label>
                 <textarea
+                  name="paymentNotes"
                   value={modalData.paymentNotes || ''}
-                  onChange={handlePaymentNotesChange}
+                  onChange={handleFormChange}
                   className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Notas adicionales sobre el pago"
                   rows={3}
@@ -794,10 +954,10 @@ export function ReservationModal({
                     Cancha <span className="text-red-500">*</span>
                   </label>
                   <select
+                    name="court"
                     value={selectedCourtId}
-                    onChange={handleCourtChange}
-                    className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${!isCourtSelected ? 'border-red-500' : ''
-                      }`}
+                    onChange={handleFormChange}
+                    className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${!isCourtSelected ? 'border-red-500' : ''}`}
                     disabled={isDisabled}
                     required
                   >
@@ -822,8 +982,9 @@ export function ReservationModal({
                   <div className="relative">
                     <input
                       type="date"
+                      name="date"
                       value={format(selectedDate, 'yyyy-MM-dd')}
-                      onChange={handleDateChange}
+                      onChange={handleFormChange}
                       className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
                       disabled={isDisabled}
                       min={format(new Date(), 'yyyy-MM-dd')}
@@ -846,10 +1007,10 @@ export function ReservationModal({
                   <div className="relative">
                     <input
                       type="time"
+                      name="time"
                       value={selectedHour}
-                      onChange={handleTimeChange}
-                      className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${isTimeUnavailable || timeError ? 'border-red-500 bg-red-50' : ''
-                        }`}
+                      onChange={handleFormChange}
+                      className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${isTimeUnavailable || timeError ? 'border-red-500 bg-red-50' : ''}`}
                       disabled={isDisabled}
                       required
                       min="10:00"
@@ -891,10 +1052,11 @@ export function ReservationModal({
                 <label className="flex items-center">
                   <input
                     type="checkbox"
+                    name="isRecurring"
                     checked={modalData.isRecurring || false}
-                    onChange={handleRecurringChange}
+                    onChange={handleFormChange}
                     className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 mr-2"
-                    disabled={isDisabled}
+                    disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
                   />
                   <span className="text-sm font-medium text-gray-700">Turno fijo semanal</span>
                 </label>
@@ -909,11 +1071,11 @@ export function ReservationModal({
                     </label>
                     <input
                       type="date"
+                      name="recurrenceEnd"
                       value={modalData.recurrenceEnd || ''}
-                      onChange={handleRecurrenceEndChange}
-                      className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${recurrenceEndError ? 'border-red-500' : ''
-                        }`}
-                      disabled={isDisabled}
+                      onChange={handleFormChange}
+                      className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${recurrenceEndError ? 'border-red-500' : ''}`}
+                      disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
                       min={format(selectedDate, 'yyyy-MM-dd')}
                       required={modalData.isRecurring}
                     />
@@ -933,13 +1095,14 @@ export function ReservationModal({
                     </label>
                     <input
                       type="number"
+                      name="paidSessions"
                       value={modalData.paidSessions || 0}
-                      onChange={handlePaidSessionsChange}
+                      onChange={handleFormChange}
                       className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
                       placeholder="0"
                       min="0"
                       max={totalSessions}
-                      disabled={isDisabled || recurrenceEndError !== null}
+                      disabled={isDisabled || recurrenceEndError !== null || (modalData.type === 'edit' && alreadyPaid)}
                     />
                     {totalSessions > 0 && modalData.paidSessions !== undefined && !recurrenceEndError && (
                       <p className="text-xs text-blue-600 mt-1">
@@ -953,46 +1116,36 @@ export function ReservationModal({
           </div>
 
           <div className="flex justify-between items-center border-t pt-4 mt-4">
-            {modalData.type === 'edit' && (
-              <button
-                type="button"
-                onClick={() => handleCancel(modalData.reservation?.id || '')}
-                disabled={loading}
-                className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                {loading ? 'Cancelando...' : 'Cancelar Reserva'}
-              </button>
-            )}
+            <div>
+              {modalData.type === 'edit' && (
+                <button
+                  type="button"
+                  onClick={() => handleCancel(modalData.reservation?.id || '')}
+                  disabled={loading || transactionLoading}
+                  className="px-4 py-2 border border-red-600 rounded shadow-sm text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  Cancelar Reserva
+                </button>
+              )}
+            </div>
 
-            <div className="flex gap-3 ml-auto">
+            <div className="flex gap-3">
               <button
                 type="button"
                 onClick={closeModal}
-                disabled={loading}
-                className="px-4 py-2 border border-gray-300 rounded shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={loading || transactionLoading}
+                className="px-4 py-2 border border-gray-300 rounded shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
-                {modalData.type === 'view' ? 'Cerrar' : 'Volver'}
+                Volver
               </button>
 
-              {modalData.type === 'create' && (
+              {(modalData.type === 'create' || modalData.type === 'edit') && (
                 <button
                   type="submit"
-                  disabled={loading || !isFormValid}
-                  className={`px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${!isFormValid ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
+                  disabled={loading || transactionLoading || !isFormValid}
+                  className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Guardando...' : 'Guardar Reserva'}
-                </button>
-              )}
-
-              {modalData.type === 'edit' && (
-                <button
-                  type="submit"
-                  disabled={loading || !isNameValid || !isPhoneValid || !isTimeValid}
-                  className={`px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${(!isNameValid || !isPhoneValid || !isTimeValid) ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                >
-                  {loading ? 'Actualizando...' : 'Actualizar Reserva'}
+                  {loading || transactionLoading ? 'Guardando...' : modalData.type === 'create' ? 'Crear Reserva' : 'Actualizar Reserva'}
                 </button>
               )}
             </div>

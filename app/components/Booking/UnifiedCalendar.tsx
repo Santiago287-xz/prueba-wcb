@@ -317,8 +317,8 @@ export function UnifiedCalendar({
     
     return (
       <div className="mb-4 flex justify-between items-center">
-        <div className="text-xl font-bold">
-          {format(currentDate, "MMMM yyyy", { locale: es })}
+        <div className="text-xl font-bold capitalize">
+          {format(currentDate, "MMMM", { locale: es })}
         </div>
         
         <div className="flex items-center gap-2">
@@ -380,7 +380,6 @@ export function UnifiedCalendar({
 
   const renderDesktopView = useCallback(() => {
     const indicatorPosition = getSelectionIndicatorPosition();
-    
     return (
       <>
         {renderWeekHeader()}
@@ -403,7 +402,6 @@ export function UnifiedCalendar({
             const isCurrentDay = isToday(day);
             const isSelected = isSameDay(day, currentDate);
             const isInThreeDayView = threeDaysView.some(d => isSameDay(d, day));
-            
             return (
               <div 
                 key={dateKey}
@@ -464,14 +462,14 @@ export function UnifiedCalendar({
                               <div className="w-full">
                                 <div className="flex justify-between items-start">
                                   <p className="font-medium">{event.name}</p>
-                                  {isEventType && (
+                                  {isEventType ? (
                                     <span className="text-xs px-2 py-1 bg-green-100 rounded-full text-green-800">Evento</span>
-                                  )}
+                                  ) : event.paymentMethod !== "pending" ? <span className="text-xs px-3 py-1 bg-green-200 rounded-full text-green-900">Pagado</span> : null}
                                 </div>
                                 <p className="text-sm text-gray-600">
                                   {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
                                 </p>
-                                <p className="text-xs text-gray-500">{formatCourtNames(event)}</p>
+                                <p className="text-xs text-gray-500">{formatCourtNames(event)}</p>                                
                               </div>
                             </div>
                           </div>
