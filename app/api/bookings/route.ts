@@ -415,22 +415,19 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // Para reservas no recurrentes, usar verificación de conflictos más simple
       const overlappingReservation = await prisma.courtReservation.findFirst({
         where: {
           courtId,
           status: "confirmed",
           OR: [
-            // Superposición directa de tiempo con reserva no recurrente
             {
               isRecurring: false,
-              startTime: { lte: end },
-              endTime: { gte: start }
+              startTime: { lt: end },
+              endTime: { gt: start }
             },
-            // Superposición con una instancia virtual de una reserva recurrente
             {
               isRecurring: true,
-              startTime: { lte: end },
+              startTime: { lt: end },
               OR: [
                 { recurrenceEnd: null },
                 { recurrenceEnd: { gte: start } }

@@ -16,9 +16,6 @@ import {
   FaWarehouse,
   FaShoppingCart,
   FaChartLine,
-  FaBell,
-  FaUserCircle,
-  FaUsers,
   FaCreditCard,
 } from "react-icons/fa";
 
@@ -93,7 +90,6 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
         <>
           <MenuItem href="/add-user" title="Add User" icon={FaUserPlus} onItemClick={onItemClick} />
           <MenuItem href="/manage-user" title="Manage User" icon={FaUserCog} onItemClick={onItemClick} />
-          <MenuItem href="/students" title="Students" icon={FaUsers} onItemClick={onItemClick} />
           <MenuItem href="/rfid-management" title="RFID Management" icon={FaCreditCard} onItemClick={onItemClick} />
           <MenuItem href="/booking" title="Canchas" icon={FaCalendarAlt} onItemClick={onItemClick} />
           <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />
@@ -102,11 +98,10 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
 
       {isTrainer && (
         <>
-          <MenuItem href="/students" title="Students" icon={FaUsers} onItemClick={onItemClick} />
         </>
       )}
 
-      {isCourtManager || isReceptionist && (
+      {(isCourtManager || isReceptionist) && (
         <>
           <MenuItem href="/rfid-management" title="RFID Management" icon={FaCreditCard} onItemClick={onItemClick} />
           <MenuItem href="/booking" title="Canchas" icon={FaCalendarAlt} onItemClick={onItemClick} />
@@ -128,13 +123,6 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
           <MenuItem href="/user/fees" title="My Fees" icon={FaMoneyBillWave} onItemClick={onItemClick} />
           <MenuItem href="/user/exercise" title="My Exercise" icon={FaDumbbell} onItemClick={onItemClick} />
           <MenuItem href="/user/diet" title="My Diet Sheet" icon={FaAppleAlt} onItemClick={onItemClick} />
-        </>
-      )}
-
-      {(isAdmin || isTrainer || isUser || isEmployee || isCourtManager) && (
-        <>
-          <MenuItem href="/notifications" title="Notifications" icon={FaBell} onItemClick={onItemClick} />
-          <MenuItem href="/profile" title="Profile" icon={FaUserCircle} onItemClick={onItemClick} />
         </>
       )}
     </nav>

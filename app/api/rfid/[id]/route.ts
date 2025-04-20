@@ -36,20 +36,13 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     // 1. Eliminar historial de accesos RFID si existe
     await prisma.accessLog.deleteMany({
       where: { userId: id }
+    });    
+    
+    // 2. Eliminar ejercicios asignados al usuario
+    await prisma.userExercise.deleteMany({
+      where: { userId: id }
     });
-    
-    // 2. Eliminar notificaciones si existen
-    if (prisma.notification) {
-      await prisma.notification.deleteMany({
-        where: { 
-          OR: [
-            { userId: id },
-            { senderId: id }
-          ]
-        }
-      });
-    }
-    
+
     // 3. Eliminar transacciones si existen
     if (prisma.transaction) {
       await prisma.transaction.deleteMany({

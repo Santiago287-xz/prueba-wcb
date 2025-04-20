@@ -19,7 +19,7 @@ import {
   CardContent,
   Divider,
   Alert,
-  SelectChangeEvent
+  TextField
 } from '@mui/material';
 import { Close, Warning } from '@mui/icons-material';
 import { Member, MembershipPrice, RenewalState } from '@/app/types/membership';
@@ -53,6 +53,15 @@ export default function RenewMembershipModal({
     totalAmount: 0
   });
 
+  // Nuevo handler para cantidad de puntos personalizada
+  const handlePointsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value) || 0;
+    setRenewalState(prev => ({
+      ...prev,
+      pointsAmount: value
+    }));
+  };
+
   // Initialize form with default values when modal opens or member changes
   useEffect(() => {
     if (member) {
@@ -73,7 +82,6 @@ export default function RenewMembershipModal({
     if (renewalState.membershipTypeId && renewalState.pointsAmount > 0) {
       const selectedType = membershipPrices.find(p => p.id === renewalState.membershipTypeId);
       if (selectedType) {
-        // Calculate cost based on points (30 points = full price)
         const pointCost = selectedType.basePrice / 30;
         setRenewalState(prev => ({
           ...prev,
@@ -95,7 +103,7 @@ export default function RenewMembershipModal({
   };
 
   // Handle select changes
-  const handleRenewalSelectChange = (e: SelectChangeEvent<string | number>) => {
+  const handleRenewalSelectChange = (e: React.ChangeEvent<{ name?: string; value: unknown }>) => {
     const { name, value } = e.target;
     if (!name) return;
 
@@ -104,6 +112,10 @@ export default function RenewMembershipModal({
       [name]: value
     }));
   };
+
+  // Variable para mostrar la cuenta del total, basado en que el precio es para 30 puntos
+  const selectedType = membershipPrices.find(p => p.id === renewalState.membershipTypeId);
+  const calculationText = selectedType ? `(${selectedType.basePrice} / 30) × ${renewalState.pointsAmount} = ${renewalState.totalAmount}` : '';
 
   // Handle form submission
   const handleRenewMembership = async () => {
@@ -116,7 +128,6 @@ export default function RenewMembershipModal({
         return;
       }
 
-      // Register the transaction
       await axios.post('/api/transactions', {
         type: 'income',
         category: 'membership',
@@ -126,7 +137,6 @@ export default function RenewMembershipModal({
         userId: member.id,
       });
 
-      // Update the user's points
       await axios.post('/api/members/rfid/assign', {
         userId: member.id,
         rfidCardNumber: member.rfidCardNumber,
@@ -183,7 +193,7 @@ export default function RenewMembershipModal({
                     <Select
                       name="membershipTypeId"
                       value={renewalState.membershipTypeId}
-                      onChange={handleRenewalSelectChange}
+                      onChange={()=>handleRenewalSelectChange}
                       label="Tipo de Membresía"
                       disabled={membershipPrices.length === 0}
                     >
@@ -198,19 +208,15 @@ export default function RenewMembershipModal({
 
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Cantidad de puntos</InputLabel>
-                    <Select
+                    <TextField
                       name="pointsAmount"
-                      value={renewalState.pointsAmount}
-                      onChange={handleRenewalSelectChange}
                       label="Cantidad de puntos"
-                    >
-                      <MenuItem value={5}>5 puntos</MenuItem>
-                      <MenuItem value={10}>10 puntos</MenuItem>
-                      <MenuItem value={20}>20 puntos</MenuItem>
-                      <MenuItem value={30}>30 puntos</MenuItem>
-                      <MenuItem value={50}>50 puntos</MenuItem>
-                    </Select>
+                      type="number"
+                      value={renewalState.pointsAmount}
+                      onChange={handlePointsChange}
+                      inputProps={{ min: 1 }}
+                      size="small"
+                    />
                   </FormControl>
                 </Grid>
 
@@ -220,7 +226,7 @@ export default function RenewMembershipModal({
                     <Select
                       name="paymentMethod"
                       value={renewalState.paymentMethod}
-                      onChange={handleRenewalSelectChange}
+                      onChange={()=>handleRenewalSelectChange}
                       label="Método de Pago"
                     >
                       <MenuItem value="cash">Efectivo</MenuItem>
@@ -241,6 +247,9 @@ export default function RenewMembershipModal({
                       <Typography variant="subtitle2">Total a pagar:</Typography>
                       <Typography variant="h5" color="primary.main" fontWeight="bold">
                         ${renewalState.totalAmount}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {calculationText}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={6}>

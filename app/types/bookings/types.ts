@@ -48,17 +48,18 @@ export interface ModalDataType {
   type: 'create' | 'edit' | 'view';
   reservation: Reservation | null;
   selectedDay: Date | null;
-  selectedHour?: string |number;
-  courtId?: string;
-  paidSessions: number;
-  paymentMethod: string;
-  paymentNotes: string;
+  selectedHour: string; // se fuerza a string
   name: string;
   phone: string;
+  paymentMethod: 'pending' | 'cash' | 'transfer' | 'card';
+  paymentAmount: number | string; // acepta ambos tipos
   isRecurring: boolean;
-  recurrenceEnd: string;
+  recurrenceEnd: string; // formato YYYY-MM-DD
+  paidSessions: number;
+  paymentNotes: string;
+  courtId: string;
+  openInvoiceModal?: (() => void) | null;
   courts?: Court[];
-  setCourtId?: (courtId: string) => void;
 }
 
 export interface EventIndicator {

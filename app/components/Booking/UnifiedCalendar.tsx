@@ -463,7 +463,7 @@ export function UnifiedCalendar({
                                   <p className="font-medium">{event.name}</p>
                                   {isEventType ? (
                                     <span className="text-xs px-2 py-1 bg-green-100 rounded-full text-green-800">Evento</span>
-                                  ) : event.paymentMethod !== "pending" ? <span className="text-xs px-3 py-1 bg-green-200 rounded-full text-green-900">Pagado</span> : null}
+                                  ) : event.paymentMethod !== "pending" ? <span className="text-xs px-3 py-1 bg-green-200 rounded-full text-green-900">Pagado</span> : <span className="text-xs px-3 py-1 bg-red-200 rounded-full text-red-900">Falta pago</span>}
                                 </div>
                                 <p className="text-sm text-gray-600">
                                   {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}

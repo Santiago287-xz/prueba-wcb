@@ -68,10 +68,11 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     type: 'create' as const,
     reservation: null,
     selectedDay: null,
-    selectedHour: undefined,
+    selectedHour: "12:00", // valor por defecto para selectedHour
     name: '',
     phone: '',
     paymentMethod: 'pending',
+    paymentAmount: 0, // se mantiene como number pero compatible con union
     isRecurring: false,
     recurrenceEnd: '',
     paidSessions: 0,
@@ -269,9 +270,10 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
         throw new Error(errorData.error || "Error al crear la reserva");
       }
 
-      await res.json();
+      const reservationData = await res.json();
       closeModal();
       await mutateAll();
+      return reservationData;
     } catch (error) {
       setError(error instanceof Error ? error.message : "Error al crear la reserva");
     } finally {
@@ -463,13 +465,13 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       // Purge transactions
       await fetch('/api/transactions/purge', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       await mutateAll();
       closePurgeDialog();
     } catch (error) {

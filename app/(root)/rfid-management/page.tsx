@@ -212,7 +212,7 @@ export default function RFIDManagementPage() {
       </div>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Card sx={{ bgcolor: '#e3f2fd' }}>
             <CardContent>
               <div className="flex justify-between items-center">
@@ -234,29 +234,7 @@ export default function RFIDManagementPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#e8f5e9' }}>
-            <CardContent>
-              <div className="flex justify-between items-center">
-                <Typography color="textSecondary" gutterBottom>
-                  Miembros Activos
-                </Typography>
-                <IconButton
-                  sx={{ minWidth: '24px', p: 0 }}
-                  onClick={fetchStats}
-                >
-                  <Refresh fontSize="small" />
-                </IconButton>
-              </div>
-              {isLoading ? (
-                <CircularProgress size={24} />
-              ) : (
-                <Typography variant="h5">{stats.activeMembers}</Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Card sx={{ bgcolor: '#fff8e1' }}>
             <CardContent>
               <div className="flex justify-between items-center">
@@ -278,7 +256,7 @@ export default function RFIDManagementPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Card sx={{ bgcolor: '#f3e5f5' }}>
             <CardContent>
               <div className="flex justify-between items-center">

@@ -33,7 +33,7 @@ export default function TransactionModal({ transaction, onClose, onSave, hideFie
       amount: 0,
       description: '',
       paymentMethod: 'cash',
-      location: 'main_warehouse',
+      location: '',
     }
   );
   const [loading, setLoading] = useState(false);

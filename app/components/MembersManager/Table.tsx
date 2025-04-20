@@ -25,7 +25,6 @@ import {
   SportsMartialArts,
 } from "@mui/icons-material";
 import { UserTableProps } from "@/app/types/members";
-import { User } from "@prisma/client";
 
 const UserTable: React.FC<UserTableProps> = ({
   data,
@@ -51,11 +50,11 @@ const UserTable: React.FC<UserTableProps> = ({
       )}
 
       <TableContainer component={Paper} elevation={0}>
-        <Table sx={{ minWidth: 650 }} aria-label="tabla de usuarios">
+        <Table sx={{ minWidth: 500 }} aria-label="tabla de usuarios">
           <TableHead>
             <TableRow>
               <TableCell sx={styles.tableHeaderCell}>Usuario</TableCell>
-              <TableCell sx={styles.tableHeaderCell}>
+              <TableCell sx={{ ...styles.tableHeaderCell, display: { xs: "none", sm: "table-cell" } }}>
                 <TableSortLabel
                   active={orderBy === "email"}
                   direction={order}
@@ -64,7 +63,12 @@ const UserTable: React.FC<UserTableProps> = ({
                   Email
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={styles.tableHeaderCell}>Entrenador</TableCell>
+              <TableCell sx={{ ...styles.tableHeaderCell, display: { xs: "none", sm: "table-cell" } }}>
+                Género
+              </TableCell>
+              <TableCell sx={{ ...styles.tableHeaderCell, display: { xs: "none", sm: "table-cell" } }}>
+                Edad
+              </TableCell>
               <TableCell sx={styles.tableHeaderCell}>
                 <TableSortLabel
                   active={orderBy === "role"}
@@ -126,38 +130,36 @@ const UserTable: React.FC<UserTableProps> = ({
                       </Box>
                     </Box>
                   </TableCell>
-                  <TableCell sx={{ color: "text.secondary" }}>{user?.email}</TableCell>
-
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" }, color: "text.secondary" }}>{user?.email}</TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{user?.gender || "-"}</TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{user?.age || "-"}</TableCell>
                   <TableCell>
-                    {user?.trainer ? (
+                    {user?.role === "receptionist" ? (
                       <Chip
-                        avatar={<Avatar>{getInitials(user.trainer.name)}</Avatar>}
-                        label={user.trainer.name}
-                        variant="outlined"
+                        label="Recepcionista"
                         size="small"
                         sx={{ 
+                          fontWeight: 500, 
                           borderRadius: "6px",
-                          height: "28px"
+                          fontSize: "0.75rem",
+                          height: "24px",
+                          backgroundColor: "red",
+                          color: "#fff"
                         }}
                       />
                     ) : (
-                      <Typography variant="caption" color="text.secondary">
-                        No asignado
-                      </Typography>
+                      <Chip
+                        label={getRoleName(user?.role)}
+                        size="small"
+                        color={getRoleColor(user?.role)}
+                        sx={{ 
+                          fontWeight: 500, 
+                          borderRadius: "6px",
+                          fontSize: "0.75rem",
+                          height: "24px"
+                        }}
+                      />
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getRoleName(user?.role)}
-                      size="small"
-                      color={getRoleColor(user?.role)}
-                      sx={{ 
-                        fontWeight: 500, 
-                        borderRadius: "6px",
-                        fontSize: "0.75rem",
-                        height: "24px"
-                      }}
-                    />
                   </TableCell>
                   <TableCell align="center">
                     <Stack direction="row" spacing={1} justifyContent="center">
