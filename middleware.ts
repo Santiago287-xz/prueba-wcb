@@ -31,7 +31,8 @@ const PATH_PERMISSIONS = {
 
 	// Member paths
 	"/user": ["member"],
-
+	"/prices/membership": ["admin", "receptionist"],
+	"/prices": ["admin", "receptionist"],
 	// Shared paths
 	"/profile": [
 		"admin",
@@ -61,15 +62,9 @@ const PATH_PERMISSIONS = {
 const API_PERMISSIONS = {
 	"/api/analytics": [
 		"admin",
-		"employee",
-	],
-	"/api/attendance": [
-		"admin",
-		"trainer",
 	],
 	"/api/bookings": [
 		"admin",
-		"employee",
 		"court_manager",
 	],
 	"/api/inventory/categories": [
@@ -78,31 +73,21 @@ const API_PERMISSIONS = {
 	],
 	"/api/courts": [
 		"admin",
-		"employee",
 		"court_manager",
 	],
 	"/api/events": [
 		"admin",
-		"employee",
 		"court_manager",
 	],
 	"/api/inventory": [
 		"admin",
 		"employee",
 	],
-	"/api/members": ["admin", "employee"],
-	"/api/notification": [
-		"admin",
-		"trainer",
-		"member",
-		"employee",
-		"court_manager",
-	],
+	"/api/members": ["admin", "receptionist"],	
 	"/api/payments/stripe": ["member"],
-	"/api/rfid": ["admin", "employee"],
+	"/api/rfid": ["admin", "receptionist"],
 	"/api/sales": ["admin", "employee"],
 	"/api/transactions": ["admin"],
-	"/api/users": ["admin", "trainer"],
 	"/api/fitness/exercise": ["admin", "trainer", "member"],
 	"/api/fitness/exercise-assignment": ["admin", "trainer"],
 	"/api/fitness": ["admin", "trainer"],
@@ -251,6 +236,6 @@ export async function middleware(
 
 export const config = {
 	matcher: [
-		"/((?!_next/static|_next/image|favicon.ico).*)",
+	  "/((?!_next/static|_next/image|sounds|favicon.ico).*)",
 	],
-};
+  };

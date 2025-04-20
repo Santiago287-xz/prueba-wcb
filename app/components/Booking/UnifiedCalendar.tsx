@@ -35,7 +35,7 @@ export function UnifiedCalendar({
   const weekStart = useMemo(() => {
     return startOfWeek(currentDate, { weekStartsOn: 1 });
   }, [currentDate]);
-  
+
   const weekEnd = useMemo(() => {
     return endOfWeek(weekStart, { weekStartsOn: 1 });
   }, [weekStart]);
@@ -52,15 +52,14 @@ export function UnifiedCalendar({
       dedupingInterval: 10000,
     }
   );
-
   useEffect(() => {
     const checkIfMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkIfMobile();
     window.addEventListener('resize', checkIfMobile);
-    
+
     return () => {
       window.removeEventListener('resize', checkIfMobile);
     };
@@ -78,40 +77,40 @@ export function UnifiedCalendar({
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   }, [weekStart]);
-  
+
   const threeDaysView = useMemo(() => {
     const dayIndex = weekDays.findIndex(day => isSameDay(day, currentDate));
     if (dayIndex === -1) return weekDays.slice(0, 3);
-    
+
     if (dayIndex === 0 || dayIndex === 1) {
       return weekDays.slice(0, 3);
     }
-    
+
     if (dayIndex >= weekDays.length - 2) {
       return weekDays.slice(weekDays.length - 3);
     }
-    
+
     return weekDays.slice(dayIndex - 1, dayIndex + 2);
   }, [weekDays, currentDate]);
 
   const getSelectionIndicatorPosition = useCallback(() => {
-    const firstDayIndex = weekDays.findIndex(day => 
+    const firstDayIndex = weekDays.findIndex(day =>
       isSameDay(day, threeDaysView[0])
     );
-    
-    const leftPosition = (firstDayIndex * (100/7));
-    
+
+    const leftPosition = (firstDayIndex * (100 / 7));
+
     return {
       left: `${leftPosition}%`,
-      width: `${(100/7) * 3}%`
+      width: `${(100 / 7) * 3}%`
     };
   }, [weekDays, threeDaysView]);
 
   const allEvents = useMemo(() => {
     if (!reservationsData) return [];
-    
+
     const eventMap = new Map<string, Reservation>();
-    
+
     if (reservationsData.reservations && Array.isArray(reservationsData.reservations)) {
       reservationsData.reservations.forEach((reservation: Reservation) => {
         const id = reservation.id || reservation.virtualId;
@@ -127,17 +126,17 @@ export function UnifiedCalendar({
         }
       });
     }
-    
+
     const groupedEvents = new Map<string, GroupedEvent>();
-    
+
     if (reservationsData.events && Array.isArray(reservationsData.events)) {
       reservationsData.events.forEach((event: any) => {
         const eventId = event.id ? `event-${event.id}` : `event-temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const court = courts.find(c => c.id === event.courtId);
-        
+
         if (court) {
           const groupKey = `${event.name}-${event.startTime}-${event.endTime}`;
-          
+
           if (groupedEvents.has(groupKey)) {
             const existingEvent = groupedEvents.get(groupKey)!;
             existingEvent.courts.push(court.name);
@@ -159,7 +158,7 @@ export function UnifiedCalendar({
         }
       });
     }
-    
+
     groupedEvents.forEach((event, key) => {
       const reservationEvent: Reservation = {
         ...event,
@@ -169,13 +168,13 @@ export function UnifiedCalendar({
       };
       eventMap.set(key, reservationEvent);
     });
-    
+
     return Array.from(eventMap.values());
   }, [reservationsData, courts]);
 
   const dayEventMap = useMemo(() => {
-    const result: {[key: string]: DayEvents} = {};
-    
+    const result: { [key: string]: DayEvents } = {};
+
     weekDays.forEach(day => {
       const dateKey = format(day, 'yyyy-MM-dd');
       result[dateKey] = {
@@ -188,23 +187,23 @@ export function UnifiedCalendar({
         ]
       };
     });
-    
+
     allEvents.forEach(reservation => {
       try {
-        const startTime = typeof reservation.startTime === 'string' 
-          ? parseISO(reservation.startTime) 
+        const startTime = typeof reservation.startTime === 'string'
+          ? parseISO(reservation.startTime)
           : new Date(reservation.startTime);
-        
+
         if (isNaN(startTime.getTime())) {
           console.error("Invalid date:", reservation.startTime);
           return;
         }
-        
+
         const dateKey = format(startTime, 'yyyy-MM-dd');
-        
+
         if (result[dateKey]) {
           result[dateKey].events.push(reservation);
-          
+
           if ((reservation as any).isEvent) {
             const eventIndicator = result[dateKey].indicators.find(i => i.type === 'event');
             if (eventIndicator) eventIndicator.count += 1;
@@ -221,7 +220,7 @@ export function UnifiedCalendar({
         console.error("Error processing reservation:", error);
       }
     });
-    
+
     Object.values(result).forEach(dayData => {
       dayData.events.sort((a, b) => {
         const timeA = new Date(a.startTime as string).getTime();
@@ -229,56 +228,56 @@ export function UnifiedCalendar({
         return timeA - timeB;
       });
     });
-    
+
     return result;
   }, [weekDays, allEvents]);
 
   const selectedDayEvents = useMemo(() => {
     const dayKey = format(currentDate, 'yyyy-MM-dd');
     const dayData = dayEventMap[dayKey];
-    
+
     if (!dayData) return [];
-    
-    const eventsByHour: {[hour: string]: Reservation[]} = {};
-    
+
+    const eventsByHour: { [hour: string]: Reservation[] } = {};
+
     dayData.events.forEach(event => {
       try {
-        const startTime = typeof event.startTime === 'string' 
-          ? parseISO(event.startTime) 
+        const startTime = typeof event.startTime === 'string'
+          ? parseISO(event.startTime)
           : new Date(event.startTime);
-        
+
         if (isNaN(startTime.getTime())) return;
-        
+
         const hour = format(startTime, 'HH:mm');
-        
+
         if (!eventsByHour[hour]) {
           eventsByHour[hour] = [];
         }
-        
+
         eventsByHour[hour].push(event);
       } catch (error) {
         console.error("Error processing event time:", error);
       }
     });
-    
+
     return Object.entries(eventsByHour)
       .sort(([hourA], [hourB]) => hourA.localeCompare(hourB))
       .map(([hour, events]) => ({ hour, events }));
-    
+
   }, [currentDate, dayEventMap]);
 
   const goToPreviousWeek = useCallback(() => {
     setCurrentDate(addDays(weekStart, -7));
   }, [weekStart, setCurrentDate]);
-  
+
   const goToNextWeek = useCallback(() => {
     setCurrentDate(addDays(weekStart, 7));
   }, [weekStart, setCurrentDate]);
-  
+
   const goToToday = useCallback(() => {
     setCurrentDate(new Date());
   }, [setCurrentDate]);
-  
+
   const selectDay = useCallback((day: Date) => {
     setCurrentDate(day);
   }, [setCurrentDate]);
@@ -298,11 +297,11 @@ export function UnifiedCalendar({
           const match = courtName.match(/\d+/);
           return match ? match[0] : courtName;
         });
-        
+
         return `Canchas ${courtNumbers.join(', ')}`;
       }
     }
-    
+
     return reservation.courtName;
   }, []);
 
@@ -314,15 +313,15 @@ export function UnifiedCalendar({
 
   const renderWeekHeader = useCallback(() => {
     const weekRange = `${format(weekStart, "d MMM", { locale: es })} - ${format(addDays(weekStart, 6), "d MMM", { locale: es })}`;
-    
+
     return (
       <div className="mb-4 flex justify-between items-center">
         <div className="text-xl font-bold capitalize">
           {format(currentDate, "MMMM", { locale: es })}
         </div>
-        
+
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={goToPreviousWeek}
             className="p-2 rounded-full hover:bg-gray-100"
             aria-label="Semana anterior"
@@ -331,17 +330,17 @@ export function UnifiedCalendar({
               <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
           </button>
-          
+
           <span className="text-sm">{weekRange}</span>
-          
-          <button 
+
+          <button
             onClick={goToToday}
             className="py-1 px-2 text-xs bg-blue-500 text-white rounded"
           >
             Hoy
           </button>
-          
-          <button 
+
+          <button
             onClick={goToNextWeek}
             className="p-2 rounded-full hover:bg-gray-100"
             aria-label="Semana siguiente"
@@ -360,15 +359,15 @@ export function UnifiedCalendar({
       <div className="flex justify-center mt-1 gap-1">
         {indicators.map((indicator, index) => {
           if (indicator.count === 0) return null;
-          
-          const color = 
+
+          const color =
             indicator.type === 'futbol' ? 'bg-red-500' :
-            indicator.type === 'padel' ? 'bg-yellow-500' : 
-            'bg-green-500';
-          
+              indicator.type === 'padel' ? 'bg-yellow-500' :
+                'bg-green-500';
+
           return (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className={`w-2 h-2 rounded-full ${color}`}
               title={`${indicator.count} ${indicator.type}`}
             />
@@ -383,9 +382,9 @@ export function UnifiedCalendar({
     return (
       <>
         {renderWeekHeader()}
-        
+
         <div className="grid grid-cols-7 gap-0 mb-6 relative">
-          <div 
+          <div
             className="absolute h-full pointer-events-none z-0 transition-all duration-300 ease-in-out"
             style={{
               left: indicatorPosition.left,
@@ -395,7 +394,7 @@ export function UnifiedCalendar({
           >
             <div className="w-full h-full bg-blue-100 rounded-lg"></div>
           </div>
-          
+
           {weekDays.map((day) => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const dayData = dayEventMap[dateKey];
@@ -403,11 +402,11 @@ export function UnifiedCalendar({
             const isSelected = isSameDay(day, currentDate);
             const isInThreeDayView = threeDaysView.some(d => isSameDay(d, day));
             return (
-              <div 
+              <div
                 key={dateKey}
                 className={`
                   text-center p-2 cursor-pointer relative z-10
-                  ${isSelected ? 'bg-blue-500 text-white rounded-lg' : 
+                  ${isSelected ? 'bg-blue-500 text-white rounded-lg' :
                     isInThreeDayView ? 'hover:bg-blue-200' : 'hover:bg-gray-100'}
                   ${isCurrentDay && !isSelected && !isInThreeDayView ? 'border rounded-lg border-blue-500' : ''}
                   transition-all duration-200
@@ -425,13 +424,13 @@ export function UnifiedCalendar({
             );
           })}
         </div>
-        
+
         <div className="grid grid-cols-3 gap-4">
           {threeDaysView.map((day) => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const dayData = dayEventMap[dateKey];
             const isSelected = isSameDay(day, currentDate);
-            
+
             return (
               <div key={dateKey} className="border rounded-lg overflow-hidden h-fit">
                 <div className={`p-3 font-bold text-center ${isSelected ? 'bg-blue-500 text-white' : 'bg-blue-100'}`}>
@@ -439,7 +438,7 @@ export function UnifiedCalendar({
                     {format(day, "EEEE d", { locale: es })}
                   </h3>
                 </div>
-                
+
                 <div className="divide-y">
                   {dayData && dayData.events.length > 0 ? (
                     dayData.events.map((event) => {
@@ -447,13 +446,13 @@ export function UnifiedCalendar({
                         const startTime = new Date(event.startTime as string);
                         const endTime = new Date(event.endTime as string);
                         if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) return null;
-                        
+
                         const eventColor = getEventColor(event);
                         const isEventType = (event as any).isEvent;
-                        
+
                         return (
-                          <div 
-                            key={event.id || event.virtualId} 
+                          <div
+                            key={event.id || event.virtualId}
                             className={`p-4 hover:bg-gray-50 cursor-pointer ${isEventType ? 'bg-green-50' : ''}`}
                             onClick={() => isEventType ? openEventModal(event) : openDetailModal(event)}
                           >
@@ -469,7 +468,7 @@ export function UnifiedCalendar({
                                 <p className="text-sm text-gray-600">
                                   {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
                                 </p>
-                                <p className="text-xs text-gray-500">{formatCourtNames(event)}</p>                                
+                                <p className="text-xs text-gray-500">{formatCourtNames(event)}</p>
                               </div>
                             </div>
                           </div>
@@ -482,7 +481,7 @@ export function UnifiedCalendar({
                   ) : (
                     <div className="p-6 text-center text-gray-500">
                       <p className="mb-3">No hay eventos programados</p>
-                      <button 
+                      <button
                         onClick={() => openReservationModal(day)}
                         className="text-blue-500 text-sm font-medium hover:underline"
                       >
@@ -498,21 +497,21 @@ export function UnifiedCalendar({
       </>
     );
   }, [renderWeekHeader, weekDays, dayEventMap, currentDate, threeDaysView, renderIndicatorDots, getEventColor, openDetailModal, openEventModal, openReservationModal, selectDay, formatCourtNames, getSelectionIndicatorPosition]);
-  
+
   const renderMobileView = useCallback(() => {
     return (
       <>
         {renderWeekHeader()}
-        
+
         <div className="grid grid-cols-7 gap-1 mb-6">
           {weekDays.map((day) => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const dayData = dayEventMap[dateKey];
             const isCurrentDay = isToday(day);
             const isSelected = isSameDay(day, currentDate);
-            
+
             return (
-              <div 
+              <div
                 key={dateKey}
                 className={`
                   text-center p-1 rounded cursor-pointer
@@ -532,12 +531,12 @@ export function UnifiedCalendar({
             );
           })}
         </div>
-        
+
         <div>
           <h2 className="text-lg font-bold mb-4 capitalize">
             {format(currentDate, "EEEE d 'de' MMMM", { locale: es })}
           </h2>
-          
+
           <div className="divide-y">
             {selectedDayEvents.length > 0 ? (
               selectedDayEvents.map(({ hour, events }) => (
@@ -547,19 +546,19 @@ export function UnifiedCalendar({
                       {hour}
                     </div>
                   </div>
-                  
+
                   <div className="mt-2 space-y-2">
                     {events.map((event) => {
                       try {
                         const startTime = new Date(event.startTime as string);
                         const endTime = new Date(event.endTime as string);
                         if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) return null;
-                        
+
                         const eventColor = getEventColor(event);
                         const isEventType = (event as any).isEvent;
-                        
+
                         return (
-                          <div 
+                          <div
                             key={event.id || event.virtualId}
                             className={`p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${isEventType ? 'bg-green-50' : ''}`}
                             onClick={() => isEventType ? openEventModal(event) : openDetailModal(event)}
@@ -624,7 +623,7 @@ export function UnifiedCalendar({
     return (
       <div className="p-8 text-center text-red-600">
         <p>{error}</p>
-        <button 
+        <button
           onClick={refetchData}
           className="mt-2 px-4 py-2 bg-blue-500 text-white rounded"
         >

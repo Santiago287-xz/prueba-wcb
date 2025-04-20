@@ -19,7 +19,7 @@ import {
   FaBell,
   FaUserCircle,
   FaUsers,
-  FaCreditCard
+  FaCreditCard,
 } from "react-icons/fa";
 
 interface ListItemsProps {

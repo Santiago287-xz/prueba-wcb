@@ -22,7 +22,7 @@ const fetcher = async (...args: Parameters<typeof axios>) => {
 
 const AdminTrainerDashboard = ({ user }: { user: User }) => {
     const { data: fees, isLoading: feesLoading } = useSWR("/api/fees", fetcher);
-    const { data: users, isLoading: usersLoading, mutate } = useSWR("/api/users", fetcher, {
+    const { data: users, isLoading: usersLoading, mutate } = useSWR("/api/members", fetcher, {
         refreshInterval: 10000,
     });
     const { data: attendances, isLoading: attendancesLoading } = useSWR("/api/attendance", fetcher);
@@ -40,14 +40,6 @@ const AdminTrainerDashboard = ({ user }: { user: User }) => {
                     Hi, Welcome back <br />
                     <Box component={"span"}>{user.name}</Box>
                 </Typography>
-                <Select
-                    value={user.isActive ? "online" : "offline"}
-                    onChange={(event) => handleActiveStatus(router, event.target.value, mutate)}
-                    displayEmpty
-                >
-                    <MenuItem value={"online"}>🟢 Online</MenuItem>
-                    <MenuItem value={"offline"}>🔴 Offline</MenuItem>
-                </Select>
             </Box>
 
             <Divider sx={{ mb: 5, mt: 5 }} />

@@ -56,6 +56,8 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
   const [currentView, setCurrentView] = useState<number>(0); // 0 for calendar, 1 for overhead view
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPurgeDialogOpen, setIsPurgeDialogOpen] = useState<boolean>(false);
+  const [isPurging, setIsPurging] = useState<boolean>(false);
 
   // Transaction modal state
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
@@ -424,7 +426,7 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
 
   const handleEventSuccess = useCallback(() => {
     setIsEventModalOpen(false);
-    setSelectedReservation(null); // Esta línea es importante
+    setSelectedReservation(null);
     mutateAll();
   }, [mutateAll]);
 
@@ -438,14 +440,44 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
   };
 
   const handleCourtClick = useCallback((court: Court) => {
-    // Open a reservation modal for the selected court
     openReservationModal(currentDate, new Date().getHours());
-    // Pre-select the court in the modal
     setModalData(prev => ({
       ...prev,
       courtId: court.id
     }));
   }, [currentDate, openReservationModal]);
+
+  const openPurgeDialog = useCallback(() => {
+    setIsPurgeDialogOpen(true);
+  }, []);
+
+  const closePurgeDialog = useCallback(() => {
+    setIsPurgeDialogOpen(false);
+  }, []);
+
+  const handlePurgeData = useCallback(async () => {
+    setIsPurging(true);
+    try {
+      // Purge bookings
+      await fetch('/api/bookings/purge', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      // Purge transactions
+      await fetch('/api/transactions/purge', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      await mutateAll();
+      closePurgeDialog();
+    } catch (error) {
+      console.error('Error purging data:', error);
+    } finally {
+      setIsPurging(false);
+    }
+  }, [mutateAll, closePurgeDialog]);
 
   const enhancedModalData = useMemo(() => ({
     ...modalData,
@@ -454,7 +486,6 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
       setModalData(prev => ({ ...prev, courtId }));
     },
     courts,
-    // Add the openInvoiceModal handler to the modal data
     openInvoiceModal: modalData.reservation ? () => openInvoiceModal(modalData.reservation as Reservation) : null
   }), [modalData, courts, openInvoiceModal]);
 
@@ -462,11 +493,11 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     <div className="max-w-full md:max-w-7xl mx-auto bg-white rounded shadow">
       <div className="p-4 border-b flex justify-between items-center">
         <h1 className="text-xl font-bold text-gray-800 hidden md:block">Reservas de Canchas</h1>
-        <div className="flex gap-2 flex-wrap">
-          <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex gap-2 flex-wrap w-full md:w-auto">
+          <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
             <button
               onClick={() => openReservationModal(currentDate)}
-              className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded flex items-center"
+              className="px-4 py-2 bg-blue-600 text-white rounded flex items-center justify-center"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 3a1 1 0 00-1 1v5H4a1 1 0 100 2h5v5a1 1 0 102 0v-5h5a1 1 0 100-2h-5V4a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -475,24 +506,33 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
             </button>
             <button
               onClick={() => openEventModal()}
-              className="w-full md:w-auto px-4 py-2 bg-green-600 text-white rounded flex items-center"
+              className="px-4 py-2 bg-green-600 text-white rounded flex items-center justify-center"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
               </svg>
               Crear Evento
             </button>
+            <button
+              onClick={() => openTransactionModal()}
+              className="px-4 py-2 bg-purple-600 text-white rounded flex items-center justify-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V12a2 2 0 002 2h8a2 2 0 002-2v-.5a2 2 0 002-2V6a2 2 0 00-2-2H4z" />
+                <path d="M3 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM3 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM7 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 017 10.75zM7 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM11 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75z" />
+              </svg>
+              Nueva Transacción
+            </button>
+            <button
+              onClick={openPurgeDialog}
+              className="px-4 py-2 bg-red-600 text-white rounded flex items-center justify-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Purgar Datos
+            </button>
           </div>
-          <button
-            onClick={() => openTransactionModal()}
-            className="w-full md:w-auto px-4 py-2 bg-purple-600 text-white rounded flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V12a2 2 0 002 2h8a2 2 0 002-2v-.5a2 2 0 002-2V6a2 2 0 00-2-2H4z" />
-              <path d="M3 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM3 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM7 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 017 10.75zM7 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM11 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75z" />
-            </svg>
-            Nueva Transacción
-          </button>
         </div>
       </div>
 
@@ -572,6 +612,44 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
           }}
           onSuccess={handleEventSuccess}
         />
+      )}
+
+      {/* Confirmation Dialog for Purging Data */}
+      {isPurgeDialogOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h2 className="text-xl font-bold text-red-600 mb-4">Confirmar eliminación</h2>
+            <p className="mb-6">
+              ¿Está seguro de que desea eliminar todos los datos? Esta acción no se puede deshacer y eliminará todas las reservas y transacciones.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closePurgeDialog}
+                disabled={isPurging}
+                className="px-4 py-2 border border-gray-300 rounded text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePurgeData}
+                disabled={isPurging}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 flex items-center"
+              >
+                {isPurging ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Eliminando...
+                  </>
+                ) : (
+                  <>Eliminar todos los datos</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

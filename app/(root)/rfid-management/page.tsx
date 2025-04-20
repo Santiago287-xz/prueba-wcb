@@ -19,6 +19,9 @@ import {
 import { AssignmentIndOutlined, HistoryOutlined, Refresh } from '@mui/icons-material';
 import MembersList from '@/app/components/RFID/MembersList';
 import RFIDLogs from '@/app/components/RFID/Logs';
+import MembershipPriceModal from '@/app/components/RFID/MembershipPriceModal';
+import { FaCreditCard } from 'react-icons/fa';
+import { useSession } from 'next-auth/react';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -70,6 +73,9 @@ export default function RFIDManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<AccessNotification | null>(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [membershipModalOpen, setMembershipModalOpen] = useState(false);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
 
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
@@ -102,18 +108,18 @@ export default function RFIDManagementPage() {
 
   useEffect(() => {
     fetchStats();
-    
+
     let eventSource: EventSource | null = null;
-    
+
     const setupEventSource = () => {
       if (eventSource) {
         eventSource.close();
-      }      
+      }
       eventSource = new EventSource('/api/members/rfid/events');
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
+
           if (data.type && data.cardNumber) {
             if (data.event !== 'connected') {
               setNotification(data);
@@ -126,17 +132,17 @@ export default function RFIDManagementPage() {
           console.error('Error parsing SSE data:', error);
         }
       };
-      
+
       eventSource.onerror = (error) => {
         console.error('SSE error:', error);
         eventSource?.close();
-        
+
         setTimeout(setupEventSource, 5000);
       };
     };
-    
+
     setupEventSource();
-    
+
     return () => {
       eventSource?.close();
     };
@@ -145,20 +151,41 @@ export default function RFIDManagementPage() {
   const playSound = (status: string) => {
     let soundFile;
     switch (status) {
-      case 'allowed': soundFile = 'access-granted.mp3'; break;
-      case 'warning': soundFile = 'warning.mp3'; break;
-      case 'denied': soundFile = 'access-denied.mp3'; break;
-      default: soundFile = 'notification.mp3';
+      case 'allowed': soundFile = 'access-granted'; break;
+      case 'warning': soundFile = 'warning'; break;
+      case 'denied': soundFile = 'access-denied'; break;
+      default: soundFile = 'notification';
     }
-
-    try {
-      const audio = new Audio(`/sounds/${soundFile}`);
-      audio.play().catch(err => {
-        console.error('Error playing sound:', err);
+  
+    // Intentar múltiples formatos de audio
+    const formats = ['mp3', 'wav', 'ogg'];
+    
+    const tryNextFormat = (index = 0) => {
+      if (index >= formats.length) {
+        console.error('No supported audio format found');
+        return;
+      }
+      
+      const audio = new Audio(`/sounds/${soundFile}.${formats[index]}`);
+      
+      // Precargar el audio para verificar si es compatible
+      audio.addEventListener('canplaythrough', () => {
+        audio.play().catch(err => {
+          console.error(`Error playing ${formats[index]} sound:`, err);
+          tryNextFormat(index + 1);
+        });
       });
-    } catch (err) {
-      console.error('Error playing sound:', err);
-    }
+      
+      audio.addEventListener('error', () => {
+        console.warn(`Format ${formats[index]} not supported or file not found`);
+        tryNextFormat(index + 1);
+      });
+      
+      // Iniciar carga
+      audio.load();
+    };
+    
+    tryNextFormat();
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -175,6 +202,13 @@ export default function RFIDManagementPage() {
         <Typography variant="h4">
           Gestión de Acceso RFID
         </Typography>
+        <button
+          onClick={() => setMembershipModalOpen(true)}
+          className='flex items-center bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition duration-200 gap-2'
+        >
+          <FaCreditCard />
+          Precios de Membresía
+        </button>
       </div>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -311,13 +345,18 @@ export default function RFIDManagementPage() {
           </Typography>
           {notification?.user && (
             <Typography variant="body2" sx={{ mt: 0.5 }}>
-              {notification.isToleranceEntry ? 
-                "Período de tolerancia - No se descontaron puntos" : 
+              {notification.isToleranceEntry ?
+                "Período de tolerancia - No se descontaron puntos" :
                 `Puntos restantes: ${notification.user.accessPoints}`}
             </Typography>
           )}
         </Alert>
       </Snackbar>
+      <MembershipPriceModal 
+        open={membershipModalOpen} 
+        onClose={() => setMembershipModalOpen(false)} 
+        isAdmin={isAdmin}
+      />
     </Container>
   );
 }

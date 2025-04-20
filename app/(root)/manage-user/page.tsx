@@ -198,7 +198,7 @@ interface UserDetails {
   exercises: UserExercise[];
 }
 
-const ManageUser: React.FC = () => {
+const ManageUser = () => {
   const router = useRouter();
   const sessionData = useSession().data;
   const sessionUser = sessionData?.user;
@@ -243,7 +243,7 @@ const ManageUser: React.FC = () => {
 
   // Array de entrenadores extraído de trainersData
   const { data: trainersData, isLoading: isTrainersLoading, mutate: mutateTrainers } = useSWR(
-    '/api/members/rfid/trainers', 
+    '/api/rfid/trainers', 
     fetcher, 
     {
       onSuccess: () => setTrainerLoading(false),

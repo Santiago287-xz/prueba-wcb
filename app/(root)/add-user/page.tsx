@@ -131,7 +131,7 @@ const AddMemberPage: React.FC = () => {
         return;
       }
       
-      const res = await axios.post("/api/users", userData, {
+      const res = await axios.post("/api/members", userData, {
         headers: {
           "Content-Type": "application/json",
         },
@@ -462,7 +462,7 @@ const AddMemberPage: React.FC = () => {
                           
                           console.log("Enviando datos de prueba directo:", testData);
                           
-                          const res = await axios.post("/api/users", testData, {
+                          const res = await axios.post("/api/members", testData, {
                             headers: { "Content-Type": "application/json" }
                           });
                           

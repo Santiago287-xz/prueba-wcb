@@ -6,10 +6,13 @@ import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 export async function DELETE() {
   const session = await getServerSession(authOptions);
-  
-  if (!session?.user?.id || session?.user?.role === "admin" || session?.user?.role === "court_manager") {
+  if (
+    !session?.user?.id || 
+    (session.user.role !== "admin" && session.user.role !== "court_manager")
+  ) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+  
 
   try {
     // Eliminar todas las transacciones

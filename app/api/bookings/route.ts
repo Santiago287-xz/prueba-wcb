@@ -10,14 +10,28 @@ async function getReservationsEfficiently(courtId: string, startDate: Date, endD
   if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  // Obtener reservas no recurrentes para esta semana
   const nonRecurringRes = await prisma.courtReservation.findMany({
     where: {
       courtId: courtId,
       status: "confirmed",
       isRecurring: false,
-      startTime: { gte: startDate },
-      endTime: { lte: endDate },
+      OR: [
+        {
+          // Hora de inicio dentro del rango
+          startTime: { gte: startDate, lte: endDate },
+        },
+        {
+          // Hora de fin dentro del rango
+          endTime: { gte: startDate, lte: endDate },
+        },
+        {
+          // Reserva que abarca todo el rango
+          AND: [
+            { startTime: { lt: startDate } },
+            { endTime: { gt: endDate } }
+          ]
+        }
+      ]
     },
     select: {
       id: true,
@@ -87,6 +101,7 @@ export async function GET(req: NextRequest) {
     const startDate = new Date(weekStart);
     const endDate = new Date(weekEnd);
     endDate.setHours(23, 59, 59, 999);
+    endDate.setDate(endDate.getDate() + 1);
 
     // Actualizar estado de reservas completadas en una sola consulta
     const today = new Date();
@@ -205,7 +220,7 @@ export async function GET(req: NextRequest) {
         const instanceEnd = new Date(instanceStart);
         instanceEnd.setTime(instanceStart.getTime() + duration);
         
-        if (isAfter(instanceStart, startDate) && isBefore(instanceEnd, endDate)) {
+        if (!(isAfter(instanceStart, endDate) || isBefore(instanceEnd, startDate))) {
           const virtualInstance = {
             ...res,
             startTime: instanceStart,

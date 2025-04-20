@@ -5,7 +5,6 @@ import Link from "next/link";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { handleActiveStatus } from "@/utils";
 import { debounce } from "lodash";
 import { FaBars, FaTimes, FaSignOutAlt } from "react-icons/fa";
 
@@ -127,7 +126,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   
   const handleLogout = async () => {
     try {
-      await handleActiveStatus(router, "offline");
       await signOut();
     } catch (error) {
       console.error("Error logging out:", error);

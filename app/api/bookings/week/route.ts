@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const start = searchParams.get('start');
     const end = searchParams.get('end');
-    
     // Validate params
     if (!start || !end) {
       return NextResponse.json({ error: 'Missing start or end date' }, { status: 400 });
@@ -23,9 +22,14 @@ export async function GET(request: NextRequest) {
     // Parse and normalize dates
     const startDate = new Date(start);
     startDate.setHours(0, 0, 0, 0);
-    
+
+    // Importante: ajusta el FINAL del día para cubrir zona horaria
     const endDate = new Date(end);
     endDate.setHours(23, 59, 59, 999);
+
+    // Agrega un día adicional al endDate para asegurar que se cubran todas las zonas horarias
+    endDate.setDate(endDate.getDate() + 1);
+
     
     // Get all courts in a single query
     const courts = await prisma.court.findMany({

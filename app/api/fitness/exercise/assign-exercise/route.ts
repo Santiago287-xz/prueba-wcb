@@ -1,6 +1,6 @@
 // /api/fitness/exercise/assign-exercise/route.ts
 import { SessionUser } from "@/types";
-import { getSession } from "../../../users/route";
+import { getSession } from "../../../members/assigned/route";
 import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 

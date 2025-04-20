@@ -102,7 +102,7 @@ export default function MembersList() {
 
   const fetchTrainers = useCallback(async () => {
     try {
-      const response = await axios.get('/api/members/rfid/trainers');
+      const response = await axios.get('/api/rfid/trainers');
       setTrainers(response.data);
     } catch (error) {
       console.error('Error fetching trainers:', error);

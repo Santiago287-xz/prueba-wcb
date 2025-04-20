@@ -146,7 +146,7 @@ export default function AssignExercisePage() {
     setLoading(true);
     try {
       // Obtener detalles del usuario
-      const userResponse = await axios.get(`/api/users/${userId}`);
+      const userResponse = await axios.get(`/api/members/${userId}`);
       setUser(userResponse.data);
       
       // Obtener la lista de ejercicios disponibles

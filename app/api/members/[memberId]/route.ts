@@ -1,17 +1,16 @@
-// app/api/users/[userId]/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 
 export async function GET(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: { membersId: string } }
 ) {
   try {
-    // Extrae el userId de los parámetros de la ruta
-    const userId = params.userId;
+    // Extrae el membersId de los parámetros de la ruta
+    const membersId = params.membersId;
     
     // Valida el formato del ID
-    if (!userId || !/^[0-9a-fA-F]{24}$/.test(userId)) {
+    if (!membersId || !/^[0-9a-fA-F]{24}$/.test(membersId)) {
       return NextResponse.json(
         { error: "ID de usuario inválido" },
         { status: 400 }
@@ -20,7 +19,7 @@ export async function GET(
 
     // Busca el usuario en la base de datos
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: membersId },
     });
 
     if (!user) {
