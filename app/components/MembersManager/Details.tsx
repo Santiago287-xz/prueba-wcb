@@ -8,12 +8,13 @@ import {
   Avatar,
   Typography,
   Box,
-  CircularProgress,
   Grid,
   Card,
   CardContent,
   Divider,
   Chip,
+  Skeleton,
+  useMediaQuery,
 } from "@mui/material";
 import { UserDetailsProps } from "@/app/types/members";
 import UserExercises from "./Exercises";
@@ -36,6 +37,71 @@ const UserDetails: React.FC<UserDetailsProps> = ({
   handleEditExercise,
   handleDeleteExercise,
 }) => {
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const DetailSkeleton = () => (
+    <>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <Card variant="outlined" sx={{ height: '100%' }}>
+            <CardContent>
+              <Skeleton variant="text" width="60%" height={32} sx={{ mb: 1 }} />
+              <Divider sx={{ mb: 2 }} />
+
+              <Grid container spacing={2}>
+                {[...Array(5)].map((_, index) => (
+                  <React.Fragment key={index}>
+                    <Grid item xs={5} sm={4}>
+                      <Skeleton variant="text" width="80%" />
+                    </Grid>
+                    <Grid item xs={7} sm={8}>
+                      <Skeleton variant="text" width="90%" />
+                    </Grid>
+                  </React.Fragment>
+                ))}
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card variant="outlined" sx={{ height: '100%' }}>
+            <CardContent>
+              <Skeleton variant="text" width="60%" height={32} sx={{ mb: 1 }} />
+              <Divider sx={{ mb: 2 }} />
+
+              <Grid container spacing={2}>
+                {[...Array(4)].map((_, index) => (
+                  <React.Fragment key={index}>
+                    <Grid item xs={6}>
+                      <Skeleton variant="text" width="80%" />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Skeleton variant="text" width="70%" />
+                    </Grid>
+                  </React.Fragment>
+                ))}
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent>
+          <Skeleton variant="text" width="40%" height={32} sx={{ mb: 1 }} />
+          <Divider sx={{ mb: 2 }} />
+
+          {[...Array(3)].map((_, index) => (
+            <Box key={index} sx={{ mb: 2 }}>
+              <Skeleton variant="rectangular" height={60} />
+            </Box>
+          ))}
+        </CardContent>
+      </Card>
+    </>
+  );
+
   return (
     <Dialog
       open={detailsDialogOpen}
@@ -45,86 +111,112 @@ const UserDetails: React.FC<UserDetailsProps> = ({
       PaperProps={{
         sx: {
           borderRadius: "12px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)"
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)",
+          m: isMobile ? 1 : 4,
+          width: isMobile ? 'calc(100% - 16px)' : undefined,
         }
       }}
     >
-      <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-          {userDetails ? getInitials(userDetails.name) : '...'}
-        </Avatar>
-        <Typography variant="h6">Detalles del Usuario</Typography>
-      </DialogTitle>
-      
-      <DialogContent dividers>
+      <DialogTitle sx={{
+        pb: 1,
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        pt: isMobile ? 2 : undefined,
+        gap: 1,
+      }}>
         {loadingDetails ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
+          <Skeleton variant="circular" width={40} height={40} />
+        ) : (
+          <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+            {userDetails ? getInitials(userDetails.name) : '...'}
+          </Avatar>
+        )}
+        <span>
+          {loadingDetails ? (
+            <Skeleton variant="text" width={150} />
+          ) : (
+            "Detalles del Usuario"
+          )}
+        </span>
+      </DialogTitle>
+
+      <DialogContent dividers sx={{
+        p: isMobile ? 2 : 3,
+        '&::-webkit-scrollbar': {
+          width: '8px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: 'rgba(0,0,0,0.2)',
+          borderRadius: '4px',
+        }
+      }}>
+        {loadingDetails ? (
+          <DetailSkeleton />
         ) : userDetails ? (
           <>
-            <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid container spacing={isMobile ? 2 : 3} sx={{ mb: 3 }}>
               <Grid item xs={12} md={6}>
                 <Card variant="outlined" sx={{ height: '100%' }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
+                  <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontSize: isMobile ? '1rem' : undefined }}>
                       Información Personal
                     </Typography>
                     <Divider sx={{ mb: 2 }} />
-                    
-                    <Grid container spacing={2}>
-                      <Grid item xs={4}>
+
+                    <Grid container spacing={isMobile ? 1 : 2}>
+                      <Grid item xs={5} sm={4}>
                         <Typography variant="body2" color="text.secondary">
                           Nombre:
                         </Typography>
                       </Grid>
-                      <Grid item xs={8}>
-                        <Typography variant="body2" fontWeight="medium">
+                      <Grid item xs={7} sm={8}>
+                        <Typography variant="body2" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>
                           {userDetails.name}
                         </Typography>
                       </Grid>
-                      
-                      <Grid item xs={4}>
+
+                      <Grid item xs={5} sm={4}>
                         <Typography variant="body2" color="text.secondary">
                           Email:
                         </Typography>
                       </Grid>
-                      <Grid item xs={8}>
-                        <Typography variant="body2">
+                      <Grid item xs={7} sm={8}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                           {userDetails.email}
                         </Typography>
                       </Grid>
-                      
-                      <Grid item xs={4}>
+
+                      <Grid item xs={5} sm={4}>
                         <Typography variant="body2" color="text.secondary">
                           Rol:
                         </Typography>
                       </Grid>
-                      <Grid item xs={8}>
-                        <Chip 
-                          label={getRoleName(userDetails.role)} 
+                      <Grid item xs={7} sm={8}>
+                        <Chip
+                          label={getRoleName(userDetails.role)}
                           color={getRoleColor(userDetails.role)}
                           size="small"
                         />
                       </Grid>
-                      
-                      <Grid item xs={4}>
+
+                      <Grid item xs={5} sm={4}>
                         <Typography variant="body2" color="text.secondary">
                           Género:
                         </Typography>
                       </Grid>
-                      <Grid item xs={8}>
+                      <Grid item xs={7} sm={8}>
                         <Typography variant="body2">
                           {userDetails.gender === 'male' ? 'Masculino' : 'Femenino'}
                         </Typography>
                       </Grid>
-                      
-                      <Grid item xs={4}>
+
+                      <Grid item xs={5} sm={4}>
                         <Typography variant="body2" color="text.secondary">
                           Edad:
                         </Typography>
                       </Grid>
-                      <Grid item xs={8}>
+                      <Grid item xs={7} sm={8}>
                         <Typography variant="body2">
                           {userDetails.age} años
                         </Typography>
@@ -133,16 +225,16 @@ const UserDetails: React.FC<UserDetailsProps> = ({
                   </CardContent>
                 </Card>
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <Card variant="outlined" sx={{ height: '100%' }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
+                  <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontSize: isMobile ? '1rem' : undefined }}>
                       Perfil Deportivo
                     </Typography>
                     <Divider sx={{ mb: 2 }} />
-                    
-                    <Grid container spacing={2}>
+
+                    <Grid container spacing={isMobile ? 1 : 2}>
                       <Grid item xs={6}>
                         <Typography variant="body2" color="text.secondary">
                           Altura:
@@ -153,7 +245,7 @@ const UserDetails: React.FC<UserDetailsProps> = ({
                           {userDetails.height} cm
                         </Typography>
                       </Grid>
-                      
+
                       <Grid item xs={6}>
                         <Typography variant="body2" color="text.secondary">
                           Peso:
@@ -164,18 +256,18 @@ const UserDetails: React.FC<UserDetailsProps> = ({
                           {userDetails.weight} kg
                         </Typography>
                       </Grid>
-                      
+
                       <Grid item xs={6}>
                         <Typography variant="body2" color="text.secondary">
                           Objetivo:
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2">
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                           {getGoalName(userDetails.goal)}
                         </Typography>
                       </Grid>
-                      
+
                       <Grid item xs={6}>
                         <Typography variant="body2" color="text.secondary">
                           Nivel:
@@ -191,8 +283,8 @@ const UserDetails: React.FC<UserDetailsProps> = ({
                 </Card>
               </Grid>
             </Grid>
-            
-            <UserExercises 
+
+            <UserExercises
               exercises={userDetails.exercises}
               sessionUser={sessionUser}
               selectedUser={selectedUser}
@@ -207,11 +299,13 @@ const UserDetails: React.FC<UserDetailsProps> = ({
           <Typography color="text.secondary">No se pudo cargar la información del usuario</Typography>
         )}
       </DialogContent>
-      
-      <DialogActions sx={{ px: 3, py: 2 }}>
+
+      <DialogActions sx={{ px: isMobile ? 2 : 3, py: isMobile ? 1.5 : 2, justifyContent: 'center' }}>
         <Button
           variant="outlined"
           onClick={() => setDetailsDialogOpen(false)}
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
         >
           Cerrar
         </Button>

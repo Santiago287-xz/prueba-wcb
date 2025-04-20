@@ -1,4 +1,5 @@
 import { User } from "@prisma/client";
+import { type AppRouterInstance } from "next/dist/shared/lib/app-router-context";
 
 export interface UserExercise {
   id: string;
@@ -6,7 +7,8 @@ export interface UserExercise {
   sets: number;
   reps: number;
   weight: number;
-  rest: number;
+  duration?: number;
+  notes?: string;
   assignedAt: string;
 }
 
@@ -15,7 +17,6 @@ export interface UserDetails {
   name: string;
   email: string;
   role: string;
-  isActive: boolean;
   gender: string;
   age: number;
   height: number;
@@ -33,10 +34,22 @@ export interface EditExerciseData {
   weight: number;
 }
 
+export interface FiltersProps {
+  searchTerm: string;
+  handleSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  toggleFilters: () => void;
+  resetFilters: () => void;
+  filtersOpen: boolean;
+  filterRole: string;
+  handleFilterRoleChange: (event: any) => void;
+  sessionUser: any;
+  styles: any;
+}
+
 export interface UserTableProps {
   data: any;
   isLoading: boolean;
-  filteredAndSortedData: (User & { trainer: User | null })[];
+  filteredAndSortedData: User[];
   handleOpenDetails: (userId: string) => void;
   setUserToDelete: (userId: string) => void;
   setDeleteDialogOpen: (open: boolean) => void;
@@ -47,7 +60,7 @@ export interface UserTableProps {
   getRoleName: (role: string) => string;
   getRoleColor: (role: string) => "primary" | "secondary" | "error" | "info" | "success" | "warning" | "default";
   getInitials: (name: string) => string;
-  router: any;
+  router: AppRouterInstance;
   styles: any;
 }
 
@@ -58,7 +71,7 @@ export interface UserDetailsProps {
   loadingDetails: boolean;
   selectedUser: string | null;
   sessionUser: any;
-  router: any;
+  router: AppRouterInstance;
   theme: any;
   getInitials: (name: string) => string;
   getRoleName: (role: string) => string;
@@ -75,7 +88,7 @@ export interface UserExercisesProps {
   sessionUser: any;
   selectedUser: string | null;
   setDetailsDialogOpen: (open: boolean) => void;
-  router: any;
+  router: AppRouterInstance;
   formatDate: (dateString: string) => string;
   handleEditExercise: (exerciseId: string) => void;
   handleDeleteExercise: (exerciseId: string) => void;
@@ -95,16 +108,4 @@ export interface DeleteExerciseDialogProps {
   setDeleteExerciseDialogOpen: (open: boolean) => void;
   handleConfirmDeleteExercise: () => Promise<void>;
   loadingExerciseDelete: boolean;
-}
-
-export interface FiltersProps {
-  searchTerm: string;
-  handleSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  toggleFilters: () => void;
-  resetFilters: () => void;
-  filtersOpen: boolean;
-  filterRole: string;
-  handleFilterRoleChange: (event: any) => void;
-  sessionUser: any;
-  styles: any;
 }

@@ -47,6 +47,7 @@ const PATH_PERMISSIONS = {
 		"member",
 		"employee",
 		"court_manager",
+		"receptionist",
 	],
 	"/unauthorized": [
 		"admin",
@@ -83,9 +84,13 @@ const API_PERMISSIONS = {
 		"admin",
 		"employee",
 	],
-	"/api/members": ["admin", "receptionist"],	
+	"/api/members": ["admin", "receptionist", "trainer"],
+	"/api/members/membersId": ["admin", "receptionist", "trainer"],
+	"/api/members/assigned": ["admin", "receptionist", "trainer"],
+	"/api/create-user": ["admin", "trainer"],
+	"/api/rfid/trainers": ["admin", "receptionist", "trainer"],
 	"/api/payments/stripe": ["member"],
-	"/api/rfid": ["admin", "receptionist"],
+	"/api/rfid": ["admin", "receptionist", "employee"],
 	"/api/sales": ["admin", "employee"],
 	"/api/transactions": ["admin"],
 	"/api/fitness/exercise": ["admin", "trainer", "member"],
@@ -164,7 +169,7 @@ export async function middleware(
 
 		if (!hasPermission) {
 			return NextResponse.json(
-				{ error: "Acceso denegado" },
+				{ error: "Acceso denegado", role, path },
 				{ status: 403 }
 			);
 		}

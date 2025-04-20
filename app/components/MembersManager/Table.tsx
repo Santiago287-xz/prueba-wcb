@@ -183,7 +183,7 @@ const UserTable: React.FC<UserTableProps> = ({
                           <IconButton
                             color="success"
                             size="small"
-                            onClick={() => router.push(`/exercise-assignment/${user.id}`)}
+                            onClick={() => router.push(`/manage-user/${user.id}`)}
                             sx={{
                               transition: "all 0.2s",
                               "&:hover": {

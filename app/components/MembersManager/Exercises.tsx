@@ -42,7 +42,7 @@ const UserExercises: React.FC<UserExercisesProps> = ({
             startIcon={<SportsMartialArts />}
             onClick={() => {
               setDetailsDialogOpen(false);
-              router.push(`/exercise-assignment/${selectedUser}`);
+              router.push(`/manage-user/${selectedUser}`);
             }}
           >
             Añadir ejercicios
@@ -158,7 +158,7 @@ const UserExercises: React.FC<UserExercisesProps> = ({
               startIcon={<SportsMartialArts />}
               onClick={() => {
                 setDetailsDialogOpen(false);
-                router.push(`/exercise-assignment/${selectedUser}`);
+                router.push(`/manage-user/${selectedUser}`);
               }}
               sx={{ mt: 2 }}
             >

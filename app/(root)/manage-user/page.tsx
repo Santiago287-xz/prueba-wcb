@@ -113,9 +113,14 @@ const styles = {
 
 // Custom data fetching function using SWR and Axios
 const fetcher = async (...args: Parameters<typeof axios>) => {
-  const res = await axios(...args)
-  return res.data
-}
+  try {
+    const res = await axios(...args);
+    return res.data;
+  } catch (error) {
+    console.error("Error en fetcher:", error);
+    throw error;
+  }
+};
 
 // Helper para generar las iniciales de un nombre
 const getInitials = (name: string): string => {
@@ -179,7 +184,7 @@ const ManageUser: React.FC = () => {
 
   // Usamos SWR con los filtros aplicados
   const { data, isLoading, mutate } = useSWR(
-    `/api/users?page=${currentPage}&limit=${rowsPerPage}&role=${filterRole}&search=${searchTerm}`, 
+    `/api/members/assigned?page=${currentPage}&limit=${rowsPerPage}&role=${filterRole}&search=${searchTerm}`, 
     fetcher
   )
 
@@ -189,7 +194,10 @@ const ManageUser: React.FC = () => {
     fetcher, 
     {
       onSuccess: () => setTrainerLoading(false),
-      onError: () => setTrainerLoading(false)
+      onError: (err) => {
+        console.error("Error al cargar entrenadores:", err);
+        setTrainerLoading(false);
+      }
     }
   )
   const trainers = useMemo(() => trainersData?.data || [], [trainersData]);
@@ -204,34 +212,12 @@ const ManageUser: React.FC = () => {
     fetchTrainers();
   }, []);
 
-  // Manejar asignación de entrenador
-  const handleChangeTrainer = async (trainerId: string, userId: string) => {
-    try {
-      const data = {
-        trainerId,
-        userId,
-      }
-      const res = await axios.patch("/api/users", data, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (res.status === 201) {
-        showSnackbar("Entrenador asignado correctamente", "success");
-        await mutate();
-      }
-    } catch (err: Error | any) {
-      showSnackbar("Error al asignar entrenador", "error");
-    }
-  }
-
   // Obtener detalles del usuario
   const fetchUserDetails = async (userId: string) => {
     setLoadingDetails(true);
     try {
       // Obtener detalles del usuario
-      const userResponse = await axios.get(`/api/users/${userId}`);
+      const userResponse = await axios.get(`/api/members?memberId=${userId}`);
       
       // Obtener ejercicios asignados al usuario
       const exercisesResponse = await axios.get(`/api/fitness/exercise/user-exercises/${userId}`);
@@ -311,7 +297,7 @@ const ManageUser: React.FC = () => {
     if (!userToDelete) return;
 
     try {
-      await axios.delete(`/api/users/${userToDelete}`);
+      await axios.delete(`/api/rfid/${userToDelete}`);
       
       showSnackbar("Usuario eliminado correctamente", "success");
       await mutate();

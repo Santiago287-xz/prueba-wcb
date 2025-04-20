@@ -19,15 +19,10 @@ import {
   IconButton,
   Card,
   CardContent,
-  CardActions,
   Avatar,
   Chip,
   Tooltip,
   InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Stack,
   Accordion,
   AccordionSummary,
@@ -40,7 +35,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
   Stepper,
   Step,
   StepLabel,
@@ -49,7 +43,6 @@ import {
 import { 
   Delete, 
   Search, 
-  FilterList, 
   FitnessCenter, 
   ArrowBackIos, 
   Add, 
@@ -61,11 +54,11 @@ import {
   SportsGymnastics,
   Speed,
   CheckCircle,
-  SaveAlt,
-  Menu as MenuIcon
+  SaveAlt
 } from "@mui/icons-material";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { CustomizedExercise } from "@/types";
 
 // Categorías predefinidas de ejercicios con sus iconos
 const EXERCISE_CATEGORIES = {
@@ -93,7 +86,7 @@ export default function AssignExercisePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
-  const userId = typeof params.userId === 'string' ? params.userId : params.userId[0];
+  const membersId = typeof params.membersId === 'string' ? params.membersId : params.membersId[0];
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   
@@ -103,14 +96,13 @@ export default function AssignExercisePage() {
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState(null);
   const [availableExercises, setAvailableExercises] = useState([]);
-  const [selectedExercises, setSelectedExercises] = useState([]);
+  const [selectedExercises, setSelectedExercises] = useState<CustomizedExercise[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
     fromDate: new Date().toISOString().split('T')[0],
     toDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
   const [error, setError] = useState(null);
-  const [categoryFilter, setCategoryFilter] = useState("");
   
   // Estados para móvil
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -140,17 +132,17 @@ export default function AssignExercisePage() {
     
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [status, session, router, userId]);
+  }, [status, session, router, membersId]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       // Obtener detalles del usuario
-      const userResponse = await axios.get(`/api/members/${userId}`);
+      const userResponse = await axios.get(`/api/members?memberId=${membersId}`);
       setUser(userResponse.data);
       
       // Obtener la lista de ejercicios disponibles
-const exercisesResponse = await axios.get('/api/fitness/exercise/definitions');
+      const exercisesResponse = await axios.get('/api/fitness/exercise/manage-exercise');
       
       // Asignar categorías a los ejercicios si no tienen
       const exercisesWithCategories = (exercisesResponse.data.data || []).map(exercise => {
@@ -235,7 +227,7 @@ const exercisesResponse = await axios.get('/api/fitness/exercise/definitions');
     }
     
     const requestBody = {
-      selectedStudents: [userId],
+      selectedStudents: [membersId],
       workOutArray: selectedExercises, 
       fromDate: formData.fromDate,
       toDate: formData.toDate
