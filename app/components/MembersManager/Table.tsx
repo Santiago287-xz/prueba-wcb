@@ -45,7 +45,7 @@ const UserTable: React.FC<UserTableProps> = ({
 }) => {
   return (
     <>
-      {(isLoading) && (
+      {isLoading && (
         <LinearProgress color="primary" sx={{ height: "3px" }} />
       )}
 
@@ -110,7 +110,7 @@ const UserTable: React.FC<UserTableProps> = ({
                 </TableCell>
               </TableRow>
             ) : (
-              filteredAndSortedData.map((user: User & { trainer: User | null }) => (
+              filteredAndSortedData.map((user) => (
                 <TableRow
                   key={user?.id}
                   sx={styles.tableRow}
@@ -149,9 +149,9 @@ const UserTable: React.FC<UserTableProps> = ({
                       />
                     ) : (
                       <Chip
-                        label={getRoleName(user?.role)}
+                        label={getRoleName(user?.role || '')}
                         size="small"
-                        color={getRoleColor(user?.role)}
+                        color={getRoleColor(user?.role || '')}
                         sx={{ 
                           fontWeight: 500, 
                           borderRadius: "6px",
@@ -198,23 +198,7 @@ const UserTable: React.FC<UserTableProps> = ({
                           </IconButton>
                         </Tooltip>
                       ) : (
-                        <>
-                          <Tooltip title="Editar usuario" arrow>
-                            <IconButton
-                              color="info"
-                              size="small"
-                              sx={{
-                                transition: "all 0.2s",
-                                "&:hover": {
-                                  transform: "scale(1.1)",
-                                  backgroundColor: "rgba(3, 169, 244, 0.08)"
-                                },
-                              }}
-                            >
-                              <Edit fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          
+                        <>                          
                           <Tooltip title="Eliminar usuario" arrow>
                             <IconButton
                               color="error"
@@ -257,10 +241,10 @@ const UserTable: React.FC<UserTableProps> = ({
         </Typography>
 
         <TablePagination
-          rowsPerPageOptions={[5, 10, 25, 50]}
+          rowsPerPageOptions={[25]} // changed: only 25
           component="div"
           count={data?.count ?? 0}
-          rowsPerPage={10}
+          rowsPerPage={25} // changed: always show 25 rows
           page={0}
           onPageChange={() => {}}
           onRowsPerPageChange={() => {}}

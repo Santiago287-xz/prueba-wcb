@@ -1,246 +1,100 @@
-// middleware.ts
-import {
-	NextRequest,
-	NextResponse,
-} from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-// Exact mapping of paths to allowed roles
 const PATH_PERMISSIONS = {
-	// Admin-only paths
-	"/add-user": ["admin"],
-	"/analytics": ["admin"],
-	"/attendance": ["admin", "trainer"],
-	"/booking": [
-		"admin",
-		"employee",
-		"court_manager",
-	],
-	"/categories": [
-		"admin",
-		"court_manager",
-	],
-	"/manage-user": ["admin", "trainer"],
-	"/rfid-management": [
-		"admin",
-		"employee",
-	],
-	"/sales": ["admin", "employee"],
-	"/trainers": ["admin"],
-	"/exercise-assignment": ["admin", "trainer"],
-
-	// Member paths
-	"/user": ["member"],
-	"/prices/membership": ["admin", "receptionist"],
-	"/prices": ["admin", "receptionist"],
-	// Shared paths
-	"/profile": [
-		"admin",
-		"trainer",
-		"member",
-		"employee",
-		"court_manager",
-	],
-	"/notifications": [
-		"admin",
-		"trainer",
-		"member",
-		"employee",
-		"court_manager",
-		"receptionist",
-	],
-	"/unauthorized": [
-		"admin",
-		"trainer",
-		"member",
-		"employee",
-		"court_manager",
-		"receptionist",
-	],
+  "/add-user": ["admin"],
+  "/analytics": ["admin"],
+  "/attendance": ["admin", "trainer"],
+  "/booking": ["admin", "court_manager"],
+  "/categories": ["admin", "court_manager"],
+  "/manage-user": ["admin", "trainer"],
+  "/rfid-management": ["admin"],
+  "/sales": ["admin"],
+  "/trainers": ["admin"],
+  "/exercise-assignment": ["admin", "trainer"],
+  "/profile": ["admin", "trainer", "member", "court_manager", "receptionist"],
+  "/notifications": ["admin", "trainer", "member", "court_manager", "receptionist"],
+  "/unauthorized": ["admin", "trainer", "member", "court_manager", "receptionist"],
 };
 
-// API permissions
 const API_PERMISSIONS = {
-	"/api/analytics": [
-		"admin",
-	],
-	"/api/bookings": [
-		"admin",
-		"court_manager",
-	],
-	"/api/inventory/categories": [
-		"admin",
-		"court_manager",
-	],
-	"/api/courts": [
-		"admin",
-		"court_manager",
-	],
-	"/api/events": [
-		"admin",
-		"court_manager",
-	],
-	"/api/inventory": [
-		"admin",
-		"employee",
-	],
-	"/api/members": ["admin", "receptionist", "trainer"],
-	"/api/members/membersId": ["admin", "receptionist", "trainer"],
-	"/api/members/assigned": ["admin", "receptionist", "trainer"],
-	"/api/create-user": ["admin", "trainer"],
-	"/api/rfid/trainers": ["admin", "receptionist", "trainer"],
-	"/api/payments/stripe": ["member"],
-	"/api/rfid": ["admin", "receptionist", "employee"],
-	"/api/sales": ["admin", "employee"],
-	"/api/transactions": ["admin"],
-	"/api/fitness/exercise": ["admin", "trainer", "member"],
-	"/api/fitness/exercise-assignment": ["admin", "trainer"],
-	"/api/fitness": ["admin", "trainer"],
+  "/api/analytics": ["admin"],
+  "/api/bookings": ["admin", "court_manager"],
+  "/api/inventory/categories": ["admin", "court_manager"],
+  "/api/inventory": ["admin", "receptionist"],
+  "/api/courts": ["admin", "court_manager"],
+  "/api/events": ["admin", "court_manager"],
+  "/api/members": ["admin", "receptionist", "trainer"],
+  "/api/members/membersId": ["admin", "receptionist", "trainer"],
+  "/api/members/assigned": ["admin", "receptionist", "trainer"],
+  "/api/create-user": ["admin", "trainer"],
+  "/api/rfid/trainers": ["admin", "receptionist", "trainer"],
+  "/api/payments/stripe": ["member"],
+  "/api/rfid": ["admin", "receptionist"],
+  "/api/sales": ["admin", "receptionist"],
+  "/api/transactions": ["admin"],
+  "/api/fitness/exercise": ["admin", "trainer", "member"],
+  "/api/fitness/exercise-assignment": ["admin", "trainer"],
+  "/api/fitness": ["admin", "trainer"],
 };
 
-// Public paths that don't require auth
-const PUBLIC_PATHS = [
-	"/signin",
-	"/signup",
-	"/forgot-password",
-	"/password-reset",
-	"/unauthorized", // Make unauthorized page accessible
-];
+const PUBLIC_PATHS = ["/signin", "/signup", "/forgot-password", "/password-reset", "/unauthorized"];
 
-export async function middleware(
-	request: NextRequest
-) {
-	const path = request.nextUrl.pathname;
+export async function middleware(request: NextRequest) {
+  let path = request.nextUrl.pathname;
 
-	// Ignore static files and specific API paths
-	if (
-		path.startsWith("/_next") ||
-		path.startsWith("/favicon.ico") ||
-		path.startsWith("/api/auth")
-	) {
-		return NextResponse.next();
-	}
+  if (path.startsWith("/_next") || path.startsWith("/favicon.ico") || path.startsWith("/api/auth")) {
+    return NextResponse.next();
+  }
 
-	// Get user's token
-	const token = await getToken({
-		req: request,
-	});
-	const role = token?.role as string;
+  if (path.startsWith("/api/")) {
+    if (path === "/api/members/rfid/access" && request.method === "POST") {
+      return NextResponse.next();
+    }
 
-	// Allow access to unauthorized page without redirection
-	if (path === "/unauthorized") {
-		return NextResponse.next();
-	}
+    const token = await getToken({ req: request });
+    if (!token) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-	// Handle API routes
-	if (path.startsWith("/api/")) {
-		// Permitir las solicitudes de Arduino sin token para /api/members/rfid/access
-		if (
-			path === "/api/members/rfid/access" &&
-			request.method === "POST"
-		) {
-			return NextResponse.next();
-		}
+    let hasPermission = false;
+    for (const [apiPath, roles] of Object.entries(API_PERMISSIONS)) {
+      if (path.startsWith(apiPath) && roles.includes(token.role)) {
+        hasPermission = true;
+        break;
+      }
+    }
 
-		// Si no hay token, rechazar
-		if (!token) {
-			return NextResponse.json(
-				{ error: "No autorizado" },
-				{ status: 401 }
-			);
-		}
+    if (!hasPermission) {
+      return NextResponse.json({ error: "Acceso denegado", role: token.role, path }, { status: 403 });
+    }
 
-		// Validar permisos
-		let hasPermission = false;
-		for (const [
-			apiPath,
-			roles,
-		] of Object.entries(
-			API_PERMISSIONS
-		)) {
-			if (
-				path.startsWith(apiPath) &&
-				roles.includes(role)
-			) {
-				hasPermission = true;
-				break;
-			}
-		}
+    return NextResponse.next();
+  }
 
-		if (!hasPermission) {
-			return NextResponse.json(
-				{ error: "Acceso denegado", role, path },
-				{ status: 403 }
-			);
-		}
+  if (PUBLIC_PATHS.some((p) => path.startsWith(p))) {
+    return NextResponse.next();
+  }
 
-		return NextResponse.next();
-	}
+  const token = await getToken({ req: request });
+  if (!token) return NextResponse.redirect(new URL("/signin", request.url));
 
-	// Handle page routes
+  if (path === "/") {
+    return NextResponse.next();
+  }
 
-	// Allow public paths
-	if (
-		PUBLIC_PATHS.some((p) =>
-			path.startsWith(p)
-		)
-	) {
-		return NextResponse.next();
-	}
+  let pathToCheck = path.endsWith("/") && path !== "/" ? path.slice(0, -1) : path;
+  if (pathToCheck === "/") {
+    return NextResponse.next();
+  }
 
-	// Redirect to login if not authenticated
-	if (!token) {
-		return NextResponse.redirect(
-			new URL("/signin", request.url)
-		);
-	}
+  const exactPath = Object.keys(PATH_PERMISSIONS).find(
+    (p) => pathToCheck === p || pathToCheck.startsWith(`${p}/`)
+  );
 
-	// Check exact page permissions
-	let pathToCheck = path;
-	// Remove trailing slash if present
-	if (
-		pathToCheck.endsWith("/") &&
-		pathToCheck !== "/"
-	) {
-		pathToCheck = pathToCheck.slice(
-			0,
-			-1
-		);
-	}
-	// If path is root, allow (dashboard)
-	if (pathToCheck === "/") {
-		return NextResponse.next();
-	}
+  if (exactPath && PATH_PERMISSIONS[exactPath].includes(token.role)) {
+    return NextResponse.next();
+  }
 
-	// For all other paths, check against exact permissions
-	const exactPath = Object.keys(
-		PATH_PERMISSIONS
-	).find(
-		(p) =>
-			pathToCheck === p ||
-			pathToCheck.startsWith(`${p}/`)
-	);
-
-	if (
-		exactPath &&
-		PATH_PERMISSIONS[
-			exactPath
-		].includes(role)
-	) {
-		return NextResponse.next();
-	}
-
-	// Access denied - redirect to unauthorized page in auth folder
-	return NextResponse.redirect(
-		new URL(
-			"/unauthorized",
-			request.url
-		)
-	);
+  return NextResponse.redirect(new URL("/unauthorized", request.url));
 }
 
-export const config = {
-	matcher: [
-	  "/((?!_next/static|_next/image|sounds|favicon.ico).*)",
-	],
-  };
+export const config = { matcher: ["/((?!_next/static|_next/image|sounds|favicon.ico).*)"] };

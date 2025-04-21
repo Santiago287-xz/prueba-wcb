@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format, addHours, parseISO, isValid } from 'date-fns';
-import { Court, Reservation } from "../../types/bookings/types";
+import { Court, Reservation } from "../../types/bookings";
 
 interface EventModalProps {
   courts: Court[];

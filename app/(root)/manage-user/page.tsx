@@ -9,6 +9,7 @@ import {
   Container,
   useMediaQuery,
   useTheme,
+  Theme,
 } from "@mui/material";
 import axios from "axios";
 import type { User } from "@prisma/client";
@@ -23,6 +24,21 @@ import DeleteExerciseDialog from "@/app/components/MembersManager/DeleteExercise
 import DeleteUserDialog from "@/app/components/MembersManager/DeleteUserDialog";
 import NotificationSnackbar from "@/app/components/MembersManager/NotificationSnackbar";
 import { UserDetails as UserDetailsType, EditExerciseData, UserExercise } from "@/app/types/members";
+
+// Definición de tipos para SWR
+interface UserApiResponse {
+  data: User[];
+  count: number;
+  pagination: {
+    current: number;
+    last: number;
+    total: number;
+  }
+}
+
+interface TrainerApiResponse {
+  data: User[];
+}
 
 // Definición de estilos personalizados
 const styles = {
@@ -94,7 +110,7 @@ const styles = {
     width: 36,
     height: 36,
     marginRight: 2,
-    backgroundColor: (theme: any) => theme.palette.primary.main,
+    backgroundColor: (theme: Theme) => theme.palette.primary.main,
     fontWeight: "bold",
   },
   detailsDialog: {
@@ -183,13 +199,13 @@ const ManageUser: React.FC = () => {
   }, [sessionUser]);
 
   // Usamos SWR con los filtros aplicados
-  const { data, isLoading, mutate } = useSWR(
+  const { data, isLoading, mutate } = useSWR<UserApiResponse>(
     `/api/members/assigned?page=${currentPage}&limit=${rowsPerPage}&role=${filterRole}&search=${searchTerm}`, 
     fetcher
   )
 
   // Array de entrenadores extraído de trainersData
-  const { data: trainersData, isLoading: isTrainersLoading, mutate: mutateTrainers } = useSWR(
+  const { data: trainersData, isLoading: isTrainersLoading, mutate: mutateTrainers } = useSWR<TrainerApiResponse>(
     '/api/rfid/trainers', 
     fetcher, 
     {
@@ -337,7 +353,7 @@ const ManageUser: React.FC = () => {
     setSearchTerm(event.target.value);
   }
 
-  const handleFilterRoleChange = (event: any) => {
+  const handleFilterRoleChange = (event: React.ChangeEvent<{ value: unknown }>) => {
     setFilterRole(event.target.value as string);
   }
 
@@ -418,7 +434,7 @@ const ManageUser: React.FC = () => {
 
   // Función para determinar el color del chip de rol
   const getRoleColor = (role: string): "primary" | "secondary" | "error" | "info" | "success" | "warning" | "default" => {
-    const roleColorMap: Record<string, any> = {
+    const roleColorMap: Record<string, "primary" | "secondary" | "error" | "info" | "success" | "warning" | "default"> = {
       user: "default",
       employee: "info",
       court_manager: "secondary",

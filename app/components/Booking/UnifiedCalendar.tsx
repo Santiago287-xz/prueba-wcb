@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, startOfWeek, endOfWeek, addDays, isSameDay, isToday, parseISO } from "date-fns";
 import { es } from 'date-fns/locale';
 import useSWR from 'swr';
-import { Reservation, EventIndicator, DayEvents, GroupedEvent, UnifiedCalendarProps } from "../../types/bookings/types";
+import { Reservation, EventIndicator, DayEvents, GroupedEvent, UnifiedCalendarProps } from "../../types/bookings";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url, {

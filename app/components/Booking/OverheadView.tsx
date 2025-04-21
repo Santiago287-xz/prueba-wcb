@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Court, Reservation } from '../../types/bookings/types';
+import { Court, Reservation } from '../../types/bookings';
 
 interface OverheadViewProps {
   courts: Court[];

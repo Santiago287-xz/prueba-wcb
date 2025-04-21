@@ -98,6 +98,7 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
 
       {isTrainer && (
         <>
+          <MenuItem href="/manage-user" title="Manage User" icon={FaUserCog} onItemClick={onItemClick} />
         </>
       )}
 
@@ -111,7 +112,7 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
 
       {isEmployee && (
         <>
-          <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />          
+          <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />
         </>
       )}
       {isAdmin && (

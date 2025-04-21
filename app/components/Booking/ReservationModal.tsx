@@ -3,7 +3,7 @@
 import { format, parseISO, differenceInWeeks, isValid, isBefore, parse } from "date-fns";
 import { es } from 'date-fns/locale';
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Court, ModalDataType } from "../../types/bookings/types";
+import { Court, ModalDataType } from "../../types/bookings";
 
 // Nueva función helper para convertir y validar la hora
 const parseTime = (time: string | number | undefined): string => {

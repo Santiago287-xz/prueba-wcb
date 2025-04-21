@@ -21,10 +21,9 @@ import {
   Divider,
   FormHelperText 
 } from "@mui/material/";
-import { Person, Badge, Spa } from "@mui/icons-material";
+import { Person, Badge, Spa, SportsTennis } from "@mui/icons-material";
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form";
 import { useSession } from "next-auth/react";
-import { SessionUser } from "@/types";
 import { useState, useEffect } from "react";
 
 const theme = createTheme({
@@ -77,7 +76,7 @@ const theme = createTheme({
 
 const AddMemberPage: React.FC = () => {
   const { data } = useSession();
-  const sessionUser = data?.user as SessionUser;
+  const sessionUser = data?.user;
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string>("trainer");
 
@@ -131,39 +130,19 @@ const AddMemberPage: React.FC = () => {
         return;
       }
       
-      const res = await axios.post("/api/members", userData, {
+      const res = await axios.post("/api/create-user", userData, {
         headers: {
           "Content-Type": "application/json",
         },
       });
 
-      console.log("Respuesta del servidor:", res.data);
-
       if (res.data) {
-        toast.success(`${capitalizeFirstLetter(selectedRole)} creado exitosamente`);
+        toast.success(`${capitalizeFirstLetter(selectedRole === "court_manager" ? "administrador de canchas" : selectedRole)} creado exitosamente`);
         reset();
-        
-        // Redirect based on role
-        if (selectedRole === "trainer") {
-          router.push("/trainers");
-        } else if (selectedRole === "receptionist") {
-          router.push("/dashboard");
-        } else {
-          router.push("/dashboard");
-        }
       }
     } catch (err: Error | any) {
       console.error("Error completo:", err);
       
-      // Mostramos todos los detalles del error para depuración
-      console.log("Error response:", err.response);
-      console.log("Error message:", err.message);
-      
-      if (err.response?.data) {
-        console.log("Server error data:", err.response.data);
-      }
-      
-      // Intentar obtener un mensaje de error más detallado
       let errorMessage = "Error al crear usuario";
       
       if (err.response) {
@@ -187,6 +166,7 @@ const AddMemberPage: React.FC = () => {
   const getRoleIcon = () => {
     if (selectedRole === "trainer") return <Spa fontSize="large" color="primary" />;
     if (selectedRole === "receptionist") return <Badge fontSize="large" color="secondary" />;
+    if (selectedRole === "court_manager") return <SportsTennis fontSize="large" style={{ color: "green" }} />;
     return <Person fontSize="large" color="primary" />;
   };
 
@@ -206,22 +186,25 @@ const AddMemberPage: React.FC = () => {
           }}
         >
           <Avatar sx={{ 
-            bgcolor: selectedRole === 'trainer' ? 'primary.main' : 'secondary.main', 
+            bgcolor: selectedRole === 'trainer' ? 'primary.main' : selectedRole === 'receptionist' ? 'secondary.main' : selectedRole === 'court_manager' ? 'green' : 'primary.main',
             width: 56, 
             height: 56, 
             mb: 2 
           }}>
             {getRoleIcon()}
           </Avatar>
-          <Typography component="h1" variant="h4" sx={{ mb: 1, fontWeight: 500 }}>
-            Añadir nuevo { 
-              selectedRole === "trainer" ? "Entrenador" : 
-              selectedRole === "receptionist" ? "Recepcionista" : capitalizeFirstLetter(selectedRole)
+          <Typography component="h1" variant="h4" sx={{ mb: 1, fontWeight: 500, textAlign: 'center' }}>
+            Añadir { 
+              selectedRole === "trainer" ? "entrenador" : 
+              selectedRole === "receptionist" ? "recepcionista" : 
+              selectedRole === "court_manager" ? "administrador de canchas" : capitalizeFirstLetter(selectedRole)
             }
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             Completa el formulario para crear una nueva cuenta de {
-              selectedRole === "trainer" ? "entrenador" : "recepcionista"
+              selectedRole === "trainer" ? "entrenador" : 
+              selectedRole === "receptionist" ? "recepcionista" : 
+              selectedRole === "court_manager" ? "administrador de canchas" : capitalizeFirstLetter(selectedRole)
             }
           </Typography>
 
@@ -270,6 +253,7 @@ const AddMemberPage: React.FC = () => {
                   >
                     <MenuItem value="trainer">Entrenador</MenuItem>
                     <MenuItem value="receptionist">Recepcionista</MenuItem>
+                    <MenuItem value="court_manager">Administrador de canchas</MenuItem>
                   </Select>
                   {errors.role && typeof errors.role.message === "string" && (
                     <FormHelperText>{errors.role.message}</FormHelperText>
@@ -379,10 +363,10 @@ const AddMemberPage: React.FC = () => {
             <LoadingButton
               type="submit"
               loading={isSubmitting}
-              loadingIndicator={`Creando ${selectedRole === "trainer" ? "entrenador" : "recepcionista"}...`}
+              loadingIndicator={`Creando ${selectedRole === "trainer" ? "entrenador" : selectedRole === "receptionist" ? "recepcionista" : selectedRole === "court_manager" ? "administrador de canchas" : ""}...`}
               variant="contained"
               fullWidth
-              color={selectedRole === 'trainer' ? 'primary' : 'secondary'}
+              color={selectedRole === 'trainer' ? 'primary' : selectedRole === "receptionist" ? 'secondary' : selectedRole === "court_manager" ? 'success' : 'primary'}
               sx={{ 
                 mt: 4, 
                 mb: 2, 
@@ -390,96 +374,8 @@ const AddMemberPage: React.FC = () => {
                 fontSize: '1rem'
               }}
             >
-              Crear {selectedRole === "trainer" ? "Entrenador" : "Recepcionista"}
+              Crear {selectedRole === "trainer" ? "Entrenador" : selectedRole === "receptionist" ? "Recepcionista" : selectedRole === "court_manager" ? "Administrador de canchas" : ""}
             </LoadingButton>
-            
-            {process.env.NODE_ENV === 'development' && (
-              <Box mt={2}>
-                <Typography variant="caption" color="text.secondary" align="center" display="block" gutterBottom>
-                  Opciones de depuración (solo en desarrollo)
-                </Typography>
-                <Grid container spacing={1}>
-                  <Grid item xs={6}>
-                    <LoadingButton
-                      variant="outlined"
-                      size="small"
-                      fullWidth
-                      onClick={() => {
-                        // Datos de prueba para entrenador
-                        setValue("name", "Entrenador Prueba");
-                        setValue("email", `trainer-${Date.now()}@example.com`);
-                        setValue("password", "Password123");
-                        setValue("phone", "1234567890");
-                        setValue("gender", "male");
-                        setValue("role", "trainer");
-                        setSelectedRole("trainer");
-                        
-                        console.log("Formulario con datos de prueba:", watch());
-                      }}
-                    >
-                      Datos de entrenador
-                    </LoadingButton>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <LoadingButton
-                      variant="outlined"
-                      size="small"
-                      fullWidth
-                      color="secondary"
-                      onClick={() => {
-                        // Datos de prueba para recepcionista
-                        setValue("name", "Recepcionista Prueba");
-                        setValue("email", `receptionist-${Date.now()}@example.com`);
-                        setValue("password", "Password123");
-                        setValue("phone", "9876543210");
-                        setValue("gender", "female");
-                        setValue("role", "receptionist");
-                        setSelectedRole("receptionist");
-                        
-                        console.log("Formulario con datos de prueba:", watch());
-                      }}
-                    >
-                      Datos de recepcionista
-                    </LoadingButton>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <LoadingButton
-                      variant="outlined"
-                      size="small"
-                      fullWidth
-                      color="error"
-                      onClick={async () => {
-                        try {
-                          // Envío directo con datos mínimos
-                          const testData = {
-                            name: "Test Directo",
-                            email: `test-direct-${Date.now()}@example.com`,
-                            password: "Password123",
-                            role: "receptionist",
-                            gender: "male",
-                            phone: 1234567890
-                          };
-                          
-                          console.log("Enviando datos de prueba directo:", testData);
-                          
-                          const res = await axios.post("/api/members", testData, {
-                            headers: { "Content-Type": "application/json" }
-                          });
-                          
-                          console.log("Respuesta:", res.data);
-                          toast.success("Usuario de prueba creado correctamente");
-                        } catch (error) {
-                          console.error("Error en prueba directa:", error);
-                          toast.error("Error en prueba directa");
-                        }
-                      }}
-                    >
-                      Prueba directa API (mínimo)
-                    </LoadingButton>
-                  </Grid>
-                </Grid>
-              </Box>
-            )}
           </Box>
         </Paper>
       </Container>

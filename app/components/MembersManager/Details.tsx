@@ -42,12 +42,12 @@ const UserDetails: React.FC<UserDetailsProps> = ({
   const DetailSkeleton = () => (
     <>
       <Grid container spacing={2} sx={{ mb: 3 }}>
+        {/* Primer Card */}
         <Grid item xs={12} md={6}>
           <Card variant="outlined" sx={{ height: '100%' }}>
             <CardContent>
               <Skeleton variant="text" width="60%" height={32} sx={{ mb: 1 }} />
               <Divider sx={{ mb: 2 }} />
-
               <Grid container spacing={2}>
                 {[...Array(5)].map((_, index) => (
                   <React.Fragment key={index}>
@@ -63,13 +63,12 @@ const UserDetails: React.FC<UserDetailsProps> = ({
             </CardContent>
           </Card>
         </Grid>
-
+        {/* Segundo Card */}
         <Grid item xs={12} md={6}>
           <Card variant="outlined" sx={{ height: '100%' }}>
             <CardContent>
               <Skeleton variant="text" width="60%" height={32} sx={{ mb: 1 }} />
               <Divider sx={{ mb: 2 }} />
-
               <Grid container spacing={2}>
                 {[...Array(4)].map((_, index) => (
                   <React.Fragment key={index}>
@@ -86,19 +85,20 @@ const UserDetails: React.FC<UserDetailsProps> = ({
           </Card>
         </Grid>
       </Grid>
-
-      <Card variant="outlined" sx={{ mb: 2 }}>
-        <CardContent>
-          <Skeleton variant="text" width="40%" height={32} sx={{ mb: 1 }} />
-          <Divider sx={{ mb: 2 }} />
-
-          {[...Array(3)].map((_, index) => (
-            <Box key={index} sx={{ mb: 2 }}>
-              <Skeleton variant="rectangular" height={60} />
-            </Box>
-          ))}
-        </CardContent>
-      </Card>
+      {/* Sección de ejercicios: solo se muestra si el usuario NO es admin */}
+      {sessionUser?.role !== 'admin' && (
+        <Card variant="outlined" sx={{ mb: 2 }}>
+          <CardContent>
+            <Skeleton variant="text" width="40%" height={32} sx={{ mb: 1 }} />
+            <Divider sx={{ mb: 2 }} />
+            {[...Array(3)].map((_, index) => (
+              <Box key={index} sx={{ mb: 2 }}>
+                <Skeleton variant="rectangular" height={60} />
+              </Box>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 
@@ -284,16 +284,18 @@ const UserDetails: React.FC<UserDetailsProps> = ({
               </Grid>
             </Grid>
 
-            <UserExercises
-              exercises={userDetails.exercises}
-              sessionUser={sessionUser}
-              selectedUser={selectedUser}
-              setDetailsDialogOpen={setDetailsDialogOpen}
-              router={router}
-              formatDate={formatDate}
-              handleEditExercise={handleEditExercise}
-              handleDeleteExercise={handleDeleteExercise}
-            />
+            {sessionUser?.role !== 'admin' && (
+              <UserExercises
+                exercises={userDetails.exercises}
+                sessionUser={sessionUser}
+                selectedUser={selectedUser}
+                setDetailsDialogOpen={setDetailsDialogOpen}
+                router={router}
+                formatDate={formatDate}
+                handleEditExercise={handleEditExercise}
+                handleDeleteExercise={handleDeleteExercise}
+              />
+            )}
           </>
         ) : (
           <Typography color="text.secondary">No se pudo cargar la información del usuario</Typography>

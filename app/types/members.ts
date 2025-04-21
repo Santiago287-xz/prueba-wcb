@@ -1,5 +1,6 @@
 import { User } from "@prisma/client";
 import { type AppRouterInstance } from "next/dist/shared/lib/app-router-context";
+import { Theme } from "@mui/material";
 
 export interface UserExercise {
   id: string;
@@ -51,7 +52,7 @@ export interface UserTableProps {
   isLoading: boolean;
   filteredAndSortedData: User[];
   handleOpenDetails: (userId: string) => void;
-  setUserToDelete: (userId: string) => void;
+  setUserToDelete: (userId: string | null) => void;
   setDeleteDialogOpen: (open: boolean) => void;
   orderBy: keyof User;
   order: "asc" | "desc";
@@ -72,7 +73,7 @@ export interface UserDetailsProps {
   selectedUser: string | null;
   sessionUser: any;
   router: AppRouterInstance;
-  theme: any;
+  theme: Theme;
   getInitials: (name: string) => string;
   getRoleName: (role: string) => string;
   getRoleColor: (role: string) => "primary" | "secondary" | "error" | "info" | "success" | "warning" | "default";
@@ -87,7 +88,7 @@ export interface UserExercisesProps {
   exercises: UserExercise[];
   sessionUser: any;
   selectedUser: string | null;
-  setDetailsDialogOpen: (open: boolean) => void;
+  setDetailsDialogOpen?: (open: boolean) => void;
   router: AppRouterInstance;
   formatDate: (dateString: string) => string;
   handleEditExercise: (exerciseId: string) => void;

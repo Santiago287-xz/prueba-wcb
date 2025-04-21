@@ -35,13 +35,13 @@ const UserExercises: React.FC<UserExercisesProps> = ({
         <Typography variant="h6">
           Ejercicios Asignados
         </Typography>
-        {sessionUser?.role === 'trainer' && (
+        {sessionUser?.role === 'trainer' && selectedUser && (
           <Button
             variant="outlined"
             size="small"
             startIcon={<SportsMartialArts />}
             onClick={() => {
-              setDetailsDialogOpen(false);
+              if (setDetailsDialogOpen) setDetailsDialogOpen(false);
               router.push(`/manage-user/${selectedUser}`);
             }}
           >
@@ -54,7 +54,16 @@ const UserExercises: React.FC<UserExercisesProps> = ({
       {exercises && exercises.length > 0 ? (
         <List disablePadding>
           {exercises.map((exercise, index) => (
-            <Card key={exercise.id || index} variant="outlined" sx={{ mb: 1 }}>
+            <Card 
+              key={exercise.id || index} 
+              variant="outlined" 
+              sx={{ 
+                mb: 1, 
+                borderRadius: '10px',
+                borderColor: 'primary.light',
+                background: 'rgba(25, 118, 210, 0.04)'
+              }}
+            >
               <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
                 <Grid container spacing={2} alignItems="center">
                   <Grid item xs={12} sm={3}>
@@ -108,7 +117,7 @@ const UserExercises: React.FC<UserExercisesProps> = ({
                         <IconButton 
                           size="small" 
                           color="primary"
-                          onClick={() => handleEditExercise(exercise.id)}
+                          onClick={() => exercise.id && handleEditExercise(exercise.id)}
                           sx={{
                             transition: "all 0.2s",
                             "&:hover": {
@@ -124,7 +133,7 @@ const UserExercises: React.FC<UserExercisesProps> = ({
                         <IconButton 
                           size="small" 
                           color="error"
-                          onClick={() => handleDeleteExercise(exercise.id)}
+                          onClick={() => exercise.id && handleDeleteExercise(exercise.id)}
                           sx={{
                             ml: 1,
                             transition: "all 0.2s",
@@ -150,14 +159,14 @@ const UserExercises: React.FC<UserExercisesProps> = ({
           <Typography color="text.secondary">
             No hay ejercicios asignados
           </Typography>
-          {sessionUser?.role === 'trainer' && (
+          {sessionUser?.role === 'trainer' && selectedUser && (
             <Button
               variant="outlined"
               size="small"
               color="primary"
               startIcon={<SportsMartialArts />}
               onClick={() => {
-                setDetailsDialogOpen(false);
+                if (setDetailsDialogOpen) setDetailsDialogOpen(false);
                 router.push(`/manage-user/${selectedUser}`);
               }}
               sx={{ mt: 2 }}

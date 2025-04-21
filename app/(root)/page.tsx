@@ -25,6 +25,8 @@ export default async function DashboardPage() {
     redirect('/manage-user');
   } else if (user.role === 'member') {
     redirect('/profile');
+  } else if (user.role === 'court_manager') {
+    redirect('/booking');
   }
 
   // Si el usuario tiene otro rol (por ejemplo, 'user'), mostramos el dashboard correspondiente

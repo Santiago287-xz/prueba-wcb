@@ -7,7 +7,7 @@ import { ReservationModal } from "./ReservationModal";
 import EventModal from "./EventModal";
 import BookingInvoiceModal from "../Transactions/BookingInvoiceModal";
 import TransactionModal from "@/app/components/Transactions/TransactionModal";
-import { Court, Reservation, ModalDataType } from "../../types/bookings/types";
+import { Court, Reservation, ModalDataType } from "../../types/bookings";
 import { useGlobalMutate } from "@/app/hooks/useGlobalMutate";
 import { OverheadView } from './OverheadView';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
