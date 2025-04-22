@@ -29,11 +29,11 @@ export default function SignInPage() {
   useEffect(() => {
     const hour = new Date().getHours()
     if (hour >= 5 && hour < 12) {
-      setGreeting("Good morning")
+      setGreeting("Buenos días")
     } else if (hour >= 12 && hour < 18) {
-      setGreeting("Good afternoon")
+      setGreeting("Buenas tardes")
     } else {
-      setGreeting("Good evening")
+      setGreeting("Buenas noches")
     }
   }, [])
 
@@ -45,12 +45,17 @@ export default function SignInPage() {
     })
       .then((callback) => {
         if (callback?.ok && callback?.error === undefined) {
-          toast.success("Logged in successfully!")
+          toast.success("¡Inicio de sesión exitoso!")
           router.refresh()
         }
 
         if (callback?.error) {
-          toast.error(callback.error)
+          toast.error("Correo o contraseña incorrectos")
+          // Establecer errores manualmente en los campos
+          if (callback.error.includes("credentials")) {
+            errors.email = { type: "manual", message: "Verifica tus credenciales" }
+            errors.password = { type: "manual", message: "Verifica tus credenciales" }
+          }
         }
       })
       .finally(() => {
@@ -71,20 +76,20 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="flex h-[100dvh] flex-col items-center justify-center md:flex-row">
       {/* Left side - Sign In Form */}
-      <div className="flex w-[600px] flex-col justify-center p-4 md:p-10">
-        <div className="mx-auto w-full max-w-lg">
+      <div className="flex w-full md:w-[600px] flex-col justify-center items-center p-4 md:p-10">
+        <div className="w-full max-w-lg">
           <div className="mb-10">
             <h1 className="text-4xl font-bold text-center">{greeting}</h1>
-            <p className="mt-3 text-xl text-gray-600 text-center">Sign in to access your account</p>
+            <p className="mt-3 text-xl text-gray-600 text-center">Inicia sesión para acceder a tu cuenta</p>
           </div>
 
-          <div className="rounded-xl border bg-white p-8 shadow-lg">
+          <div className="rounded-xl border bg-white p-4 md:p-8 shadow-lg">
             <form onSubmit={handleSubmit(handleSignIn)} className="space-y-6">
               <div className="space-y-3">
                 <label htmlFor="email" className="block text-base font-medium text-gray-700">
-                  Email Address
+                  Correo Electrónico
                 </label>
                 <div className="relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -106,7 +111,7 @@ export default function SignInPage() {
                     id="email"
                     type="email"
                     className={`w-full rounded-lg border px-3 py-3 pl-10 text-base outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500 ${
-                      errors?.email ? "border-red-500" : "border-gray-300"
+                      errors?.email ? "border-red-500 bg-red-50" : "border-gray-300"
                     }`}
                     placeholder="name@example.com"
                     {...register("email", {
@@ -124,11 +129,8 @@ export default function SignInPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label htmlFor="password" className="block text-base font-medium text-gray-700">
-                    Password
+                    Contraseña
                   </label>
-                  <a href="/forgot-password" className="text-sm font-medium text-blue-600 hover:underline">
-                    Forgot password?
-                  </a>
                 </div>
                 <div className="relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -150,7 +152,7 @@ export default function SignInPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     className={`w-full rounded-lg border px-3 py-3 pl-10 pr-10 text-base outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500 ${
-                      errors?.password ? "border-red-500" : "border-gray-300"
+                      errors?.password ? "border-red-500 bg-red-50" : "border-gray-300"
                     }`}
                     placeholder="••••••••"
                     {...register("password", {
@@ -205,7 +207,7 @@ export default function SignInPage() {
                 disabled={isSubmitting}
                 className="w-full rounded-lg bg-blue-600 px-4 py-3 text-center text-base font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isSubmitting ? "Signing in..." : "Sign in"}
+                {isSubmitting ? "Iniciando sesión..." : "Iniciar sesión"}
               </button>
             </form>
           </div>

@@ -1,9 +1,10 @@
 "use client";
 
-import { format, parseISO, differenceInWeeks, isValid, isBefore, parse } from "date-fns";
+import { format, differenceInWeeks, isValid, isBefore, parse } from "date-fns";
 import { es } from 'date-fns/locale';
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Court, ModalDataType } from "../../types/bookings";
+import { ModalDataType } from "../../types/bookings";
+import { CalendarIcon, DollarSign, Users } from "lucide-react";
 
 // Nueva función helper para convertir y validar la hora
 const parseTime = (time: string | number | undefined): string => {
@@ -411,7 +412,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white p-5 rounded max-w-4xl w-full shadow-lg my-8">
+      <div className="bg-white p-5 rounded max-w-4xl w-full shadow-lg my-20 md:my-8 max-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <div className="font-bold text-xl">
             {modalData.type === 'create' && 'Nueva Reserva'}
@@ -477,9 +478,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                 onClick={() => toggleSection("client")}
               >
                 <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                  </svg>
+                  <Users className="h-5 w-5 text-gray-700 mr-2" />
                   Información del Cliente
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transform ${expandedSection === "client" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
@@ -648,10 +647,8 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                 onClick={() => toggleSection("reservation")}
               >
                 <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                  </svg>
-                  Detalles de la Reserva
+                  <CalendarIcon className="h-5 w-5 text-gray-700 mr-2"/>
+                  Detalles de la Reservaa
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transform ${expandedSection === "reservation" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -710,7 +707,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 100-2H6z" clipRule="evenodd" />
                           </svg>
                         </div>
                       </div>
@@ -840,9 +837,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
           <div className="hidden md:grid md:grid-cols-2 gap-6 mb-6">
             <div className="space-y-4">
               <div className="flex items-center mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                </svg>
+                <Users className="h-5 w-5 text-gray-700 mr-2" />
                 <h2 className="text-lg font-medium">Información del Cliente</h2>
               </div>
 
@@ -888,9 +883,10 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
               </div>
 
               <div className="flex items-center mt-6 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 012 2v4a2 2 01-2 2H8a2 2 01-2-2v-4zm6 4a2 2 0 100-4 2 2 000 4z" clipRule="evenodd" />
-                </svg>
+                {/* <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 01-2 2V6h10a2 2 00-2-2H4zm2 6a2 2 012-2h8a2 2 012 2v4a2 2 01-2-2v-4zm6 4a2 2 100-4 2 2 000 4z" clipRule="evenodd" />
+                </svg> */}
+                <DollarSign className="h-5 w-5 text-gray-700 mr-2" />
                 <h2 className="text-lg font-medium">Detalles de Pago</h2>
               </div>
               {alreadyPaid ? (
@@ -981,9 +977,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
 
             <div className="space-y-4">
               <div className="flex items-center mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
+                <CalendarIcon className="h-5 w-5 text-gray-700 mr-2" />
                 <h2 className="text-lg font-medium">Detalles de la Reserva</h2>
               </div>
 
@@ -1030,7 +1024,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 100-2H6z" clipRule="evenodd" />
                       </svg>
                     </div>
                   </div>
@@ -1163,28 +1157,19 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                   disabled={loading || transactionLoading}
                   className="px-4 py-2 border border-red-600 rounded shadow-sm text-sm font-medium text-red-600 hover:bg-red-50"
                 >
-                  Cancelar Reserva
+                  Cancelar
                 </button>
               )}
             </div>
 
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={closeModal}
-                disabled={loading || transactionLoading}
-                className="px-4 py-2 border border-gray-300 rounded shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                Volver
-              </button>
-
               {(modalData.type === 'create' || modalData.type === 'edit') && (
                 <button
                   type="submit"
                   disabled={loading || transactionLoading || !isFormValid}
                   className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading || transactionLoading ? 'Guardando...' : modalData.type === 'create' ? 'Crear Reserva' : 'Actualizar Reserva'}
+                  {loading || transactionLoading ? 'Guardando...' : modalData.type === 'create' ? 'Crear' : 'Actualizar'}
                 </button>
               )}
             </div>

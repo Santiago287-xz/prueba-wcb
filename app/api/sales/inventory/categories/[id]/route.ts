@@ -1,4 +1,4 @@
-// app/api/inventory/categories/[id]/route.ts
+// app/api/sales/inventory/categories/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 import { getServerSession } from "next-auth";

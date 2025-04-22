@@ -76,6 +76,16 @@ export default function RFIDManagementPage() {
   const [membershipModalOpen, setMembershipModalOpen] = useState(false);
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === 'admin';
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleResize = () => setIsMobile(window.innerWidth < 768);
+      handleResize();
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
 
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
@@ -195,6 +205,16 @@ export default function RFIDManagementPage() {
   const handleCloseNotification = () => {
     setNotificationOpen(false);
   };
+
+  if (isMobile) {
+    return (
+      <Container maxWidth="sm" sx={{ height: '80vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <Typography variant="h4" align="center">
+          Acceso solo permitido desde escritorio
+        </Typography>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>

@@ -17,10 +17,11 @@ const useExerciseStore = create<ExercisesStore>((set) => ({
       const { data } = await axios.get<{ data: ExerciseList[] }>(
         "/api/fitness/exercises/definitions"
       );
-      set({ exercises: data.data});
+      set({ exercises: data.data });
     } catch (error) {
+      console.error("Error fetching exercises:", error);
     } finally {
-      set({loading: false})
+      set({ loading: false });
     }
   },
   refetch: async () => {

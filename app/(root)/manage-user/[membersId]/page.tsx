@@ -427,7 +427,7 @@ export default function AssignExercisePage() {
           </Avatar>
           
           <Box>
-            <Typography variant="h5" fontWeight="bold">
+            <Typography variant="h6" fontWeight="bold">
               {user?.name}
             </Typography>
             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
@@ -441,11 +441,29 @@ export default function AssignExercisePage() {
           activeStep={activeStep} 
           alternativeLabel={!isMobile}
           orientation={isMobile ? "vertical" : "horizontal"}
-          sx={{ mt: 3 }}
+          sx={{ 
+            mt: 3,
+            '& .MuiStepLabel-label': { 
+              color: 'rgba(255, 255, 255, 0.7)', // Color de texto para etapas no activas
+            },
+            '& .MuiStepLabel-label.Mui-active': { 
+              color: 'white', // Color de texto para la etapa activa
+              fontWeight: 'bold', // Opcional: resaltar la etapa activa
+            },
+            '& .MuiStepIcon-root': {
+              color: 'rgba(255, 255, 255, 0.5)', // Color de iconos no activos
+            },
+            '& .MuiStepIcon-root.Mui-active': {
+              color: 'white', // Color del icono activo
+            },
+            '& .MuiStepIcon-text': {
+              fill: 'black', // Color del número dentro del icono
+            },
+          }}
         >
           {steps.map((label) => (
             <Step key={label}>
-              <StepLabel sx={{ '& .MuiStepLabel-label': { color: "white" } }}>{label}</StepLabel>
+              <StepLabel>{label}</StepLabel>
             </Step>
           ))}
         </Stepper>
@@ -465,19 +483,19 @@ export default function AssignExercisePage() {
                 Fecha de inicio
               </Typography>
               <TextField
-                fullWidth
-                type="date"
-                name="fromDate"
-                value={formData.fromDate}
-                onChange={handleChange}
-                size={isMobile ? "small" : "medium"}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: '10px',
-                    height: isMobile ? 48 : 56
-                  } 
-                }}
-              />
+                  fullWidth
+                  type="date"
+                  name="fromDate"
+                  value={formData.fromDate}
+                  onChange={handleChange}
+                  size={isMobile ? "small" : "medium"}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: '10px',
+                      height: isMobile ? 48 : 56,
+                    } 
+                  }}
+                />
             </Grid>
             <Grid item xs={12} sm={6}>
               <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
@@ -501,14 +519,14 @@ export default function AssignExercisePage() {
           </Grid>
           
           <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
+          <Button
               variant="contained"
               onClick={handleNext}
               size={isMobile ? "large" : "medium"}
               sx={{
                 borderRadius: '10px',
                 px: 4,
-                py: isMobile ? 1.5 : 1
+                py: isMobile ? 1.5 : 1,
               }}
             >
               Siguiente
@@ -518,20 +536,49 @@ export default function AssignExercisePage() {
       )}
       
       {activeStep === 1 && (
-        <>
-          <Paper elevation={3} sx={{ p: { xs: 2, md: 3 }, borderRadius: '16px', mb: 2 }}>
+        <Paper elevation={3} sx={{ p: { xs: 2, md: 3 }, borderRadius: '16px', mb: 2 }}>
+          {isMobile ? (
+            <>
+              {/* Barra de búsqueda arriba en mobile */}
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  placeholder="Buscar ejercicios..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  fullWidth
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': { borderRadius: '12px' }
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search fontSize="small" color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+              {/* Título debajo de la búsqueda */}
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">
+                  Seleccionar Ejercicios
+                </Typography>
+              </Box>
+            </>
+          ) : (
+            // Estructura original para desktop
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">
                 Seleccionar Ejercicios
               </Typography>
-              
               <TextField
                 placeholder="Buscar ejercicios..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="small"
                 sx={{
-                  width: { xs: '180px', sm: '250px' },
+                  width: { xs: '100%', sm: '250px' },
                   '& .MuiOutlinedInput-root': { borderRadius: '12px' }
                 }}
                 InputProps={{
@@ -543,258 +590,177 @@ export default function AssignExercisePage() {
                 }}
               />
             </Box>
-            
-            <Divider sx={{ mb: 3 }} />
-            { searchTerm !== "" ? (
-              // Mostrar lista plana al buscar
-              <Box sx={{ mb: 3 }}>
-                {filteredExercises.length > 0 ? (
-                  filteredExercises.map((exercise, index) => (
-                    <Box 
-                      key={exercise.id} 
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        py: 1,
-                        px: 2,
-                        borderBottom: index < filteredExercises.length - 1 ? '1px solid #ddd' : 'none'
-                      }}
-                    >
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={selectedExercises.some(ex => ex.id === exercise.id)}
-                            onChange={() => handleExerciseSelection(exercise.id)}
-                            color="primary"
-                          />
-                        }
-                        label={
-                          <Box>
-                            <Typography fontWeight={selectedExercises.some(ex => ex.id === exercise.id) ? "bold" : "regular"}>
-                              {exercise.name}
-                            </Typography>
-                            {exercise.description && (
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                {exercise.description.substring(0,60)}
-                                {exercise.description.length > 60 ? '...' : ''}
-                              </Typography>
-                            )}
-                          </Box>
-                        }
-                        sx={{ width: '100%', m: 0 }}
-                      />
-                    </Box>
-                  ))
-                ) : (
-                  <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <FitnessCenter sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-                    <Typography color="text.secondary">
-                      No se encontraron ejercicios con esa búsqueda
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={() => setSearchTerm("")}
-                      sx={{ mt: 2 }}
-                    >
-                      Limpiar búsqueda
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-            ) : (
-              // Mostrar accordions agrupados al no buscar
-              <>
-                {categoriesWithExercises.length > 0 ? (
-                  categoriesWithExercises.map((category) => (
-                    <Accordion 
-                      key={category} 
-                      defaultExpanded={false} 
-                      sx={{ 
-                        mb: 1, 
-                        borderRadius: '12px', 
-                        overflow: 'hidden',
-                        '&:before': { display: 'none' }
-                      }}
-                    >
-                      <AccordionSummary
-                        expandIcon={<ExpandMore />}
-                        sx={{ 
-                          backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                          '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          {EXERCISE_CATEGORIES[category] || <FitnessCenter />}
-                          <Typography sx={{ ml: 1, fontWeight: 'medium' }}>
-                            {category} ({exercisesByCategory[category].length})
+          )}
+          <Divider sx={{ mb: 3 }} />
+          { searchTerm !== "" ? (
+            // Mostrar lista plana al buscar
+            <Box sx={{ mb: 3 }}>
+              {filteredExercises.length > 0 ? (
+                filteredExercises.map((exercise, index) => (
+                  <Box 
+                    key={exercise.id} 
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      py: 1,
+                      px: 2,
+                      borderBottom: index < filteredExercises.length - 1 ? '1px solid #ddd' : 'none'
+                    }}
+                  >
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={selectedExercises.some(ex => ex.id === exercise.id)}
+                          onChange={() => handleExerciseSelection(exercise.id)}
+                          color="primary"
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography fontWeight={selectedExercises.some(ex => ex.id === exercise.id) ? "bold" : "regular"}>
+                            {exercise.name}
                           </Typography>
+                          {exercise.description && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {exercise.description.substring(0,60)}
+                              {exercise.description.length > 60 ? '...' : ''}
+                            </Typography>
+                          )}
                         </Box>
-                      </AccordionSummary>
-                      <AccordionDetails sx={{ p: 1 }}>
-                        <Grid container spacing={1}>
-                          {exercisesByCategory[category].map((exercise: Exercise) => (
-                            <Grid item xs={12} key={exercise.id}>
-                              <Card 
-                                variant={selectedExercises.some(ex => ex.id === exercise.id) ? "elevation" : "outlined"}
-                                elevation={selectedExercises.some(ex => ex.id === exercise.id) ? 3 : 0}
-                                sx={{ 
-                                  borderColor: selectedExercises.some(ex => ex.id === exercise.id) ? 'primary.main' : 'divider',
-                                  borderRadius: '10px',
-                                  backgroundColor: selectedExercises.some(ex => ex.id === exercise.id) ? 'rgba(25, 118, 210, 0.08)' : 'inherit'
-                                }}
-                              >
-                                <CardContent sx={{ py: 1, px: 2, '&:last-child': { pb: 1 } }}>
-                                  <FormControlLabel
-                                    control={
-                                      <Checkbox
-                                        checked={selectedExercises.some(ex => ex.id === exercise.id)}
-                                        onChange={() => handleExerciseSelection(exercise.id)}
-                                        color="primary"
-                                      />
-                                    }
-                                    label={
-                                      <Box>
-                                        <Typography fontWeight={selectedExercises.some(ex => ex.id === exercise.id) ? "bold" : "regular"}>
-                                          {exercise.name}
-                                        </Typography>
-                                        {exercise.description && (
-                                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            {exercise.description.substring(0, 60)}
-                                            {exercise.description.length > 60 ? '...' : ''}
-                                          </Typography>
-                                        )}
-                                      </Box>
-                                    }
-                                    sx={{ width: '100%', m: 0 }}
-                                  />
-                                </CardContent>
-                              </Card>
-                            </Grid>
-                          ))}
-                        </Grid>
-                      </AccordionDetails>
-                    </Accordion>
-                  ))
-                ) : (
-                  <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <FitnessCenter sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-                    <Typography color="text.secondary">
-                      No se encontraron ejercicios con esa búsqueda
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={() => setSearchTerm("")}
-                      sx={{ mt: 2 }}
-                    >
-                      Limpiar búsqueda
-                    </Button>
+                      }
+                      sx={{ width: '100%', m: 0 }}
+                    />
                   </Box>
-                )}
-              </>
-            )}
-            
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-              <Button
-                variant="outlined"
-                onClick={handleBack}
-                sx={{ borderRadius: '10px' }}
-              >
-                Atrás
-              </Button>
-              
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                disabled={selectedExercises.length === 0}
-                sx={{ borderRadius: '10px' }}
-              >
-                Siguiente ({selectedExercises.length})
-              </Button>
+                ))
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <FitnessCenter sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+                  <Typography color="text.secondary">
+                    No se encontraron ejercicios con esa búsqueda
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    size="small" 
+                    onClick={() => setSearchTerm("")}
+                    sx={{ mt: 2 }}
+                  >
+                    Limpiar búsqueda
+                  </Button>
+                </Box>
+              )}
             </Box>
-          </Paper>
-          
-          {/* FAB para mostrar seleccionados en móvil */}
-          {isMobile && selectedExercises.length > 0 && (
-            <Fab
-              color="primary"
-              variant="extended"
-              onClick={() => setDrawerOpen(true)}
-              sx={{
-                position: 'fixed',
-                bottom: 20,
-                right: 20,
-                zIndex: 1050
-              }}
-            >
-              <Badge badgeContent={selectedExercises.length} color="error">
-                <FitnessCenter sx={{ mr: 1 }} />
-                Ver seleccionados
-              </Badge>
-            </Fab>
+          ) : (
+            // Mostrar accordions agrupados al no buscar
+            <>
+              {categoriesWithExercises.length > 0 ? (
+                categoriesWithExercises.map((category) => (
+                  <Accordion 
+                    key={category} 
+                    defaultExpanded={false} 
+                    sx={{ 
+                      mb: 1, 
+                      borderRadius: '12px', 
+                      overflow: 'hidden',
+                      '&:before': { display: 'none' }
+                    }}
+                  >
+                    <AccordionSummary
+                      expandIcon={<ExpandMore />}
+                      sx={{ 
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {EXERCISE_CATEGORIES[category] || <FitnessCenter />}
+                        <Typography sx={{ ml: 1, fontWeight: 'medium' }}>
+                          {category} ({exercisesByCategory[category].length})
+                        </Typography>
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ p: 1 }}>
+                      <Grid container spacing={1}>
+                        {exercisesByCategory[category].map((exercise: Exercise) => (
+                          <Grid item xs={12} key={exercise.id}>
+                            <Card 
+                              variant={selectedExercises.some(ex => ex.id === exercise.id) ? "elevation" : "outlined"}
+                              elevation={selectedExercises.some(ex => ex.id === exercise.id) ? 3 : 0}
+                              sx={{ 
+                                borderColor: selectedExercises.some(ex => ex.id === exercise.id) ? 'primary.main' : 'divider',
+                                borderRadius: '10px',
+                                backgroundColor: selectedExercises.some(ex => ex.id === exercise.id) ? 'rgba(25, 118, 210, 0.08)' : 'inherit'
+                              }}
+                            >
+                              <CardContent sx={{ py: 1, px: 2, '&:last-child': { pb: 1 } }}>
+                                <FormControlLabel
+                                  control={
+                                    <Checkbox
+                                      checked={selectedExercises.some(ex => ex.id === exercise.id)}
+                                      onChange={() => handleExerciseSelection(exercise.id)}
+                                      color="primary"
+                                    />
+                                  }
+                                  label={
+                                    <Box>
+                                      <Typography fontWeight={selectedExercises.some(ex => ex.id === exercise.id) ? "bold" : "regular"}>
+                                        {exercise.name}
+                                      </Typography>
+                                      {exercise.description && (
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                          {exercise.description.substring(0, 60)}
+                                          {exercise.description.length > 60 ? '...' : ''}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  }
+                                  sx={{ width: '100%', m: 0 }}
+                                />
+                              </CardContent>
+                            </Card>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </AccordionDetails>
+                  </Accordion>
+                ))
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <FitnessCenter sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+                  <Typography color="text.secondary">
+                    No se encontraron ejercicios con esa búsqueda
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    size="small" 
+                    onClick={() => setSearchTerm("")}
+                    sx={{ mt: 2 }}
+                  >
+                    Limpiar búsqueda
+                  </Button>
+                </Box>
+              )}
+            </>
           )}
           
-          {/* Drawer para móvil con ejercicios seleccionados */}
-          <Drawer
-            anchor="bottom"
-            open={drawerOpen}
-            onClose={() => setDrawerOpen(false)}
-            PaperProps={{
-              sx: {
-                maxHeight: '70vh',
-                borderTopLeftRadius: '16px',
-                borderTopRightRadius: '16px',
-                px: 2,
-                py: 2
-              }
-            }}
-          >
-            <Typography variant="h6" gutterBottom align="center">
-              Ejercicios Seleccionados ({selectedExercises.length})
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+            <Button
+              variant="outlined"
+              onClick={handleBack}
+              sx={{ borderRadius: '10px' }}
+            >
+              Atrás
+            </Button>
             
-            <List sx={{ overflow: 'auto', maxHeight: 'calc(70vh - 100px)' }}>
-              {Object.keys(selectedExercisesByCategory).map((category) => (
-                <Box key={category} sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
-                    {EXERCISE_CATEGORIES[category] || <FitnessCenter fontSize="small" />}
-                    <span style={{ marginLeft: '8px' }}>{category}</span>
-                  </Typography>
-                  
-                  {selectedExercisesByCategory[category].map((exercise) => (
-                    <ListItem
-                      key={exercise.id}
-                      secondaryAction={
-                        <IconButton edge="end" onClick={() => handleExerciseSelection(exercise.id)}>
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      }
-                      sx={{ py: 0.5 }}
-                    >
-                      <ListItemText 
-                        primary={exercise.exerciseName}
-                        primaryTypographyProps={{ variant: 'body2' }}
-                      />
-                    </ListItem>
-                  ))}
-                </Box>
-              ))}
-            </List>
-            
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-              <Button
-                variant="outlined"
-                onClick={() => setDrawerOpen(false)}
-                fullWidth
-                sx={{ borderRadius: '10px' }}
-              >
-                Cerrar
-              </Button>
-            </Box>
-          </Drawer>
-        </>
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={selectedExercises.length === 0}
+              sx={{ borderRadius: '10px' }}
+            >
+              Siguiente ({selectedExercises.length})
+            </Button>
+          </Box>
+        </Paper>
       )}
       
       {activeStep === 2 && (

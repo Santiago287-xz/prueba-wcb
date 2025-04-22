@@ -46,7 +46,7 @@ export default function CategoriesManager() {
     setError(null);
     
     try {
-      const res = await fetch("/api/inventory/categories");
+      const res = await fetch("/api/sales/inventory/categories");
       if (!res.ok) {
         throw new Error(`Error: ${res.status} - ${res.statusText}`);
       }
@@ -71,7 +71,7 @@ export default function CategoriesManager() {
     setProcessing(true);
     
     try {
-      const res = await fetch("/api/inventory/categories", {
+      const res = await fetch("/api/sales/inventory/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: categoryForm.name.trim() }),
@@ -109,7 +109,7 @@ export default function CategoriesManager() {
     setProcessing(true);
     
     try {
-      const res = await fetch(`/api/inventory/categories/${categoryId}`, {
+      const res = await fetch(`/api/sales/inventory/categories/${categoryId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: categoryForm.name.trim() }),
@@ -137,7 +137,7 @@ export default function CategoriesManager() {
     }
     
     try {
-      const res = await fetch(`/api/inventory/categories/${categoryId}`, {
+      const res = await fetch(`/api/sales/inventory/categories/${categoryId}`, {
         method: "DELETE",
       });
       

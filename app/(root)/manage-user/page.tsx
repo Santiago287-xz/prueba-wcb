@@ -379,8 +379,6 @@ const ManageUser: React.FC = () => {
     if (sessionUser?.role === "trainer") {
       filtered = filtered.filter((user: User) => user.role === "member");
     } else {
-      // Para administradores, filtrar admin y aplicar filtros de rol si existen
-      filtered = filtered.filter((user: User) => user.role !== "admin");
       if (filterRole) {
         filtered = filtered.filter((user: User) => user.role === filterRole);
       }
@@ -423,9 +421,8 @@ const ManageUser: React.FC = () => {
   // Función para mapear roles a nombres más amigables
   const getRoleName = (role: string): string => {
     const roleMap: Record<string, string> = {
-      user: "Usuario",
-      employee: "Empleado",
-      court_manager: "Gestor de pista",
+      receptionist: "Recepcionista",
+      court_manager: "Gestor de Canchas",
       member: "Miembro",
       trainer: "Entrenador"
     };

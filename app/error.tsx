@@ -27,7 +27,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({ error }) => {
           alignItems: "center",
         }}
       >
-        <h1>Something went wrong</h1>
+        <h1>Algo salio mal</h1>
         <p>{error.message}</p>
       </Box>
     </Box>

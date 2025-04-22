@@ -166,6 +166,8 @@ export default function AdminAnalytics() {
   const [rfidPurgeLoading, setRfidPurgeLoading] = useState<boolean>(false);
   const [rfidPurgeError, setRfidPurgeError] = useState<string | null>(null);
   const [purgeType, setPurgeType] = useState<string>('none');
+  const [transactionsViewMode, setTransactionsViewMode] = useState<'full' | 'reduced'>('full');
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   const [loadingStates, setLoadingStates] = useState({
     members: false,
@@ -213,6 +215,24 @@ export default function AdminAnalytics() {
     type: ''
   });
   const prevMetricsRef = useRef({ ...metrics });
+  
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      
+      // Set transactions view mode to 'reduced' by default on mobile
+      if (window.innerWidth < 768) {
+        setTransactionsViewMode('reduced');
+      }
+    };
+    
+    checkIfMobile();
+    window.addEventListener('resize', checkIfMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkIfMobile);
+    };
+  }, []);
   
   const fetchData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -420,10 +440,10 @@ export default function AdminAnalytics() {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7f0e', '#d62728', '#9467bd', '#e377c2'];
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-1 py-2 md:px-4 md:py-6">
       {/* Header y controles */}
-      <div className="mb-6 flex justify-between items-center flex-wrap gap-2">
-        <div className="flex items-center gap-3">
+      <div className="mb-3 md:mb-6 flex justify-between items-center flex-wrap gap-2">
+        <div className="flex items-center justify-between gap-3 w-full md:w-auto">
           <h1 className="text-2xl font-bold text-gray-800">Panel Analítico</h1>
           <div className="relative inline-block">
             <button
@@ -468,8 +488,8 @@ export default function AdminAnalytics() {
           </div>
         )}
         
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex items-center border rounded-md overflow-hidden shadow-sm bg-white">
+        <div className="flex flex-col md:flex-row w-full md:w-auto flex-wrap gap-2 md:gap-3 items-center">
+          <div className="flex w-full md:w-auto items-center border rounded-md overflow-hidden shadow-sm bg-white">
             <input
               type="date"
               value={format(dateRange.start, 'yyyy-MM-dd')}
@@ -477,7 +497,7 @@ export default function AdminAnalytics() {
                 setDateRange({ ...dateRange, start: new Date(e.target.value) });
                 setActivePreset('custom');
               }}
-              className="text-sm border-none px-3 py-2 focus:outline-none"
+              className="flex-grow text-sm border-none px-3 py-2 focus:outline-none"
               max={format(new Date(), 'yyyy-MM-dd')}
             />
             <span className="mx-1 text-gray-400">-</span>
@@ -488,12 +508,12 @@ export default function AdminAnalytics() {
                 setDateRange({ ...dateRange, end: new Date(e.target.value) });
                 setActivePreset('custom');
               }}
-              className="text-sm border-none px-3 py-2 focus:outline-none"
+              className="flex-grow text-sm border-none px-3 py-2 focus:outline-none"
               max={format(new Date(), 'yyyy-MM-dd')}
             />
           </div>
           
-          <div className="flex gap-1 flex-wrap">
+          <div className="hidden md:flex gap-1 flex-wrap">
             <button
               onClick={() => applyDatePreset('last7days')}
               className={`px-3 py-2 text-xs rounded-md shadow-sm transition-colors duration-200 ${activePreset === 'last7days' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
@@ -520,8 +540,8 @@ export default function AdminAnalytics() {
             </button>
           </div>
           
-          <div className="flex items-center gap-2">
-            <label className="text-xs flex items-center bg-white px-2 py-1 rounded-md shadow-sm">
+          <div className="flex w-full md:w-auto items-center gap-2 h-10">
+            <label className="flex-grow md:flex-grow-0 h-full text-xs flex items-center justify-center bg-white px-2 py-2 rounded-md shadow-sm">
               <input
                 type="checkbox"
                 checked={autoRefresh}
@@ -532,7 +552,7 @@ export default function AdminAnalytics() {
             </label>
             <button
               onClick={() => fetchData(true)}
-              className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm flex items-center transition-colors duration-200 shadow-sm"
+              className="flex-grow md:flex-grow-0 h-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm flex items-center justify-center transition-colors duration-200 shadow-sm"
               disabled={loading}
             >
               {loading ? (
@@ -547,13 +567,13 @@ export default function AdminAnalytics() {
               )}
               Actualizar
             </button>
-            <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md shadow-sm">
+            <div className="flex-grow md:flex-grow-0 h-full flex items-center justify-center text-xs text-gray-500 bg-white px-2 py-2 rounded-md shadow-sm">
               {format(lastRefresh, 'HH:mm:ss')}
             </div>
           </div>
         </div>
         
-        <div className="w-full flex border-b mt-2">
+        <div className="w-full flex border-b mt-2 justify-center">
           <button
             className={`px-4 py-2 text-sm transition-colors duration-200 ${view === 'chart' ? 'border-b-2 border-blue-500 text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-800'}`}
             onClick={() => setView('chart')}
@@ -569,54 +589,56 @@ export default function AdminAnalytics() {
         </div>
       </div>
 
-      {/* Tarjetas de métricas clave */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <MetricCard
-          title="Miembros"
-          value={metrics.members.total}
-          previousValue={prevMetricsRef.current.members.total}
-          secondary={`${formatCurrency(metrics.members.pointsRevenue || 0)} en puntos`}
-          trend={`${metrics.members.pointsRetention || 0}% activos del total`}
-          icon="users"
-          loading={loadingStates.members || loading}
-        />
-        <MetricCard
-          title="Uso de Canchas"
-          value={metrics.courts.utilization}
-          previousValue={prevMetricsRef.current.courts.utilization}
-          secondary={`${formatCurrency(metrics.courts.revenue || 0)} en ingresos`}
-          trend={`${metrics.areas.courts.transactionCount || 0} reservas`}
-          icon="court"
-          loading={loadingStates.courts || loading}
-          suffix="%"
-        />
-        <MetricCard
-          title="Ventas Totales"
-          value={calculateTotalSales()}
-          previousValue={prevMetricsRef.current.sales.total}
-          secondary="Todos los ingresos"
-          trend={`Ganancia: ${formatCurrency(
-            (metrics.areas.gym.netProfit || 0) +
-            (metrics.areas.courts.netProfit || 0) +
-            (metrics.areas.shop.netProfit || 0)
-          )}`}
-          icon="money"
-          loading={loading}
-          formatAsCurrency={true}
-        />
-        <MetricCard
-          title="Puntos Vendidos"
-          value={metrics.gymPoints.totalPointsSold}
-          previousValue={prevMetricsRef.current.gymPoints.totalPointsSold}
-          secondary={`${metrics.gymPoints.totalPointsUsed || 0} puntos usados`}
-          trend={`Prom: $${(metrics.gymPoints.totalPointsSold > 0 && metrics.members.total > 0)
-            ? Math.round(metrics.gymPoints.totalPointsSold / metrics.members.total)
-            : 0}/miembro`}
-          icon="chart"
-          loading={loadingStates.enhanced || loading}
-          formatAsCurrency={true}
-        />
-      </div>
+      {/* Tarjetas de métricas clave - solo mostrar en vista de gráficos o en todas las vistas en desktop */}
+      {(view === 'chart' || !isMobile) && (
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-6">
+          <MetricCard
+            title="Miembros"
+            value={metrics.members.total}
+            previousValue={prevMetricsRef.current.members.total}
+            secondary={`${formatCurrency(metrics.members.pointsRevenue || 0)} en puntos`}
+            trend={`${metrics.members.pointsRetention || 0}% activos del total`}
+            icon="users"
+            loading={loadingStates.members || loading}
+          />
+          <MetricCard
+            title="Uso de Canchas"
+            value={metrics.courts.utilization}
+            previousValue={prevMetricsRef.current.courts.utilization}
+            secondary={`${formatCurrency(metrics.courts.revenue || 0)} en ingresos`}
+            trend={`${metrics.areas.courts.transactionCount || 0} reservas`}
+            icon="court"
+            loading={loadingStates.courts || loading}
+            suffix="%"
+          />
+          <MetricCard
+            title="Ventas Totales"
+            value={calculateTotalSales()}
+            previousValue={prevMetricsRef.current.sales.total}
+            secondary="Todos los ingresos"
+            trend={`Ganancia: ${formatCurrency(
+              (metrics.areas.gym.netProfit || 0) +
+              (metrics.areas.courts.netProfit || 0) +
+              (metrics.areas.shop.netProfit || 0)
+            )}`}
+            icon="money"
+            loading={loading}
+            formatAsCurrency={true}
+          />
+          <MetricCard
+            title="Puntos Vendidos"
+            value={metrics.gymPoints.totalPointsSold}
+            previousValue={prevMetricsRef.current.gymPoints.totalPointsSold}
+            secondary={`${metrics.gymPoints.totalPointsUsed || 0} puntos usados`}
+            trend={`Prom: $${(metrics.gymPoints.totalPointsSold > 0 && metrics.members.total > 0)
+              ? Math.round(metrics.gymPoints.totalPointsSold / metrics.members.total)
+              : 0}/miembro`}
+            icon="chart"
+            loading={loadingStates.enhanced || loading}
+            formatAsCurrency={true}
+          />
+        </div>
+      )}
 
       {/* Vista de gráficos */}
       {view === 'chart' && (
@@ -732,64 +754,89 @@ export default function AdminAnalytics() {
       {view === 'transactions' && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="px-4 py-3 border-b">
-            <h3 className="text-gray-700 font-medium">Registro de Transacciones</h3>
-            <div className="flex flex-wrap gap-2 mt-2 mb-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <select
-                  className="border rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => setActiveFilters(prev => ({ ...prev, category: e.target.value }))}
-                  value={activeFilters.category}
+            <div className="flex justify-between items-center">
+              <h3 className="text-gray-700 font-medium">Registro de Transacciones</h3>
+              {/* Botón para cambiar entre vista completa y reducida en mobile */}
+              {isMobile && (
+                <button
+                  onClick={() => setTransactionsViewMode(transactionsViewMode === 'full' ? 'reduced' : 'full')}
+                  className="px-3 py-1 bg-blue-500 text-white rounded text-xs"
                 >
-                  <option value="">Todas las categorías</option>
-                  {Array.from(new Set(transactions.map(t => t.category))).map((cat, idx) => (
-                    <option key={idx} value={cat}>{translateCategory(cat)}</option>
-                  ))}
-                </select>
-
-                <select
-                  className="border rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => setActiveFilters(prev => ({ ...prev, location: e.target.value }))}
-                  value={activeFilters.location}
-                >
-                  <option value="">Todas las ubicaciones</option>
-                  {Array.from(new Set(transactions.map(t => t.location).filter(Boolean))).map((loc, idx) => (
-                    <option key={idx} value={loc}>{loc}</option>
-                  ))}
-                </select>
-
-                <select
-                  className="border rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => setActiveFilters(prev => ({ ...prev, type: e.target.value }))}
-                  value={activeFilters.type}
-                >
-                  <option value="">Todos los tipos</option>
-                  <option value="income">Ingresos</option>
-                  <option value="expense">Gastos</option>
-                </select>
-
-                {(activeFilters.category || activeFilters.location || activeFilters.type) && (
-                  <button
-                    className="bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-xs hover:bg-gray-300 transition-colors duration-200 shadow-sm"
-                    onClick={() => setActiveFilters({ category: '', location: '', type: '' })}
-                  >
-                    Limpiar filtros
-                  </button>
-                )}
-              </div>
+                  Vista {transactionsViewMode === 'full' ? 'Reducida' : 'Completa'}
+                </button>
+              )}
             </div>
+            
+            {/* Filtros - Solo mostrar en desktop */}
+            {!isMobile && (
+              <div className="flex flex-wrap gap-2 mt-2 mb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    className="border rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setActiveFilters(prev => ({ ...prev, category: e.target.value }))}
+                    value={activeFilters.category}
+                  >
+                    <option value="">Todas las categorías</option>
+                    {Array.from(new Set(transactions.map(t => t.category))).map((cat, idx) => (
+                      <option key={idx} value={cat}>{translateCategory(cat)}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    className="border rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setActiveFilters(prev => ({ ...prev, location: e.target.value }))}
+                    value={activeFilters.location}
+                  >
+                    <option value="">Todas las ubicaciones</option>
+                    {Array.from(new Set(transactions.map(t => t.location).filter(Boolean))).map((loc, idx) => (
+                      <option key={idx} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    className="border rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setActiveFilters(prev => ({ ...prev, type: e.target.value }))}
+                    value={activeFilters.type}
+                  >
+                    <option value="">Todos los tipos</option>
+                    <option value="income">Ingresos</option>
+                    <option value="expense">Gastos</option>
+                  </select>
+
+                  {(activeFilters.category || activeFilters.location || activeFilters.type) && (
+                    <button
+                      className="bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-xs hover:bg-gray-300 transition-colors duration-200 shadow-sm"
+                      onClick={() => setActiveFilters({ category: '', location: '', type: '' })}
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="bg-gray-100">
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Fecha</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Tipo</th>
+                  {(!isMobile || transactionsViewMode === 'full') && (
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Tipo</th>
+                  )}
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Usuario</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Categoría</th>
+                  {(!isMobile || transactionsViewMode === 'full') && (
+                    <>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Categoría</th>
+                    </>
+                  )}
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Monto</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Método de Pago</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Ubicación</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Descripción</th>
+                  {(!isMobile || transactionsViewMode === 'full') && (
+                    <>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Método de Pago</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Ubicación</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Descripción</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="transition-opacity duration-300">
@@ -799,32 +846,40 @@ export default function AdminAnalytics() {
                       <td className="px-4 py-2 text-sm">
                         <div className="animate-pulse bg-gray-200 h-4 w-20 rounded"></div>
                       </td>
+                      {(!isMobile || transactionsViewMode === 'full') && (
+                        <td className="px-4 py-2 text-sm">
+                          <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
+                        </td>
+                      )}
                       <td className="px-4 py-2 text-sm">
                         <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
                       </td>
+                      {(!isMobile || transactionsViewMode === 'full') && (
+                        <td className="px-4 py-2 text-sm">
+                          <div className="animate-pulse bg-gray-200 h-4 w-20 rounded"></div>
+                        </td>
+                      )}
                       <td className="px-4 py-2 text-sm">
                         <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
                       </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-20 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-24 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <div className="animate-pulse bg-gray-200 h-4 w-32 rounded"></div>
-                      </td>
+                      {(!isMobile || transactionsViewMode === 'full') && (
+                        <>
+                          <td className="px-4 py-2 text-sm">
+                            <div className="animate-pulse bg-gray-200 h-4 w-24 rounded"></div>
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            <div className="animate-pulse bg-gray-200 h-4 w-32 rounded"></div>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))
                 ) : (filteredTransactions || transactions).length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={isMobile && transactionsViewMode === 'reduced' ? 3 : 8} className="px-4 py-4 text-center text-sm text-gray-500">
                       No hay transacciones para mostrar
                     </td>
                   </tr>
@@ -832,25 +887,33 @@ export default function AdminAnalytics() {
                   (filteredTransactions || transactions).map((transaction, idx) => (
                     <tr key={idx} className="border-b hover:bg-gray-50">
                       <td className="px-4 py-2 text-sm">
-                        {format(new Date(transaction.createdAt), 'dd/MM/yyyy HH:mm')}
+                        {format(new Date(transaction.createdAt), isMobile ? 'dd/MM/yy' : 'dd/MM/yyyy HH:mm')}
                       </td>
-                      <td className="px-4 py-2 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs ${transaction.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {transaction.type === 'income' ? 'Ingreso' : 'Gasto'}
-                        </span>
-                      </td>
+                      {(!isMobile || transactionsViewMode === 'full') && (
+                        <td className="px-4 py-2 text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs ${transaction.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {transaction.type === 'income' ? 'Ingreso' : 'Gasto'}
+                          </span>
+                        </td>
+                      )}
                       <td className="px-4 py-2 text-sm">
                         {transaction.user?.name || '-'}
                       </td>
-                      <td className="px-4 py-2 text-sm">{translateCategory(transaction.category)}</td>
+                      {(!isMobile || transactionsViewMode === 'full') && (
+                        <td className="px-4 py-2 text-sm">{translateCategory(transaction.category)}</td>
+                      )}
                       <td className="px-4 py-2 text-sm font-medium">
                         <span className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
                           {formatCurrency(transaction.amount)}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-sm">{translatePaymentMethod(transaction.paymentMethod)}</td>
-                      <td className="px-4 py-2 text-sm">{transaction.location || '-'}</td>
-                      <td className="px-4 py-2 text-sm">{transaction.description || '-'}</td>
+                      {(!isMobile || transactionsViewMode === 'full') && (
+                        <>
+                          <td className="px-4 py-2 text-sm">{translatePaymentMethod(transaction.paymentMethod)}</td>
+                          <td className="px-4 py-2 text-sm">{transaction.location || '-'}</td>
+                          <td className="px-4 py-2 text-sm">{transaction.description || '-'}</td>
+                        </>
+                      )}
                     </tr>
                   ))
                 )}
@@ -968,9 +1031,23 @@ interface MetricCardProps {
   formatAsCurrency?: boolean;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({
+  const MetricCard: React.FC<MetricCardProps> = ({
   title, value, previousValue = 0, secondary, trend, icon, loading, prefix = '', suffix = '', formatAsCurrency = false
 }) => {
+  // Display shorter titles on mobile
+  const getMobileTitle = (fullTitle: string) => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (!isMobile) return fullTitle;
+    
+    switch(fullTitle) {
+      case "Miembros": return "Miembros";
+      case "Uso de Canchas": return "Canchas";
+      case "Ventas Totales": return "Ventas";
+      case "Puntos Vendidos": return "Puntos";
+      default: return fullTitle;
+    }
+  };
+  
   const icons: { [key in MetricCardProps['icon']]: JSX.Element } = {
     users: (
       <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -1003,10 +1080,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg">
+    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg">
       <div className="flex justify-between">
         <div>
-          <h3 className="text-gray-500 text-sm font-medium">{title}</h3>
+          <h3 className="text-gray-500 text-sm font-medium">{getMobileTitle(title)}</h3>
           {loading ? (
             <>
               <div className="animate-pulse bg-gray-200 h-8 w-24 rounded mt-1"></div>

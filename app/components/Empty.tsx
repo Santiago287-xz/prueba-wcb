@@ -30,7 +30,7 @@ const Empty: React.FC<EmptyProps> = ({
       <Typography className={"text-lg text-gray-500"}>{subtitle}</Typography>
 
       <Box className={"w-48 mt-4"}>
-        {showReset && <Link href={"/"}>Back to home</Link>}
+        {showReset && <Link href={"/"}>Volver al inicio</Link>}
       </Box>
     </Box>
   );

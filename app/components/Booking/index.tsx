@@ -219,7 +219,7 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
 
     const startTime = new Date(modalData.selectedDay);
 
-    let hours = modalData.selectedHour as number;
+    let hours = modalData.selectedHour;
     let minutes = 0;
 
     if (typeof modalData.selectedHour === 'string' && modalData.selectedHour.includes(':')) {
@@ -491,6 +491,21 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     openInvoiceModal: modalData.reservation ? () => openInvoiceModal(modalData.reservation as Reservation) : null
   }), [modalData, courts, openInvoiceModal]);
 
+  // Agregar estado para detectar dispositivo móvil
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setCurrentView(0);
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
     <div className="max-w-full md:max-w-7xl mx-auto bg-white rounded shadow">
       <div className="p-4 border-b flex justify-between items-center">
@@ -523,7 +538,7 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
                 <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V12a2 2 0 002 2h8a2 2 0 002-2v-.5a2 2 0 002-2V6a2 2 0 00-2-2H4z" />
                 <path d="M3 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM3 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM7 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 017 10.75zM7 13.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM11 10.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75z" />
               </svg>
-              Nueva Transacción
+              Transacción
             </button>
             <button
               onClick={openPurgeDialog}
@@ -538,14 +553,17 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
         </div>
       </div>
 
-      <div className="px-4 py-2 border-b">
-        <Tabs value={currentView} onChange={handleTabChange} aria-label="view tabs">
-          <Tab label="Calendario" id="calendar-tab" />
-          <Tab label="Vista desde arriba" id="overhead-tab" />
-        </Tabs>
-      </div>
+      {/* Renderizar los Tabs sólo en no móvil */}
+      {!isMobile && (
+        <div className="px-4 py-2 border-b">
+          <Tabs value={currentView} onChange={handleTabChange} aria-label="view tabs">
+            <Tab label="Calendario" id="calendar-tab" />
+            <Tab label="Vista desde arriba" id="overhead-tab" />
+          </Tabs>
+        </div>
+      )}
 
-      {currentView === 0 ? (
+      {isMobile ? (
         <UnifiedCalendar
           courts={courts}
           currentDate={currentDate}
@@ -557,15 +575,30 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
           loading={loading}
         />
       ) : (
-        <div className="p-4">
-          <OverheadView
-            courts={courts}
-            reservations={allReservations}
-            events={allEvents}
-            onCourtClick={handleCourtClick}
-            currentDate={currentDate}
-          />
-        </div>
+        <>
+          {currentView === 0 ? (
+            <UnifiedCalendar
+              courts={courts}
+              currentDate={currentDate}
+              setCurrentDate={setCurrentDate}
+              openReservationModal={openReservationModal}
+              openEventModal={openEventModal}
+              openDetailModal={openDetailModal}
+              openInvoiceModal={openInvoiceModal}
+              loading={loading}
+            />
+          ) : (
+            <div className="p-4">
+              <OverheadView
+                courts={courts}
+                reservations={allReservations}
+                events={allEvents}
+                onCourtClick={handleCourtClick}
+                currentDate={currentDate}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {modalData.isOpen && (

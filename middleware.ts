@@ -9,7 +9,7 @@ const PATH_PERMISSIONS = {
   "/categories": ["admin", "court_manager"],
   "/manage-user": ["admin", "trainer"],
   "/rfid-management": ["admin"],
-  "/sales": ["admin"],
+  "/sales": ["admin", "receptionist", "court_manager"],
   "/trainers": ["admin"],
   "/exercise-assignment": ["admin", "trainer"],
   "/profile": ["admin", "trainer", "member", "court_manager", "receptionist"],
@@ -20,8 +20,11 @@ const PATH_PERMISSIONS = {
 const API_PERMISSIONS = {
   "/api/analytics": ["admin"],
   "/api/bookings": ["admin", "court_manager"],
-  "/api/inventory/categories": ["admin", "court_manager"],
-  "/api/inventory": ["admin", "receptionist"],
+  "/api/sales": ["admin", "receptionist", "court_manager"],
+  "/api/sales/inventory/categories": ["admin", "receptionist","court_manager"],
+  "/api/sales/inventory/products": ["admin", "receptionist","court_manager"],
+  "/api/sales/inventory/stock": ["admin", "receptionist","court_manager"],
+  "/api/sales/inventory": ["admin", "receptionist", "court_manager"],
   "/api/courts": ["admin", "court_manager"],
   "/api/events": ["admin", "court_manager"],
   "/api/members": ["admin", "receptionist", "trainer"],
@@ -31,14 +34,13 @@ const API_PERMISSIONS = {
   "/api/rfid/trainers": ["admin", "receptionist", "trainer"],
   "/api/payments/stripe": ["member"],
   "/api/rfid": ["admin", "receptionist"],
-  "/api/sales": ["admin", "receptionist"],
   "/api/transactions": ["admin"],
   "/api/fitness/exercise": ["admin", "trainer", "member"],
   "/api/fitness/exercise-assignment": ["admin", "trainer"],
   "/api/fitness": ["admin", "trainer"],
 };
 
-const PUBLIC_PATHS = ["/signin", "/signup", "/forgot-password", "/password-reset", "/unauthorized"];
+const PUBLIC_PATHS = ["/signin", "/signup", "/forgot-password", "/password-reset", "/unauthorized", "/uploads"];
 
 export async function middleware(request: NextRequest) {
   let path = request.nextUrl.pathname;

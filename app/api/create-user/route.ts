@@ -24,6 +24,7 @@ export async function POST(req: Request) {
             return NextResponse.json(
                 {
                     error: "Not authenticated",
+                    success: false
                 },
                 {status: 401}
             );
@@ -33,6 +34,7 @@ export async function POST(req: Request) {
             return NextResponse.json(
                 {
                     error: "Not authorized",
+                    success: false
                 },
                 {status: 403}
             );
@@ -44,6 +46,7 @@ export async function POST(req: Request) {
             return NextResponse.json(
                 {
                     error: "Missing email or password",
+                    success: false
                 },
                 {status: 400}
             );
@@ -57,6 +60,8 @@ export async function POST(req: Request) {
             return NextResponse.json(
                 {
                     error: "User already exists",
+                    success: false,
+                    code: "EMAIL_EXISTS"
                 },
                 {status: 409}
             );
@@ -64,7 +69,8 @@ export async function POST(req: Request) {
 
         if (sessionUser.role === body.role) {
             return NextResponse.json({
-                error: `You can't add an ${body.role}`
+                error: `You can't add an ${body.role}`,
+                success: false
             }, {
                 status: 503
             });
@@ -72,7 +78,6 @@ export async function POST(req: Request) {
 
         const hashedPassword = await bcrypt.hash(body.password, 12);
 
-        // Crear el objeto de datos para usuario
         const userData = {
             name: body.name,
             email: body.email,
@@ -80,31 +85,31 @@ export async function POST(req: Request) {
             hashedPassword,
             gender: body.gender || "male",
             phone: body.phone || 0,
-            // Asignar valores por defecto para campos requeridos
             age: body.age || 30,
             weight: body.weight || 70,
             height: body.height || 170,
             goal: body.goal || "get_fitter",
             level: body.level || "beginner",
-            // No intentamos asignar adminId ni trainerId
         };
 
         const user = await prisma.user.create({
             data: userData
         });
 
-        // Remover el password hasheado de la respuesta
         const userResponse = { ...user };
         userResponse.hashedPassword = undefined as any;
 
         return NextResponse.json({
             status: 201,
             data: userResponse,
+            success: true,
+            message: `${body.role} created successfully`
         });
     } catch (error) {
         console.error("Error creating user:", error);
         return NextResponse.json({
-            error: error instanceof Error ? error.message : "Unknown error"
+            error: error instanceof Error ? error.message : "Unknown error",
+            success: false
         }, {
             status: 500
         });
@@ -118,7 +123,8 @@ export async function PATCH(req: Request) {
 
         if (!session || !sessionUser) {
             return NextResponse.json({
-                error: "unauthenticated"
+                error: "unauthenticated",
+                success: false
             }, {
                 status: 401,
             })
@@ -141,7 +147,8 @@ export async function PATCH(req: Request) {
 
             if (!user || !trainer) {
                 return NextResponse.json({
-                    error: "No user or trainer found in the list!!!"
+                    error: "No user or trainer found in the list!!!",
+                    success: false
                 }, {
                     status: 400
                 })
@@ -151,37 +158,42 @@ export async function PATCH(req: Request) {
                 where: {
                     id: user.id
                 }, data: {
-                    trainer: trainer.id // Actualizado para usar 'trainer' en lugar de 'trainerId'
+                    trainer: trainer.id
                 }
             })
 
             if (!updateUser) {
                 return NextResponse.json({
-                    error: "Something is wrong to update the trainer"
+                    error: "Something is wrong to update the trainer",
+                    success: false
                 })
             }
 
             return NextResponse.json({
-                message: "User updated successfully"
+                message: "User updated successfully",
+                success: true
             }, {
                 status: 201
             })
         } else if (sessionUser?.role === 'trainer' && body.trainerId && body.userId && body.trainerId !== body.userId) {
             return NextResponse.json({
-                error: "You can't update the trainer"
+                error: "You can't update the trainer",
+                success: false
             }, {
                 status: 400
             })
         } else if (sessionUser?.role === 'user' && body.trainerId && body.userId && body.trainerId !== body.userId) {
             return NextResponse.json({
-                error: "You can't update the trainer"
+                error: "You can't update the trainer",
+                success: false
             }, {
                 status: 400
             })
         } else {
             if (body.email) {
                 return NextResponse.json({
-                    error: "You can't update the email"
+                    error: "You can't update the email",
+                    success: false
                 }, {
                     status: 400
                 })
@@ -195,7 +207,8 @@ export async function PATCH(req: Request) {
 
             if (!user) {
                 return NextResponse.json({
-                    error: "User not found"
+                    error: "User not found",
+                    success: false
                 }, {
                     status: 400
                 })
@@ -226,7 +239,8 @@ export async function PATCH(req: Request) {
 
             if (!userUpdate) {
                 return NextResponse.json({
-                    error: "Updating failed"
+                    error: "Updating failed",
+                    success: false
                 }, {
                     status: 400
                 })
@@ -237,7 +251,8 @@ export async function PATCH(req: Request) {
             }
 
             return NextResponse.json({
-                message: "Updated successfully"
+                message: "Updated successfully",
+                success: true
             }, {
                 status: 200
             })
@@ -245,7 +260,8 @@ export async function PATCH(req: Request) {
     } catch (err: Error | any) {
         console.error(err)
         return NextResponse.json({
-            error: err.message
+            error: err.message,
+            success: false
         }, {
             status: 500
         })

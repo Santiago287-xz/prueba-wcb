@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   // Si el usuario tiene otro rol (por ejemplo, 'user'), mostramos el dashboard correspondiente
   return (
     <ClientOnly>
-      <Empty title={'Welcome'} subtitle={'Please use the menu to navigate'} />
+      <Empty title={'Bienvenido'} subtitle={'Por favor utilice el menú para navegar'} />
     </ClientOnly>
   );
 }
