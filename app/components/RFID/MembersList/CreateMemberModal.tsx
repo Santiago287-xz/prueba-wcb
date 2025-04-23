@@ -206,7 +206,7 @@ export default function CreateMemberModal({
       });
 
       // Then create the member with RFID card
-      const response = await axios.post('/api/members/rfid/create-member', {
+      const response = await axios.post('/api/rfid/create-member/', {
         name: formState.name,
         email: formState.email,
         phone: formState.phone,

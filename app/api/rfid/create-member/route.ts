@@ -1,4 +1,4 @@
-// app/api/members/rfid/create-member/route.ts
+// app/api/rfid/create-member/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 import { getServerSession } from "next-auth";

@@ -1,7 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { options } from "@/app/api/auth/[...nextauth]/options";
-import { SessionUser } from "@/types";
 import prisma from "@/app/libs/prismadb";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcrypt";
@@ -52,6 +51,17 @@ export async function POST(req: Request) {
             );
         }
 
+        // Validar el campo post para recepcionistas y administradores de canchas
+        if ((body.role === "receptionist" || body.role === "court_manager") && !body.post) {
+            return NextResponse.json(
+                {
+                    error: "El puesto es requerido para recepcionistas y administradores de canchas",
+                    success: false
+                },
+                {status: 400}
+            );
+        }
+
         const userExists = await prisma.user.findUnique({
             where: {email: body.email},
         });
@@ -91,6 +101,11 @@ export async function POST(req: Request) {
             goal: body.goal || "get_fitter",
             level: body.level || "beginner",
         };
+
+        // Agregar el campo post para recepcionistas y administradores de canchas
+        if (body.role === "receptionist" || body.role === "court_manager") {
+            userData.post = body.post;
+        }
 
         const user = await prisma.user.create({
             data: userData

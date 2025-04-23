@@ -106,6 +106,7 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
         <>
           <MenuItem href="/rfid-management" title="RFID Management" icon={FaCreditCard} onItemClick={onItemClick} />
           <MenuItem href="/booking" title="Canchas" icon={FaCalendarAlt} onItemClick={onItemClick} />
+          <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />
         </>
       )}
       <div className="h-px w-full bg-gray-200 my-3"></div>

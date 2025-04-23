@@ -20,8 +20,9 @@ import {
   FormHelperText,
   IconButton,
   CircularProgress,
+  Alert,
 } from "@mui/material/";
-import { Person, Badge, Spa, SportsTennis, Visibility, VisibilityOff, CheckCircle } from "@mui/icons-material";
+import { Person, Badge, Spa, SportsTennis, Visibility, VisibilityOff, CheckCircle, Store } from "@mui/icons-material";
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form";
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -35,6 +36,7 @@ const AddMemberPage: React.FC = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [userCreated, setUserCreated] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     register,
@@ -43,6 +45,7 @@ const AddMemberPage: React.FC = () => {
     watch,
     handleSubmit,
     setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<FieldValues>({
     defaultValues: {
@@ -53,6 +56,7 @@ const AddMemberPage: React.FC = () => {
       confirmPassword: "",
       gender: "male",
       phone: "",
+      post: "",
       age: 30,
       weight: 70,
       height: 170,
@@ -63,23 +67,38 @@ const AddMemberPage: React.FC = () => {
 
   // Watch the role field to update UI based on selection
   const roleValue = watch("role");
+  const showPostSelector = roleValue === "receptionist" || roleValue === "court_manager";
 
   useEffect(() => {
     setSelectedRole(roleValue);
-  }, [roleValue]);
+    
+    // Reset post value when role changes
+    if (roleValue !== "receptionist" && roleValue !== "court_manager") {
+      setValue("post", "");
+    }
+  }, [roleValue, setValue]);
 
   useEffect(() => {
     if (userCreated) {
       setUserCreated(false);
     }
-  }, [watch('name'), watch('email'), watch('password'), watch('confirmPassword'), watch('phone'), watch('gender'), watch('role')]);
+  }, [watch('name'), watch('email'), watch('password'), watch('confirmPassword'), watch('phone'), watch('gender'), watch('role'), watch('post')]);
+
+  // Clear email error when email changes
+  useEffect(() => {
+    if (emailError) {
+      setEmailError(null);
+      clearErrors("email");
+    }
+  }, [watch('email'), clearErrors]);
 
   const onSubmit: SubmitHandler<FieldValues> = async (data) => {
     try {
       setEmailError(null);
       setSuccessMessage(null);
+      setFormError(null);
       
-      const userData = {
+      const userData: any = {
         name: data.name,
         email: data.email,
         password: data.password,
@@ -87,6 +106,18 @@ const AddMemberPage: React.FC = () => {
         gender: data.gender,
         phone: parseInt(data.phone) || 0,
       };
+
+      // Add post field for receptionist and court_manager
+      if ((data.role === "receptionist" || data.role === "court_manager") && data.post) {
+        userData.post = data.post;
+      } else if ((data.role === "receptionist" || data.role === "court_manager") && !data.post) {
+        setFormError("El puesto es requerido para recepcionistas y administradores de canchas");
+        setError("post", {
+          type: "manual",
+          message: "El puesto es requerido"
+        });
+        return;
+      }
 
       if (sessionUser?.role === userData.role) {
         toast.error(`No puedes crear un ${userData.role} siendo ${sessionUser?.role}`);
@@ -119,18 +150,19 @@ const AddMemberPage: React.FC = () => {
         
         reset();
       }
-    } catch (err: Error | any) {
+    } catch (err: any) {
       console.error("Error completo:", err);
       
       if (err.response) {
         if (err.response.status === 409) {
-          setEmailError("Este correo electrónico ya está registrado");
+          const errorMsg = "Este correo electrónico ya está registrado";
+          setEmailError(errorMsg);
           setError("email", {
             type: "manual",
-            message: "Este correo electrónico ya está registrado"
+            message: errorMsg
           });
           
-          toast.error("Este correo electrónico ya está registrado", {
+          toast.error(errorMsg, {
             duration: 4000,
             icon: '❌',
             style: {
@@ -158,6 +190,8 @@ const AddMemberPage: React.FC = () => {
               }
           }
           
+          setFormError(errorMessage);
+          
           toast.error(errorMessage, {
             duration: 4000,
             icon: '❌',
@@ -169,6 +203,8 @@ const AddMemberPage: React.FC = () => {
           });
         }
       } else if (err.message) {
+        setFormError(err.message);
+        
         toast.error(err.message, {
           duration: 4000,
           icon: '❌',
@@ -232,6 +268,18 @@ const AddMemberPage: React.FC = () => {
 
         <Divider sx={{ width: '100%', mb: 3 }} />
 
+        {formError && (
+          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+            {formError}
+          </Alert>
+        )}
+
+        {successMessage && userCreated && (
+          <Alert severity="success" sx={{ width: '100%', mb: 2 }}>
+            {successMessage}
+          </Alert>
+        )}
+
         <Box
           component="form"
           noValidate
@@ -258,6 +306,7 @@ const AddMemberPage: React.FC = () => {
                     : null
                 }
                 error={!!errors?.name?.message}
+                onChange={() => setFormError(null)}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -271,6 +320,7 @@ const AddMemberPage: React.FC = () => {
                   onChange={(e) => {
                     setValue("role", e.target.value);
                     setSelectedRole(e.target.value);
+                    setFormError(null);
                   }}
                 >
                   <MenuItem value="trainer">Entrenador</MenuItem>
@@ -283,6 +333,35 @@ const AddMemberPage: React.FC = () => {
               </FormControl>
             </Grid>
 
+            {showPostSelector && (
+              <Grid item xs={12}>
+                <FormControl fullWidth error={!!errors?.post?.message}>
+                  <InputLabel id="post-select-label">Puesto de venta</InputLabel>
+                  <Select
+                    labelId="post-select-label"
+                    id="post-select"
+                    label="Puesto de venta"
+                    defaultValue=""
+                    startAdornment={<Store sx={{ color: 'text.secondary', mr: 1 }} fontSize="small" />}
+                    {...register("post", { 
+                      required: showPostSelector ? "El puesto de venta es requerido" : false 
+                    })}
+                    onChange={() => {
+                      setFormError(null);
+                      if (errors.post) clearErrors("post");
+                    }}
+                  >
+                    <MenuItem value="">Seleccionar puesto</MenuItem>
+                    <MenuItem value="post_1">Puesto 1</MenuItem>
+                    <MenuItem value="post_2">Puesto 2</MenuItem>
+                  </Select>
+                  {errors.post && typeof errors.post.message === "string" && (
+                    <FormHelperText>{errors.post.message}</FormHelperText>
+                  )}
+                </FormControl>
+              </Grid>
+            )}
+
             <Grid item xs={12}>
               <TextField
                 type="email"
@@ -293,7 +372,7 @@ const AddMemberPage: React.FC = () => {
                 label="Correo electrónico"
                 error={!!errors?.email?.message || !!emailError}
                 helperText={
-                  errors.email && typeof errors.email.message === "string"
+                  (errors.email && typeof errors.email.message === "string")
                     ? errors.email.message
                     : emailError
                 }
@@ -306,6 +385,7 @@ const AddMemberPage: React.FC = () => {
                 })}
                 onChange={() => {
                   if (emailError) setEmailError(null);
+                  setFormError(null);
                 }}
               />
             </Grid>
@@ -331,6 +411,7 @@ const AddMemberPage: React.FC = () => {
                     message: "El teléfono debe ser un número",
                   }
                 })}
+                onChange={() => setFormError(null)}
               />
             </Grid>
 
@@ -374,6 +455,7 @@ const AddMemberPage: React.FC = () => {
                       "La contraseña debe contener al menos una letra mayúscula, una minúscula y un número",
                   },
                 })}
+                onChange={() => setFormError(null)}
               />
             </Grid>
 
@@ -409,6 +491,7 @@ const AddMemberPage: React.FC = () => {
                     }
                   }
                 })}
+                onChange={() => setFormError(null)}
               />
             </Grid>
 
@@ -423,6 +506,7 @@ const AddMemberPage: React.FC = () => {
                   {...register("gender", {
                     required: true,
                   })}
+                  onChange={() => setFormError(null)}
                 >
                   <MenuItem value="male">Masculino</MenuItem>
                   <MenuItem value="female">Femenino</MenuItem>
@@ -459,7 +543,7 @@ const AddMemberPage: React.FC = () => {
               }
               variant="contained"
               fullWidth
-              color={selectedRole === 'trainer' ? 'primary' : selectedRole === "receptionist" ? 'secondary' : selectedRole === "court_manager" ? 'success' : 'primary'}
+              color={formError ? "error" : selectedRole === 'trainer' ? 'primary' : selectedRole === "receptionist" ? 'secondary' : selectedRole === "court_manager" ? 'success' : 'primary'}
               sx={{ 
                 mt: 4, 
                 mb: 2, 
