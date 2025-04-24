@@ -1,13 +1,27 @@
 // /api/fitness/exercise/assign-exercise/route.ts
-import { SessionUser } from "@/types";
-import { getSession } from "../../../members/assigned/route";
 import { NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
+import { getServerSession } from "next-auth/next";
+import { options } from "@/app/api/auth/[...nextauth]/options";
+
+async function getSession() {
+  try {
+    return await getServerSession(
+      options
+    );
+  } catch (error) {
+    console.error(
+      "Error while fetching session:",
+      error
+    );
+    return null;
+  }
+}
 
 export async function POST(req: Request) {
   try {
     const session = await getSession();
-    const sessionUser = session?.user as SessionUser;
+    const sessionUser = session?.user;
 
     if (!session?.user?.id || !['admin', 'trainer'].includes(session.user.role as string)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });

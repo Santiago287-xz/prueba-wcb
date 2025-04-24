@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
-import { getSession } from "next-auth/react";
+import { getServerSession } from "next-auth/next";
+import { options } from "@/app/api/auth/[...nextauth]/options";
+
+async function getSession() {
+  try {
+    return await getServerSession(
+      options
+    );
+  } catch (error) {
+    console.error(
+      "Error while fetching session:",
+      error
+    );
+    return null;
+  }
+}
 
 export async function POST(req: NextRequest) {
   const session = await getSession();

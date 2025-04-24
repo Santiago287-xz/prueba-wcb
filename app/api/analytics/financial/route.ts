@@ -1,9 +1,38 @@
-// app/api/analytics/financial/route.ts
+// Fixed version of app/api/analytics/financial/route.ts
+
 import { NextResponse } from 'next/server';
 import prisma from '@/app/libs/prismadb';
 import { format, startOfWeek, endOfWeek, startOfMonth, subDays } from 'date-fns';
 import { getServerSession } from "next-auth";
 import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
+
+// Define types for our objects
+interface AreaMetrics {
+  totalIncome: number;
+  totalExpense: number;
+  netProfit: number;
+  transactionCount: number;
+}
+
+interface Areas {
+  gym: AreaMetrics;
+  courts: AreaMetrics;
+  shop: AreaMetrics;
+  [key: string]: AreaMetrics; // Add index signature
+}
+
+interface CountMap {
+  [key: number]: number;
+}
+
+interface DateValues {
+  income: number;
+  expense: number;
+}
+
+interface DateMap {
+  [key: string]: DateValues;
+}
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -39,7 +68,7 @@ export async function GET(request: Request) {
     });
     
     // 2. Calcular métricas por área
-    const areas = {
+    const areas: Areas = {
       gym: { totalIncome: 0, totalExpense: 0, netProfit: 0, transactionCount: 0 },
       courts: { totalIncome: 0, totalExpense: 0, netProfit: 0, transactionCount: 0 },
       shop: { totalIncome: 0, totalExpense: 0, netProfit: 0, transactionCount: 0 }
@@ -101,7 +130,7 @@ export async function GET(request: Request) {
     }).length;
     
     // Accesos por hora
-    const accessByHour = {};
+    const accessByHour: CountMap = {};
     gymAccessLogs.forEach(log => {
       const hour = new Date(log.timestamp).getHours();
       accessByHour[hour] = (accessByHour[hour] || 0) + 1;
@@ -113,12 +142,12 @@ export async function GET(request: Request) {
     })).sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
     
     // Accesos por día de la semana
-    const dayOfWeekMap = {
+    const dayOfWeekMap: Record<number, string> = {
       0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 
       4: 'Jueves', 5: 'Viernes', 6: 'Sábado'
     };
     
-    const accessByDay = {};
+    const accessByDay: CountMap = {};
     gymAccessLogs.forEach(log => {
       const day = new Date(log.timestamp).getDay();
       accessByDay[day] = (accessByDay[day] || 0) + 1;
@@ -181,7 +210,7 @@ export async function GET(request: Request) {
     });
     
     // 5. Crear datos de comparación financiera
-    const dateMap = {};
+    const dateMap: DateMap = {};
     transactions.forEach(t => {
       const date = format(new Date(t.createdAt), 'yyyy-MM-dd');
       if (!dateMap[date]) {
@@ -201,6 +230,7 @@ export async function GET(request: Request) {
       expense: values.expense,
       balance: values.income - values.expense
     })).sort((a, b) => a.date.localeCompare(b.date));
+    
     // Crear respuesta consolidada
     return NextResponse.json({
       areas,

@@ -159,7 +159,7 @@ export default function RFIDManagementPage() {
   }, [fetchStats]);
 
   const playSound = (status: string) => {
-    let soundFile;
+    let soundFile: string;  // Added explicit type annotation
     switch (status) {
       case 'allowed': soundFile = 'access-granted'; break;
       case 'warning': soundFile = 'warning'; break;
@@ -167,7 +167,7 @@ export default function RFIDManagementPage() {
       default: soundFile = 'notification';
     }
   
-    // Intentar múltiples formatos de audio
+    // Rest of the function remains the same
     const formats = ['mp3', 'wav', 'ogg'];
     
     const tryNextFormat = (index = 0) => {

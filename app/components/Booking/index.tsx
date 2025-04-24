@@ -7,7 +7,7 @@ import { ReservationModal } from "./ReservationModal";
 import EventModal from "./EventModal";
 import BookingInvoiceModal from "../Transactions/BookingInvoiceModal";
 import TransactionModal from "@/app/components/Transactions/TransactionModal";
-import { Court, Reservation, ModalDataType } from "../../types/bookings";
+import { Court, Reservation, ModalDataType, PaymentMethodType } from "../../types/bookings";
 import { useGlobalMutate } from "@/app/hooks/useGlobalMutate";
 import { OverheadView } from './OverheadView';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
@@ -39,6 +39,11 @@ interface CalendarContainerProps {
   initialCourts: Court[];
 }
 
+// Add this type guard function near the top of the file
+function isValidPaymentMethod(method: string): method is PaymentMethodType {
+  return ['pending', 'cash', 'transfer', 'card'].includes(method);
+}
+
 export function Calendar({ initialCourts }: CalendarContainerProps) {
   const { data: courts = initialCourts, mutate: mutateCourts } = useSWR<Court[]>(
     '/api/courts',
@@ -68,16 +73,17 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     type: 'create' as const,
     reservation: null,
     selectedDay: null,
-    selectedHour: "12:00", // valor por defecto para selectedHour
+    selectedHour: "12:00",
     name: '',
     phone: '',
-    paymentMethod: 'pending',
-    paymentAmount: 0, // se mantiene como number pero compatible con union
+    paymentMethod: 'pending' as PaymentMethodType,
+    paymentAmount: 0,
     isRecurring: false,
     recurrenceEnd: '',
     paidSessions: 0,
     paymentNotes: '',
-    courtId: ''
+    courtId: '',
+    courts: [] as Court[],
   }), []);
 
   const [modalData, setModalData] = useState<ModalDataType>(defaultModalData);
@@ -117,8 +123,9 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
       type: 'create',
       selectedDay: day,
       selectedHour: hour ?? 12,
+      courts,
     });
-  }, [defaultModalData]);
+  }, [defaultModalData, courts]);
 
   const openDetailModal = useCallback((reservation: Reservation) => {
     setError(null);
@@ -128,6 +135,12 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     const isPast = startTime < now;
     const modalType = isPast ? 'view' : 'edit';
 
+    // Get payment method from reservation and validate it
+    const paymentMethod = reservation.paymentMethod || 'pending';
+    const validatedPaymentMethod = isValidPaymentMethod(paymentMethod)
+      ? paymentMethod
+      : 'pending' as PaymentMethodType;
+
     setModalData({
       isOpen: true,
       type: modalType,
@@ -135,7 +148,8 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
       selectedDay: startTime,
       selectedHour: `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`,
       paidSessions: reservation.paidSessions || 0,
-      paymentMethod: reservation.paymentMethod || 'pending',
+      paymentMethod: validatedPaymentMethod,
+      paymentAmount: 0,
       paymentNotes: reservation.paymentNotes || '',
       name: reservation.name || '',
       phone: reservation.phone || '',
@@ -143,8 +157,9 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
       recurrenceEnd: reservation.recurrenceEnd ?
         new Date(reservation.recurrenceEnd as string).toISOString().split('T')[0] : '',
       courtId: reservation.courtId || '',
+      courts, // Añadir courts
     });
-  }, []);
+  }, [courts]);
 
   const openEventModal = useCallback((event?: Reservation) => {
     if (event) {
@@ -219,7 +234,9 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
 
     const startTime = new Date(modalData.selectedDay);
 
-    let hours = modalData.selectedHour;
+    let hours = typeof modalData.selectedHour === 'string'
+      ? parseInt(modalData.selectedHour.split(':')[0], 10)
+      : modalData.selectedHour;
     let minutes = 0;
 
     if (typeof modalData.selectedHour === 'string' && modalData.selectedHour.includes(':')) {
@@ -355,7 +372,6 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
             }
           }
         } else {
-          // Mantener compatibilidad con el formato numérico anterior
           const hours = typeof modalData.selectedHour === 'number'
             ? modalData.selectedHour
             : parseInt(modalData.selectedHour, 10);
@@ -491,7 +507,6 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
     openInvoiceModal: modalData.reservation ? () => openInvoiceModal(modalData.reservation as Reservation) : null
   }), [modalData, courts, openInvoiceModal]);
 
-  // Agregar estado para detectar dispositivo móvil
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const handleResize = () => {
@@ -553,7 +568,6 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
         </div>
       </div>
 
-      {/* Renderizar los Tabs sólo en no móvil */}
       {!isMobile && (
         <div className="px-4 py-2 border-b">
           <Tabs value={currentView} onChange={handleTabChange} aria-label="view tabs">
@@ -649,7 +663,6 @@ export function Calendar({ initialCourts }: CalendarContainerProps) {
         />
       )}
 
-      {/* Confirmation Dialog for Purging Data */}
       {isPurgeDialogOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">

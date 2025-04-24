@@ -71,7 +71,7 @@ export default function ClientProfilePage({ initialExercises, user, fetchError }
     }
     
     setCompletedExercises(newCompleted);
-    localStorage.setItem(`completed-exercises-${user.id}`, JSON.stringify([...newCompleted]));
+    localStorage.setItem(`completed-exercises-${user.id}`, JSON.stringify(Array.from(newCompleted)));
     
     // Actualizar los ejercicios por día
     const updated = { ...exercisesByDay };

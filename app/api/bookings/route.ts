@@ -4,11 +4,14 @@ import { addDays, isBefore, isAfter, isSameDay, getDay, format } from "date-fns"
 import { getServerSession } from "next-auth/next";
 import { options } from '../auth/[...nextauth]/options';
 // Función para optimizar las consultas de reservas
-async function getReservationsEfficiently(courtId: string, startDate: Date, endDate: Date) {
+async function getReservationsEfficiently(courtId: string, startDate: Date, endDate: Date): Promise<{
+  nonRecurringRes: any[];
+  recurringRes: any[];
+}> {
   const session = await getServerSession(options);
   
   if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    throw new Error("No autorizado");
   }
   const nonRecurringRes = await prisma.courtReservation.findMany({
     where: {
@@ -179,7 +182,19 @@ export async function GET(req: NextRequest) {
     });
 
     // Obtener reservas eficientemente
-    const { nonRecurringRes, recurringRes } = await getReservationsEfficiently(courtId, startDate, endDate);
+    let nonRecurringRes = [];
+    let recurringRes = [];
+
+    try {
+      const result = await getReservationsEfficiently(courtId, startDate, endDate);
+      nonRecurringRes = result.nonRecurringRes;
+      recurringRes = result.recurringRes;
+    } catch (err) {
+      if (err instanceof Error && err.message === "No autorizado") {
+        return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      }
+      throw err; // Re-throw other errors
+    }
 
     // Generar instancias virtuales de reservas recurrentes para esta semana
     const processedRecurringRes = [];

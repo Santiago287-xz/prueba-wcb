@@ -86,15 +86,16 @@ export async function GET() {
     });
 
     // Obtener ejercicios asignados
-    const exercises = await prisma.exercise.findMany({
+    const exercises = await prisma.userExercise.findMany({
       where: {
         userId: user.id,
       },
       orderBy: {
-        createdAt: 'desc'
+        assignedAt: 'desc'
       },
       include: {
-        trainer: {
+        exercise: true,
+        user: {
           select: {
             id: true,
             name: true,
@@ -172,7 +173,7 @@ export async function GET() {
     } else {
       // Verificar si los ejercicios están actualizados (menos de 30 días)
       const oldestExerciseDate = exercises.reduce((oldest, ex) => 
-        ex.createdAt < oldest ? ex.createdAt : oldest, 
+        ex.assignedAt < oldest ? ex.assignedAt : oldest, 
         now
       );
       

@@ -4,6 +4,21 @@ import prisma from '@/app/libs/prismadb';
 import { getServerSession } from "next-auth";
 import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
 
+// Define types for maps
+interface CategoryMap {
+  [key: string]: number;
+}
+
+interface ProductItem {
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
+interface ProductMap {
+  [key: string]: ProductItem;
+}
+
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   
@@ -31,7 +46,7 @@ export async function GET(request: Request) {
 
     const total = sales.reduce((acc, sale) => acc + sale.total, 0);
 
-    const categoryMap = {};
+    const categoryMap: CategoryMap = {};
     sales.forEach(sale => {
       const categoryName = sale.product.category.name;
       categoryMap[categoryName] = (categoryMap[categoryName] || 0) + sale.total;
@@ -42,7 +57,7 @@ export async function GET(request: Request) {
       value
     }));
 
-    const productMap = {};
+    const productMap: ProductMap = {};
     sales.forEach(sale => {
       const productId = sale.productId;
       if (!productMap[productId]) {
@@ -57,7 +72,7 @@ export async function GET(request: Request) {
     });
 
     const topProducts = Object.values(productMap)
-      .sort((a, b) => b.revenue - a.revenue)
+      .sort((a: ProductItem, b: ProductItem) => b.revenue - a.revenue)
       .slice(0, 10);
 
     return NextResponse.json({

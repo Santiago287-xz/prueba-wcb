@@ -60,7 +60,7 @@ export async function middleware(request: NextRequest) {
 
     let hasPermission = false;
     for (const [apiPath, roles] of Object.entries(API_PERMISSIONS)) {
-      if (path.startsWith(apiPath) && roles.includes(token.role)) {
+      if (path.startsWith(apiPath) && roles.includes(token.role as string)) {
         hasPermission = true;
         break;
       }
@@ -93,7 +93,7 @@ export async function middleware(request: NextRequest) {
     (p) => pathToCheck === p || pathToCheck.startsWith(`${p}/`)
   );
 
-  if (exactPath && PATH_PERMISSIONS[exactPath].includes(token.role)) {
+  if (exactPath && PATH_PERMISSIONS[exactPath as keyof typeof PATH_PERMISSIONS].includes(token.role as string)) {
     return NextResponse.next();
   }
 

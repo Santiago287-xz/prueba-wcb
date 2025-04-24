@@ -34,17 +34,17 @@ export function OverheadView({
   });
 
   // Check if a court is currently occupied
-  const isCourtOccupied = (courtId: string) => {
+  const isCourtOccupied = useCallback((courtId: string) => {
     const now = new Date();
     return todayReservations.some(reservation => {
       const startTime = new Date(reservation.startTime);
       const endTime = new Date(reservation.endTime);
       return reservation.courtId === courtId && startTime <= now && endTime >= now;
     });
-  };
+  }, [todayReservations]);
 
   // Check if a court has upcoming reservations
-  const getCourtReservations = (courtId: string) => {
+  const getCourtReservations = useCallback((courtId: string) => {
     const now = new Date();
     return todayReservations.filter(reservation => {
       const startTime = new Date(reservation.startTime);
@@ -52,21 +52,21 @@ export function OverheadView({
     }).sort((a, b) => {
       return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
     });
-  };
+  }, [todayReservations]);
 
   // Check if a court is part of an event
-  const isCourtInEvent = (courtId: string) => {
+  const isCourtInEvent = useCallback((courtId: string) => {
     return events.some(event => 
       (event.courtId === courtId || (event.courtIds && event.courtIds.includes(courtId)))
     );
-  };
+  }, [events]);
 
   // Get event information for a court
-  const getCourtEvent = (courtId: string) => {
+  const getCourtEvent = useCallback((courtId: string) => {
     return events.find(event => 
       (event.courtId === courtId || (event.courtIds && event.courtIds.includes(courtId)))
     );
-  };
+  }, [events]);
 
   // Handle single click to select court
   const handleCourtClick = useCallback((court: Court) => {
@@ -115,7 +115,7 @@ export function OverheadView({
       }
     }
     return [];
-  }, [hoveredCourt, selectedCourt, courts]);
+  }, [hoveredCourt, selectedCourt, courts, getCourtReservations]);
   
   // Get the current court for info panel
   const getCurrentCourt = useCallback(() => {
@@ -133,7 +133,7 @@ export function OverheadView({
     if (!court) return null;
     
     return getCourtEvent(court.id);
-  }, [getCurrentCourt]);
+  }, [getCurrentCourt, getCourtEvent]);
 
   // Static positions for the courts based on type and name
   const getCourtPosition = (court: Court) => {
@@ -216,8 +216,7 @@ export function OverheadView({
                   width: `${position.width}px`,
                   height: `${position.height}px`,
                   backgroundImage: courtType ? 'url(/grass-pattern.png)' : 'url(/padel-pattern.png)',
-                  backgroundSize: 'cover',
-                  backgroundOpacity: 0.3
+                  backgroundSize: 'cover'
                 }}
                 onClick={() => handleCourtClick(court)}
                 onDoubleClick={() => handleCourtDoubleClick(court)}

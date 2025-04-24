@@ -1,8 +1,21 @@
-import { SessionUser } from "@/types";
-import { getSession } from "../../../members/assigned/route";
 import { NextResponse } from "next/server";
-
 import prisma from "@/app/libs/prismadb";
+import { getServerSession } from "next-auth/next";
+import { options } from "@/app/api/auth/[...nextauth]/options";
+
+async function getSession() {
+  try {
+    return await getServerSession(
+      options
+    );
+  } catch (error) {
+    console.error(
+      "Error while fetching session:",
+      error
+    );
+    return null;
+  }
+}
 
 export async function GET(req: Request) {
   try {
@@ -78,6 +91,13 @@ export async function POST(req: Request) {
     const exercise = await prisma.exerciseList.create({
       data: {
         name,
+        sets: 0,
+        reps: 0,
+        trainer: {
+          connect: {
+            id: session.user.id
+          }
+        }
       },
     });
 

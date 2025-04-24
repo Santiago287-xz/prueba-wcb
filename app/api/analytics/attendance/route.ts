@@ -4,6 +4,11 @@ import prisma from '@/app/libs/prismadb';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { getServerSession } from "next-auth";
 import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
+
+interface CountMap {
+  [key: number]: number;
+}
+
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   
@@ -41,7 +46,7 @@ export async function GET(request: Request) {
     const daysInRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) || 1;
     const avgDaily = Math.round(accessLogs.length / daysInRange);
 
-    const hourCounts = {};
+    const hourCounts: CountMap  = {};
     accessLogs.forEach(log => {
       const hour = new Date(log.timestamp).getHours();
       hourCounts[hour] = (hourCounts[hour] || 0) + 1;
@@ -52,11 +57,11 @@ export async function GET(request: Request) {
       .slice(0, 2)
       .map(([hour]) => `${hour}:00`);
 
-    const dayOfWeekCounts = {};
-    accessLogs.forEach(log => {
-      const dayOfWeek = new Date(log.timestamp).getDay();
-      dayOfWeekCounts[dayOfWeek] = (dayOfWeekCounts[dayOfWeek] || 0) + 1;
-    });
+      const dayOfWeekCounts: CountMap = {};
+      accessLogs.forEach(log => {
+        const dayOfWeek = new Date(log.timestamp).getDay();
+        dayOfWeekCounts[dayOfWeek] = (dayOfWeekCounts[dayOfWeek] || 0) + 1;
+      });
 
     const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const byDayOfWeek = Object.entries(dayOfWeekCounts).map(([day, count]) => ({

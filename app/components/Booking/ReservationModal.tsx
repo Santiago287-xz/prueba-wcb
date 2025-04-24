@@ -54,7 +54,7 @@ export function ReservationModal({
 }: BookingModalProps) {
   // Refs
   const nameRef = useRef<HTMLInputElement>(null);
-  
+
   // Local state (minimal)
   const [expandedSection, setExpandedSection] = useState<string>("client");
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
@@ -63,59 +63,60 @@ export function ReservationModal({
   const [dateValue, setDateValue] = useState(
     modalData.selectedDay ? format(parse(format(new Date(modalData.selectedDay), 'yyyy-MM-dd'), 'yyyy-MM-dd', new Date()), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
   );
-  
+
   // Computed state (instead of storing directly)
   const selectedCourtId = modalData.courtId || "";
-  
+
   // Reemplazo de la lógica de selectedHour usando la función parseTime
   const selectedHour = useMemo(() => parseTime(modalData.selectedHour), [modalData.selectedHour]);
-  
-  const isPaid = useMemo(() => 
+
+  const isPaid = useMemo(() =>
     modalData.paymentMethod !== 'pending' && modalData.paymentMethod !== undefined,
-  [modalData.paymentMethod]);
-  
-  const alreadyPaid = useMemo(() => 
-    modalData.type === 'edit' && 
-    modalData.reservation && 
+    [modalData.paymentMethod]);
+
+  const alreadyPaid = useMemo(() =>
+    modalData.type === 'edit' &&
+    modalData.reservation &&
     modalData.reservation.paymentMethod !== 'pending',
-  [modalData.type, modalData.reservation]);
-  
-  const selectedCourt = useMemo(() => 
-    modalData.courts?.find(c => c.id === selectedCourtId),
-  [modalData.courts, selectedCourtId]);
-  
+    [modalData.type, modalData.reservation]);
+
+  const selectedCourt = useMemo(() => {
+    if (!modalData.courts) return undefined;
+    return modalData.courts.find(c => c.id === selectedCourtId);
+  }, [modalData.courts, selectedCourtId]);
+
   const courtType = selectedCourt?.type;
-  
+
   // Calculate end time
   const endTimeDisplay = useMemo(() => {
     if (!selectedHour || !courtType) return "";
-    
+
     const [hoursStr, minutesStr] = selectedHour.split(':');
     const hours = parseInt(hoursStr, 10);
     const minutes = parseInt(minutesStr, 10);
-    
+
     if (courtType === 'futbol') {
       const endHour = (hours + 1) % 24;
       return `${endHour < 10 ? '0' + endHour : endHour}:${minutes < 10 ? '0' + minutes : minutes}`;
     } else {
       let endHour = hours;
       let endMinutes = minutes + 30;
-      
+
       if (endMinutes >= 60) {
         endHour = (endHour + 1) % 24;
         endMinutes -= 60;
       }
-      
+
       endHour = (endHour + 1) % 24;
       return `${endHour < 10 ? '0' + endHour : endHour}:${endMinutes < 10 ? '0' + endMinutes : endMinutes}`;
     }
   }, [selectedHour, courtType]);
-  
+
   // Check if time is unavailable
-  const isTimeUnavailable = useMemo(() => 
+  const isTimeUnavailable = useMemo(() =>
     !availableTimeSlots.includes(selectedHour),
-  [availableTimeSlots, selectedHour]);
-  
+    [availableTimeSlots, selectedHour]);
+
   // Computed values for recurring sessions
   const { totalSessions, remainingSessions, recurrenceEndError } = useMemo(() => {
     if (!modalData.isRecurring || !modalData.recurrenceEnd) {
@@ -126,34 +127,34 @@ export function ReservationModal({
     const endDate = new Date(modalData.recurrenceEnd);
 
     if (!isValid(endDate)) {
-      return { 
-        totalSessions: 0, 
-        remainingSessions: 0, 
-        recurrenceEndError: "La fecha ingresada no es válida" 
+      return {
+        totalSessions: 0,
+        remainingSessions: 0,
+        recurrenceEndError: "La fecha ingresada no es válida"
       };
     }
 
     if (isBefore(endDate, startDate)) {
-      return { 
-        totalSessions: 0, 
-        remainingSessions: 0, 
-        recurrenceEndError: "La fecha final debe ser posterior a la fecha de inicio" 
+      return {
+        totalSessions: 0,
+        remainingSessions: 0,
+        recurrenceEndError: "La fecha final debe ser posterior a la fecha de inicio"
       };
     }
 
     const weeksBetween = differenceInWeeks(endDate, startDate);
     const total = Math.max(1, weeksBetween + 1);
     const remaining = total - (modalData.paidSessions || 0);
-    
+
     return { totalSessions: total, remainingSessions: remaining, recurrenceEndError: null };
   }, [modalData.isRecurring, modalData.recurrenceEnd, dateValue, modalData.paidSessions]);
-  
+
   // Check futbol time validation
   useEffect(() => {
     if (courtType === 'futbol' && selectedHour) {
       const [_, minutesStr] = selectedHour.split(':');
       const minutes = parseInt(minutesStr, 10);
-      
+
       if (minutes !== 0) {
         setTimeError("Para canchas de fútbol, sólo se permiten reservas en horas exactas.");
       } else {
@@ -163,11 +164,11 @@ export function ReservationModal({
       setTimeError(null);
     }
   }, [courtType, selectedHour]);
-  
+
   // Check availability effect
   useEffect(() => {
     if (!dateValue || !modalData.courtId) return;
-    
+
     const dateStr = dateValue;
     const now = new Date();
     const isSameDay = format(now, 'yyyy-MM-dd') === dateStr;
@@ -221,7 +222,7 @@ export function ReservationModal({
 
             return !bookedSlots.has(timeSlot);
           });
-          
+
           setAvailableTimeSlots(available);
         }
       })
@@ -244,8 +245,8 @@ export function ReservationModal({
   const isCourtSelected = !!selectedCourtId;
   const isViewMode = modalData.type === 'view';
   const isDisabled = loading || isViewMode || transactionLoading;
-  
-  const isFormValid = 
+
+  const isFormValid =
     (modalData.name?.trim().length || 0) > 0 &&
     (modalData.phone?.trim().length || 0) > 0 &&
     isCourtSelected &&
@@ -283,7 +284,7 @@ export function ReservationModal({
       }));
       return;
     }
-    
+
     // Handle date field
     if (name === 'date') {
       const parsedDate = parse(value, 'yyyy-MM-dd', new Date());
@@ -301,13 +302,13 @@ export function ReservationModal({
       setModalData(prev => ({ ...prev, courtId: value }));
       return;
     }
-    
+
     // Handle hour selection
     if (name === 'time') {
       setModalData(prev => ({ ...prev, selectedHour: value }));
       return;
     }
-    
+
     // Handle all other inputs directly
     setModalData(prev => ({ ...prev, [name]: value }));
   };
@@ -318,56 +319,56 @@ export function ReservationModal({
   };
 
   // Create transaction for payment
-// En ReservationModal.tsx, función createTransaction
-const createTransaction = async (reservationId: string): Promise<boolean> => {
-  console.log(modalData, reservationId)
-  if (!isPaid || !reservationId) return false;
+  // En ReservationModal.tsx, función createTransaction
+  const createTransaction = async (reservationId: string): Promise<boolean> => {
+    console.log(modalData, reservationId)
+    if (!isPaid || !reservationId) return false;
 
-  setTransactionLoading(true);
+    setTransactionLoading(true);
 
-  try {
-    // Asegura que el monto sea un número
-    let paymentAmount = 0;
-    if (typeof modalData.paymentAmount === 'number') {
-      paymentAmount = modalData.paymentAmount;
-    } else if (typeof modalData.paymentAmount === 'string') {
-      // Limpia y convierte a número
-      const cleanedAmount = modalData.paymentAmount.replace(/[^0-9.]/g, '');
-      paymentAmount = parseFloat(cleanedAmount);
+    try {
+      // Asegura que el monto sea un número
+      let paymentAmount = 0;
+      if (typeof modalData.paymentAmount === 'number') {
+        paymentAmount = modalData.paymentAmount;
+      } else if (typeof modalData.paymentAmount === 'string') {
+        const amountString = String(modalData.paymentAmount);
+        const cleanedAmount = amountString.replace(/[^0-9.]/g, '');
+        paymentAmount = parseFloat(cleanedAmount);
+      }
+
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        throw new Error("El monto de pago no es válido");
+      }
+
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'income',
+          category: 'court_rental',
+          amount: paymentAmount, // Ahora es un número válido
+          description: `Reserva: ${selectedCourt?.name || ''} - ${modalData.name}`,
+          paymentMethod: modalData.paymentMethod,
+          location: '',
+          reservationId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al crear la transacción');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+      setError(error instanceof Error ? error.message : 'Error al registrar el pago');
+      return false;
+    } finally {
+      setTransactionLoading(false);
     }
-    
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
-      throw new Error("El monto de pago no es válido");
-    }
-    
-    const response = await fetch('/api/transactions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'income',
-        category: 'court_rental',
-        amount: paymentAmount, // Ahora es un número válido
-        description: `Reserva: ${selectedCourt?.name || ''} - ${modalData.name}`,
-        paymentMethod: modalData.paymentMethod,
-        location: '',
-        reservationId
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Error al crear la transacción');
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error creating transaction:', error);
-    setError(error instanceof Error ? error.message : 'Error al registrar el pago');
-    return false;
-  } finally {
-    setTransactionLoading(false);
-  }
-};
+  };
 
   // Form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -381,10 +382,10 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
     if (modalData.type === 'create') {
       try {
         const reservationData = await handleBooking();
-      
-      if (reservationData && isPaid) {
-        await createTransaction(reservationData.id);
-      }
+
+        if (reservationData && isPaid) {
+          await createTransaction(reservationData.id);
+        }
       } catch (error) {
         console.error('Error al procesar la reserva:', error);
       }
@@ -647,7 +648,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                 onClick={() => toggleSection("reservation")}
               >
                 <div className="flex items-center">
-                  <CalendarIcon className="h-5 w-5 text-gray-700 mr-2"/>
+                  <CalendarIcon className="h-5 w-5 text-gray-700 mr-2" />
                   Detalles de la Reservaa
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transform ${expandedSection === "reservation" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
@@ -668,7 +669,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                           value={selectedCourtId}
                           onChange={handleFormChange}
                           className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${!isCourtSelected ? 'border-red-500' : ''}`}
-                          disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
+                          disabled={!!isDisabled || !!(modalData.type === 'edit' && alreadyPaid)}
                           required
                         >
                           <option value="" disabled>Selecciona una cancha</option>
@@ -702,7 +703,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                           value={dateValue}
                           onChange={handleFormChange}
                           className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                          disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
+                          disabled={!!isDisabled || !!(modalData.type === 'edit' && alreadyPaid)}
                           min={format(new Date(), 'yyyy-MM-dd')}
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -727,7 +728,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                           value={selectedHour}
                           onChange={handleFormChange}
                           className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${isTimeUnavailable || timeError ? 'border-red-500 bg-red-50' : ''}`}
-                          disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
+                          disabled={!!isDisabled || !!(modalData.type === 'edit' && alreadyPaid)}
                           required
                           min="10:00"
                           max="24:00"
@@ -1089,7 +1090,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                     checked={modalData.isRecurring || false}
                     onChange={handleFormChange}
                     className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 mr-2"
-                    disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
+                    disabled={!!isDisabled || !!(modalData.type === 'edit' && alreadyPaid)}
                   />
                   <span className="text-sm font-medium text-gray-700">Turno fijo semanal</span>
                 </label>
@@ -1108,7 +1109,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                       value={modalData.recurrenceEnd || ''}
                       onChange={handleFormChange}
                       className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${recurrenceEndError ? 'border-red-500' : ''}`}
-                      disabled={isDisabled || (modalData.type === 'edit' && alreadyPaid)}
+                      disabled={!!isDisabled || !!(modalData.type === 'edit' && alreadyPaid)}
                       min={dateValue}
                       required={modalData.isRecurring}
                     />
@@ -1135,7 +1136,7 @@ const createTransaction = async (reservationId: string): Promise<boolean> => {
                       placeholder="0"
                       min="0"
                       max={totalSessions}
-                      disabled={isDisabled || recurrenceEndError !== null || (modalData.type === 'edit' && alreadyPaid)}
+                      disabled={!!!!isDisabled || !!recurrenceEndError !== null || !!(modalData.type === 'edit' && alreadyPaid)}
                     />
                     {totalSessions > 0 && modalData.paidSessions !== undefined && !recurrenceEndError && (
                       <p className="text-xs text-blue-600 mt-1">

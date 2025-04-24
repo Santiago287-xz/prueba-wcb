@@ -6,6 +6,44 @@ import {
   BarChart, PieChart, ComposedChart, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, Bar, Line, Pie, Cell, ResponsiveContainer
 } from 'recharts';
+import { TransactionsResponse } from '@/app/types/analytics';
+interface CategoryItem {
+  name: string;
+  value: number;
+  originalName?: string;
+}
+
+// Definición completa del tipo metrics
+interface MetricsState {
+  members: {
+    total: number;
+    pointsRevenue: number;
+    newThisMonth: number;
+    pointsRetention: number;
+  };
+  courts: {
+    utilization: number;
+    revenue: number;
+    topClients: any[]; // Reemplazar con tipo específico
+    utilizationByDay: any[]; // Reemplazar con tipo específico
+  };
+  sales: {
+    total: number;
+    byCategory: CategoryItem[];
+  };
+  gymPoints: {
+    totalPointsSold: number;
+    totalPointsUsed: number;
+    averagePointsPerMember: number;
+    pointPackagesSold: any[]; // Reemplazar con tipo específico
+  };
+  areas: {
+    gym: { totalIncome: number; totalExpense: number; netProfit: number; transactionCount: number };
+    courts: { totalIncome: number; totalExpense: number; netProfit: number; transactionCount: number };
+    shop: { totalIncome: number; totalExpense: number; netProfit: number; transactionCount: number };
+  };
+  financialComparison: any[]; // Reemplazar con tipo específico
+}
 
 interface DateRange {
   start: Date;
@@ -178,7 +216,7 @@ export default function AdminAnalytics() {
     enhanced: false
   });
 
-  const [metrics, setMetrics] = useState({
+  const [metrics, setMetrics] = useState<MetricsState>({
     members: {
       total: 0,
       pointsRevenue: 0,
@@ -215,25 +253,25 @@ export default function AdminAnalytics() {
     type: ''
   });
   const prevMetricsRef = useRef({ ...metrics });
-  
+
   useEffect(() => {
     const checkIfMobile = () => {
       setIsMobile(window.innerWidth < 768);
-      
+
       // Set transactions view mode to 'reduced' by default on mobile
       if (window.innerWidth < 768) {
         setTransactionsViewMode('reduced');
       }
     };
-    
+
     checkIfMobile();
     window.addEventListener('resize', checkIfMobile);
-    
+
     return () => {
       window.removeEventListener('resize', checkIfMobile);
     };
   }, []);
-  
+
   const fetchData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
@@ -248,17 +286,18 @@ export default function AdminAnalytics() {
         fetchWithRetry(`/api/analytics/courts?start=${start}&end=${end}&_=${cacheBuster}`),
         fetchWithRetry(`/api/analytics/financial?start=${start}&end=${end}&_=${cacheBuster}`)
       ]);
-      
+
       if (transactionData) {
-        setTransactions(transactionData.transactions || []);
-        
-        const salesTotal = transactionData.summary?.totalIncome || 0;
+        const typedData = transactionData as TransactionsResponse;
+        setTransactions(typedData.transactions || []);
+
+        const salesTotal = typedData.summary?.totalIncome || 0;
         setMetrics(prev => ({
           ...prev,
           sales: {
             ...prev.sales,
             total: salesTotal,
-            byCategory: transactionData.chartData?.categoryData?.map(item => ({
+            byCategory: typedData.chartData?.categoryData?.map((item) => ({
               name: translateCategory(item.category),
               value: item.total,
               originalName: item.category
@@ -327,7 +366,7 @@ export default function AdminAnalytics() {
       if (showLoading) setLoading(false);
       setLastRefresh(new Date());
     }
-  }, [dateRange]);
+  }, [dateRange, metrics]);
 
   useEffect(() => {
     fetchData(true);
@@ -396,12 +435,12 @@ export default function AdminAnalytics() {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al purgar datos');
       }
-      
+
       setShowPurgeConfirm(false);
       await fetchData(true);
     } catch (error) {
@@ -411,7 +450,7 @@ export default function AdminAnalytics() {
       setPurgeLoading(false);
     }
   };
-  
+
   const handlePurgeRfidLogs = async () => {
     setRfidPurgeLoading(true);
     setRfidPurgeError(null);
@@ -422,12 +461,12 @@ export default function AdminAnalytics() {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al purgar logs RFID');
       }
-      
+
       setShowRfidPurgeConfirm(false);
     } catch (error) {
       console.error('Error purging RFID logs:', error);
@@ -487,7 +526,7 @@ export default function AdminAnalytics() {
             {errorMessage}
           </div>
         )}
-        
+
         <div className="flex flex-col md:flex-row w-full md:w-auto flex-wrap gap-2 md:gap-3 items-center">
           <div className="flex w-full md:w-auto items-center border rounded-md overflow-hidden shadow-sm bg-white">
             <input
@@ -512,7 +551,7 @@ export default function AdminAnalytics() {
               max={format(new Date(), 'yyyy-MM-dd')}
             />
           </div>
-          
+
           <div className="hidden md:flex gap-1 flex-wrap">
             <button
               onClick={() => applyDatePreset('last7days')}
@@ -539,7 +578,7 @@ export default function AdminAnalytics() {
               Esta semana
             </button>
           </div>
-          
+
           <div className="flex w-full md:w-auto items-center gap-2 h-10">
             <label className="flex-grow md:flex-grow-0 h-full text-xs flex items-center justify-center bg-white px-2 py-2 rounded-md shadow-sm">
               <input
@@ -572,7 +611,7 @@ export default function AdminAnalytics() {
             </div>
           </div>
         </div>
-        
+
         <div className="w-full flex border-b mt-2 justify-center">
           <button
             className={`px-4 py-2 text-sm transition-colors duration-200 ${view === 'chart' ? 'border-b-2 border-blue-500 text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-800'}`}
@@ -766,7 +805,7 @@ export default function AdminAnalytics() {
                 </button>
               )}
             </div>
-            
+
             {/* Filtros - Solo mostrar en desktop */}
             {!isMobile && (
               <div className="flex flex-wrap gap-2 mt-2 mb-3">
@@ -931,13 +970,13 @@ export default function AdminAnalytics() {
             <p className="text-sm text-gray-700 mb-4">
               ¿Estás seguro de que deseas eliminar todas las transacciones? Esta acción no se puede deshacer.
             </p>
-            
+
             {purgeError && (
               <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">
                 {purgeError}
               </div>
             )}
-            
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowPurgeConfirm(false)}
@@ -967,7 +1006,7 @@ export default function AdminAnalytics() {
           </div>
         </div>
       )}
-      
+
       {/* Modal de confirmación para purgar logs RFID */}
       {showRfidPurgeConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -976,13 +1015,13 @@ export default function AdminAnalytics() {
             <p className="text-sm text-gray-700 mb-4">
               ¿Estás seguro de que deseas eliminar todos los logs de acceso RFID? Esta acción no se puede deshacer.
             </p>
-            
+
             {rfidPurgeError && (
               <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">
                 {rfidPurgeError}
               </div>
             )}
-            
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowRfidPurgeConfirm(false)}
@@ -1031,15 +1070,15 @@ interface MetricCardProps {
   formatAsCurrency?: boolean;
 }
 
-  const MetricCard: React.FC<MetricCardProps> = ({
+const MetricCard: React.FC<MetricCardProps> = ({
   title, value, previousValue = 0, secondary, trend, icon, loading, prefix = '', suffix = '', formatAsCurrency = false
 }) => {
   // Display shorter titles on mobile
   const getMobileTitle = (fullTitle: string) => {
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     if (!isMobile) return fullTitle;
-    
-    switch(fullTitle) {
+
+    switch (fullTitle) {
       case "Miembros": return "Miembros";
       case "Uso de Canchas": return "Canchas";
       case "Ventas Totales": return "Ventas";
@@ -1047,7 +1086,7 @@ interface MetricCardProps {
       default: return fullTitle;
     }
   };
-  
+
   const icons: { [key in MetricCardProps['icon']]: JSX.Element } = {
     users: (
       <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"

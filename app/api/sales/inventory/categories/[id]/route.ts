@@ -98,7 +98,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     if (productsCount > 0) {
       await prisma.product.updateMany({
         where: { categoryId: id },
-        data: { categoryId: null }
+        data: { categoryId: '' }
       });
     }
 

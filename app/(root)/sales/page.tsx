@@ -510,7 +510,7 @@ export default function SimplifiedInventoryDashboard() {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-800">
-            Sistema de Bebidas {session.user.post && <span className="text-blue-500 ml-1">| {session.user.post.replace('post_', 'Puesto ')}</span>}
+            Sistema de Bebidas {session?.user.post && <span className="text-blue-500 ml-1">| {session.user.post.replace('post_', 'Puesto ')}</span>}
           </h1>
           
           {/* Mobile cart button - only for non-admin users */}
@@ -657,7 +657,7 @@ export default function SimplifiedInventoryDashboard() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {filteredProducts.map((product) => {
-                    const stock = product.stocks.find((s) => s.location === session.user.post);
+                    const stock = product.stocks.find((s) => s.location === session?.user.post);
                     const isInCart = cart.some(item => item.productId === product.id);
                     return (
                       <div 

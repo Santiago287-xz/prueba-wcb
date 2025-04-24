@@ -37,21 +37,30 @@ const defaultTheme = createTheme({
   },
 });
 
-const UserMenu = ({ user, onLogout }) => (
+const UserMenu = ({
+  user,
+  onLogout
+}: {
+  user: {
+    name?: string | null;
+    [key: string]: any;
+  } | undefined;
+  onLogout: () => void
+}) => (
   <div className="absolute top-12 right-0 w-48 max-w-[calc(100vw-32px)] bg-white shadow-lg rounded-md overflow-hidden z-40">
     <div className="p-3 font-medium border-b border-gray-200 truncate">
       {user?.name || "User"}
     </div>
     <div>
-      <Link 
-        href="/profile" 
+      <Link
+        href="/profile"
         className="block p-3 hover:bg-gray-50 text-gray-700"
       >
         Profile
       </Link>
     </div>
     <div className="border-t border-gray-200">
-      <button 
+      <button
         className="flex w-full items-center p-3 text-red-600 hover:bg-red-50"
         onClick={onLogout}
       >
@@ -83,47 +92,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { data: sessionData } = useSession();
   const router = useRouter();
-  
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  
+
   const userMenuRef = useRef<HTMLDivElement>(null);
-  
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
       }
     };
-    
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-  
+
   useEffect(() => {
     const handleResize = debounce(() => {
       if (window.innerWidth > 768 && menuOpen) {
         setMenuOpen(false);
       }
     }, 150);
-    
+
     window.addEventListener("resize", handleResize);
     return () => {
       window.removeEventListener("resize", handleResize);
       handleResize.cancel();
     };
   }, [menuOpen]);
-  
+
   const toggleMenu = () => setMenuOpen(!menuOpen);
-  
+
   const toggleUserMenu = () => {
     setUserMenuOpen(!userMenuOpen);
   };
-  
+
   const handleCloseMenu = () => setMenuOpen(false);
-  
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -132,14 +141,14 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       await signOut();
     }
   };
-  
+
   return (
     <ThemeProvider theme={defaultTheme}>
       <div className="flex flex-col min-h-screen bg-gray-50 overflow-x-hidden">
         <header className="fixed top-0 left-0 right-0 h-16 bg-blue-500 shadow-sm z-30 w-screen max-w-full">
           <div className="h-16 flex items-center justify-between px-4">
             <div className="flex items-center">
-              <button 
+              <button
                 className="md:hidden flex items-center justify-center w-10 h-10 mr-3 text-white hover:bg-blue-600 rounded-full"
                 onClick={toggleMenu}
                 aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -152,10 +161,10 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
               </button>
               <h1 className="text-xl font-medium text-white truncate">Policenter MH</h1>
             </div>
-          
+
             <div className="flex items-center">
               <div className="relative" ref={userMenuRef}>
-                <button 
+                <button
                   className="flex items-center justify-center w-9 h-9 rounded-full overflow-hidden border border-gray-300 hover:border-gray-400 focus:outline-none bg-blue-600"
                   onClick={toggleUserMenu}
                   aria-label="User menu"
@@ -164,7 +173,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                     {sessionData?.user?.name?.charAt(0) || "U"}
                   </div>
                 </button>
-                
+
                 {userMenuOpen && (
                   <UserMenu
                     user={sessionData?.user}
@@ -175,11 +184,10 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        
-        <div 
-          className={`fixed top-16 left-0 right-0 bg-white shadow-md z-20 transition-transform duration-300 ease-in-out transform ${
-            menuOpen ? "translate-y-0" : "-translate-y-full"
-          } md:hidden overflow-y-auto`}
+
+        <div
+          className={`fixed top-16 left-0 right-0 bg-white shadow-md z-20 transition-transform duration-300 ease-in-out transform ${menuOpen ? "translate-y-0" : "-translate-y-full"
+            } md:hidden overflow-y-auto`}
           style={{ height: menuOpen ? 'calc(100vh - 64px)' : '0' }}
         >
           {menuOpen && (
@@ -196,7 +204,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             </div>
           )}
         </div>
-        
+
         <aside className="hidden md:block fixed top-0 left-0 w-16 h-screen bg-white shadow-md z-10">
           <div className="pt-16 h-full overflow-y-auto">
             <Suspense fallback={<SidebarSkeleton />}>
@@ -204,7 +212,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             </Suspense>
           </div>
         </aside>
-        
+
         <main className="flex-1 p-4 pt-20 md:pl-20 md:pt-20">
           {children}
         </main>

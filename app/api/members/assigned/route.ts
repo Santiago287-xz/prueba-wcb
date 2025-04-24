@@ -1,22 +1,26 @@
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { options } from "@/app/api/auth/[...nextauth]/options";
-import { SessionUser } from "@/types";
 import prisma from "@/app/libs/prismadb";
 import { User } from "@prisma/client";
 
-export async function getSession() {
+async function getSession() {
   try {
-    return await getServerSession(options);
+    return await getServerSession(
+      options
+    );
   } catch (error) {
-    console.error("Error while fetching session:", error);
+    console.error(
+      "Error while fetching session:",
+      error
+    );
     return null;
   }
 }
 
 export async function GET(request: Request) {
   const session = await getSession();
-  const sessionUser = session?.user as SessionUser;
+  const sessionUser = session?.user;
 
   if (!sessionUser?.email) {
     return NextResponse.json(

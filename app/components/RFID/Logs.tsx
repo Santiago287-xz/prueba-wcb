@@ -24,6 +24,7 @@ import {
 import { Refresh } from '@mui/icons-material';
 import axios from 'axios';
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
+import { SelectChangeEvent } from '@mui/material';
 
 interface AccessLog {
   id: string;
@@ -103,12 +104,12 @@ const RFIDLogs: React.FC = () => {
   // Initial fetch on component mount
   useEffect(() => {
     fetchLogs(true);
-  }, []);
+  }, [fetchLogs]);
 
   // Apply filters when status or date range changes
   useEffect(() => {
     fetchLogs(true);
-  }, [status, dateRange]);
+  }, [status, dateRange, fetchLogs]);
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -128,8 +129,8 @@ const RFIDLogs: React.FC = () => {
     fetchLogs(false);
   };
 
-  const handleStatusChange = (event: React.ChangeEvent<{ value: unknown }>) => {
-    setStatus(event.target.value as string);
+  const handleStatusChange = (event: SelectChangeEvent<string>) => {
+    setStatus(event.target.value);
   };
 
   const handleSetToday = () => {

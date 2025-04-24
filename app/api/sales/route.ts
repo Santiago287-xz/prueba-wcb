@@ -93,7 +93,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(sales, { status: 201 });
   } catch (error) {
     console.error("Error al procesar la venta:", error);
-    return NextResponse.json({ error: error.message || "Error al procesar la venta" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Error al procesar la venta";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -146,6 +147,7 @@ export async function GET(req: NextRequest) {
     }, { status: 200 });
   } catch (error) {
     console.error("Error al obtener ventas:", error);
-    return NextResponse.json({ error: "Error al obtener ventas" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Error al obtener ventas";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

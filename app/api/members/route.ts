@@ -1,13 +1,10 @@
 // app/api/members/route.ts
-import bcrypt from "bcrypt";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 import { getServerSession } from "next-auth";
 import { options } from "@/app/api/auth/[...nextauth]/options";
-import { revalidatePath } from "next/cache";
-import { SessionUser } from "@/types";
 
-export async function getSession() {
+async function getSession() {
   try {
     return await getServerSession(options);
   } catch (error) {

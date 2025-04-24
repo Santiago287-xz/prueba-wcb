@@ -43,23 +43,25 @@ export interface Event {
   endTime: string | Date;
 }
 
+// Añade al archivo de tipos (types/bookings.ts)
+export type PaymentMethodType = "pending" | "cash" | "transfer" | "card";
+
 export interface ModalDataType {
   isOpen: boolean;
   type: 'create' | 'edit' | 'view';
   reservation: Reservation | null;
   selectedDay: Date | null;
-  selectedHour: string; // se fuerza a string
+  selectedHour: string | number;
   name: string;
   phone: string;
-  paymentMethod: 'pending' | 'cash' | 'transfer' | 'card';
-  paymentAmount: number | string; // acepta ambos tipos
+  paymentMethod: PaymentMethodType;
+  paymentAmount: number;
   isRecurring: boolean;
-  recurrenceEnd: string; // formato YYYY-MM-DD
+  recurrenceEnd: string;
   paidSessions: number;
   paymentNotes: string;
   courtId: string;
-  openInvoiceModal?: (() => void) | null;
-  courts?: Court[];
+  courts: Court[];
 }
 
 export interface EventIndicator {
@@ -90,9 +92,10 @@ export interface GroupedEvent {
 export interface UnifiedCalendarProps {
   courts: Court[];
   currentDate: Date;
-  setCurrentDate: (date: Date) => void;
-  openReservationModal: (date: Date, hour?: number) => void;
-  openEventModal: (event: Reservation) => void;
+  setCurrentDate: React.Dispatch<React.SetStateAction<Date>>;
+  openReservationModal: (day: Date, hour?: number) => void;
+  openEventModal: (event?: Reservation) => void;
   openDetailModal: (reservation: Reservation) => void;
+  openInvoiceModal: (reservation: Reservation) => void; // Añade esta línea
   loading: boolean;
 }
