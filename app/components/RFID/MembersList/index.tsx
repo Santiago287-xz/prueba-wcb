@@ -289,10 +289,8 @@ export default function MembersList() {
 
   return (
     <Box sx={{ p: 2 }}>
-      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" component="h1">Membresías RFID</Typography>
-
         <Button
           variant="outlined"
           startIcon={<Refresh />}
@@ -301,21 +299,16 @@ export default function MembersList() {
           Actualizar
         </Button>
       </Box>
-
-      {/* Price loading/error alerts */}
       {pricesLoading && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Cargando precios de membresía...
         </Alert>
       )}
-
       {pricesError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {pricesError}
         </Alert>
       )}
-
-      {/* Filters and Actions */}
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', gap: 2, mb: 3 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ flexGrow: 1 }}>
           <TextField

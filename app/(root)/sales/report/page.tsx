@@ -36,7 +36,7 @@ export default function SalesReportPage() {
       return;
     }
     
-    if (session?.user?.role !== "employee" || !session?.user?.post) {
+    if (!['admin', 'receptionist', 'court_manager'].includes(session!.user.role as string) || !session?.user?.post) {
       setError("No tienes permisos para acceder a esta página o no tienes un puesto asignado");
       return;
     }
@@ -93,22 +93,6 @@ export default function SalesReportPage() {
           className="mt-4 bg-primary text-white p-2 rounded"
         >
           Iniciar sesión
-        </button>
-      </div>
-    );
-  }
-  
-  if (session.user.role !== "employee") {
-    return (
-      <div className="p-6 text-center">
-        <h1 className="text-2xl font-bold text-red-600 mb-4">No autorizado</h1>
-        <p>Solo los empleados pueden acceder a los reportes de ventas.</p>
-        <p className="mt-2">Tu rol actual es: <span className="font-semibold">{session.user.role}</span></p>
-        <button 
-          onClick={() => router.push("/")}
-          className="mt-4 bg-primary text-white p-2 rounded"
-        >
-          Volver al inicio
         </button>
       </div>
     );

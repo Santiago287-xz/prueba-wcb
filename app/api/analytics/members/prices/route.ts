@@ -34,7 +34,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user?.id || !['admin', 'recepcionst'].includes(session.user.role as string)) {
+  if (!session?.user?.id || !['admin', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const allowedRoles = ["admin", "employee", "court_manager"];
+  const allowedRoles = ["admin", "receptionist", "court_manager"];
   if (!allowedRoles.includes(session.user.role as string)) {
     return NextResponse.json({ error: "No tienes permisos para ver estos datos" }, { status: 403 });
   }

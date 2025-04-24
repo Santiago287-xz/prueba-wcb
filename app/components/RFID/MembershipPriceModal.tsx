@@ -27,8 +27,7 @@ export default function MembershipPriceModal({ open, onClose, isAdmin }: Members
   const [formData, setFormData] = useState({
     type: '',
     basePrice: '',
-    description: '',
-    active: true
+    description: ''
   });
 
   // Cargar los precios al abrir el modal
@@ -67,8 +66,7 @@ export default function MembershipPriceModal({ open, onClose, isAdmin }: Members
     setFormData({
       type: '',
       basePrice: '',
-      description: '',
-      active: true
+      description: ''
     });
     setSelectedPrice(null);
     setFormMode('view');
@@ -79,8 +77,7 @@ export default function MembershipPriceModal({ open, onClose, isAdmin }: Members
     setFormData({
       type: price.type,
       basePrice: price.basePrice.toString(),
-      description: price.description || '',
-      active: price.active
+      description: price.description || ''
     });
     setFormMode('edit');
   };
@@ -156,7 +153,7 @@ export default function MembershipPriceModal({ open, onClose, isAdmin }: Members
           type: formData.type,
           basePrice: parseFloat(formData.basePrice),
           description: formData.description || null,
-          active: formData.active
+          active: true
         })
       });
       
@@ -248,24 +245,6 @@ export default function MembershipPriceModal({ open, onClose, isAdmin }: Members
                       disabled={loading}
                       rows={2}
                     />
-                  </div>
-                  <div className="flex items-center">
-                    <label htmlFor="active" className="text-sm font-medium text-gray-700 mr-3">
-                      Activo
-                    </label>
-                    <div className="relative inline-block w-10 align-middle select-none">
-                      <input
-                        id="active"
-                        name="active"
-                        type="checkbox"
-                        checked={formData.active}
-                        onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
-                        className="sr-only"
-                        disabled={loading}
-                      />
-                      <div className={`block h-6 rounded-full w-10 ${formData.active ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                      <div className={`absolute w-4 h-4 rounded-full bg-white transition-transform transform ${formData.active ? 'translate-x-5' : 'translate-x-1'} top-1`} />
-                    </div>
                   </div>
                 </div>
                 

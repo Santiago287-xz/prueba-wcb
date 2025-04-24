@@ -366,7 +366,7 @@ export default function AdminAnalytics() {
       if (showLoading) setLoading(false);
       setLastRefresh(new Date());
     }
-  }, [dateRange, metrics]);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchData(true);

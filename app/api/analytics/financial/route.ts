@@ -37,7 +37,7 @@ interface DateMap {
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user?.id || !['admin', 'employee'].includes(session.user.role as string)) {
+  if (!session?.user?.id || !['admin'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   

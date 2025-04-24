@@ -22,7 +22,7 @@ interface ProductMap {
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user?.id || !['admin', 'employee'].includes(session.user.role as string)) {
+  if (!session?.user?.id || !['admin', 'receptionist', 'court_manager'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const { searchParams } = new URL(request.url);

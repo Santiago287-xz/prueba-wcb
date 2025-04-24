@@ -78,7 +78,6 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
   const isUser = user?.role === "user";
-  const isEmployee = user?.role === "employee";
   const isReceptionist = user?.role === "receptionist";
   const isCourtManager = user?.role === "court_manager";
 
@@ -101,21 +100,16 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
           <MenuItem href="/manage-user" title="Manage User" icon={FaUserCog} onItemClick={onItemClick} />
         </>
       )}
-
+      {isReceptionist && (
+        <MenuItem href="/rfid-management" title="RFID Management" icon={FaCreditCard} onItemClick={onItemClick} />
+      )}
       {(isCourtManager || isReceptionist) && (
         <>
-          <MenuItem href="/rfid-management" title="RFID Management" icon={FaCreditCard} onItemClick={onItemClick} />
           <MenuItem href="/booking" title="Canchas" icon={FaCalendarAlt} onItemClick={onItemClick} />
           <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />
         </>
       )}
       <div className="h-px w-full bg-gray-200 my-3"></div>
-
-      {isEmployee && (
-        <>
-          <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />
-        </>
-      )}
       {isAdmin && (
         <MenuItem href="/analytics" title="Analytics" icon={FaChartLine} onItemClick={onItemClick} />
       )}

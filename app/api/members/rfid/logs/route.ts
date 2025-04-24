@@ -7,7 +7,7 @@ import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user?.id || !['admin', 'employee'].includes(session.user.role as string)) {
+  if (!session?.user?.id || !['admin', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

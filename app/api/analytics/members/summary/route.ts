@@ -15,7 +15,7 @@ export async function GET(
 
 	if (
 		!session?.user?.id ||
-		!["admin", "employee"].includes(
+		!["admin", "receptionist"].includes(
 			session.user.role as string
 		)
 	) {

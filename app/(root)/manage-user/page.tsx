@@ -433,7 +433,6 @@ const ManageUser: React.FC = () => {
   const getRoleColor = (role: string): "primary" | "secondary" | "error" | "info" | "success" | "warning" | "default" => {
     const roleColorMap: Record<string, "primary" | "secondary" | "error" | "info" | "success" | "warning" | "default"> = {
       user: "default",
-      employee: "info",
       court_manager: "secondary",
       member: "primary",
       trainer: "success"

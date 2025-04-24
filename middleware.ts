@@ -19,6 +19,7 @@ const PATH_PERMISSIONS = {
 
 const API_PERMISSIONS = {
   "/api/analytics": ["admin"],
+  "/api/analytics/members/prices": ["admin", "receptionist"],
   "/api/bookings": ["admin", "court_manager"],
   "/api/sales": ["admin", "receptionist", "court_manager"],
   "/api/sales/inventory/categories": ["admin", "receptionist","court_manager"],
@@ -32,10 +33,11 @@ const API_PERMISSIONS = {
   "/api/members/assigned": ["admin", "receptionist", "trainer"],
   "/api/create-user": ["admin", "trainer"],
   "/api/rfid/trainers": ["admin", "receptionist", "trainer"],
-  "api/members/rfid/events": ["admin", "receptionist"],
+  "/api/members/rfid/events": ["admin", "receptionist"],
+  "/api/members/rfid/stats": ["admin", "receptionist"],
   "/api/payments/stripe": ["member"],
   "/api/rfid": ["admin", "receptionist"],
-  "/api/transactions": ["admin"],
+  "/api/transactions": ["admin", "receptionist", "court_manager"],
   "/api/fitness/exercise": ["admin", "trainer", "member"],
   "/api/fitness/exercise-assignment": ["admin", "trainer"],
   "/api/fitness": ["admin", "trainer"],
