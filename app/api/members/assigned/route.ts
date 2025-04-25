@@ -4,6 +4,10 @@ import { options } from "@/app/api/auth/[...nextauth]/options";
 import prisma from "@/app/libs/prismadb";
 import { User } from "@prisma/client";
 
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
 async function getSession() {
   try {
     return await getServerSession(

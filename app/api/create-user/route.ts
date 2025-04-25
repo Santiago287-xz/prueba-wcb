@@ -2,46 +2,32 @@ import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 import prisma from "@/app/libs/prismadb";
-import { revalidatePath } from "next/cache";
 import bcrypt from "bcrypt";
 
 async function getSession() {
 	try {
-		return await getServerSession(
-			options
-		);
+		return await getServerSession(options);
 	} catch (error) {
-		console.error(
-			"Error while fetching session:",
-			error
-		);
+		console.error("Error while fetching session:", error);
 		return null;
 	}
 }
 
-export async function POST(
-	req: Request
-) {
+export async function POST(req: Request) {
 	try {
 		const session = await getSession();
 		const sessionUser = session?.user;
 
 		if (!sessionUser?.email) {
 			return NextResponse.json(
-				{
-					error: "Not authenticated",
-					success: false,
-				},
+				{ error: "Not authenticated", success: false },
 				{ status: 401 }
 			);
 		}
 
 		if (sessionUser.role === "user") {
 			return NextResponse.json(
-				{
-					error: "Not authorized",
-					success: false,
-				},
+				{ error: "Not authorized", success: false },
 				{ status: 403 }
 			);
 		}
@@ -50,67 +36,37 @@ export async function POST(
 
 		if (!body.email || !body.password) {
 			return NextResponse.json(
-				{
-					error:
-						"Missing email or password",
-					success: false,
-				},
+				{ error: "Missing email or password", success: false },
 				{ status: 400 }
 			);
 		}
 
-		// Validar el campo post para recepcionistas y administradores de canchas
-		if (
-			(body.role === "receptionist" ||
-				body.role ===
-					"court_manager") &&
-			!body.post
-		) {
+		if ((body.role === "receptionist" || body.role === "court_manager") && !body.post) {
 			return NextResponse.json(
-				{
-					error:
-						"El puesto es requerido para recepcionistas y administradores de canchas",
-					success: false,
-				},
+				{ error: "El puesto es requerido para recepcionistas y administradores de canchas", success: false },
 				{ status: 400 }
 			);
 		}
 
-		const userExists =
-			await prisma.user.findUnique({
-				where: { email: body.email },
-			});
+		const userExists = await prisma.user.findUnique({
+			where: { email: body.email },
+		});
 
 		if (userExists) {
 			return NextResponse.json(
-				{
-					error: "User already exists",
-					success: false,
-					code: "EMAIL_EXISTS",
-				},
+				{ error: "Este correo electrónico ya está registrado", success: false },
 				{ status: 409 }
 			);
 		}
 
-		if (
-			sessionUser.role === body.role
-		) {
+		if (sessionUser.role === body.role) {
 			return NextResponse.json(
-				{
-					error: `You can't add an ${body.role}`,
-					success: false,
-				},
-				{
-					status: 503,
-				}
+				{ error: `No puedes crear un ${body.role} siendo ${sessionUser.role}`, success: false },
+				{ status: 400 }
 			);
 		}
 
-		const hashedPassword =
-			await bcrypt.hash(
-				body.password,
-				12
-			);
+		const hashedPassword = await bcrypt.hash(body.password, 12);
 
 		const baseUserData = {
 			name: body.name,
@@ -126,69 +82,50 @@ export async function POST(
 			level: body.level || "beginner",
 		};
 
-		let userData: any = {
-			...baseUserData,
-		};
+		let userData: any = { ...baseUserData };
 
-		// Agregar el campo post para recepcionistas y administradores de canchas
-		if (
-			body.role === "receptionist" ||
-			body.role === "court_manager"
-		) {
+		if (body.role === "receptionist" || body.role === "court_manager") {
 			userData.post = body.post;
 		}
 
-		const user =
-			await prisma.user.create({
-				data: userData,
-			});
+		const user = await prisma.user.create({
+			data: userData,
+		});
 
 		const userResponse = { ...user };
-		userResponse.hashedPassword =
-			undefined as any;
+		userResponse.hashedPassword = undefined as any;
+
+		const roleText = body.role === "trainer" ? "Entrenador" : 
+		                 body.role === "receptionist" ? "Recepcionista" : 
+		                 body.role === "court_manager" ? "Administrador de canchas" : body.role;
 
 		return NextResponse.json({
 			status: 201,
 			data: userResponse,
 			success: true,
-			message: `${body.role} created successfully`,
+			message: `${roleText} creado exitosamente`,
 		});
 	} catch (error) {
-		console.error(
-			"Error creating user:",
-			error
-		);
+		console.error("Error creating user:", error);
 		return NextResponse.json(
 			{
-				error:
-					error instanceof Error
-						? error.message
-						: "Unknown error",
+				error: error instanceof Error ? error.message : "Error desconocido",
 				success: false,
 			},
-			{
-				status: 500,
-			}
+			{ status: 500 }
 		);
 	}
 }
 
-export async function PATCH(
-	req: Request
-) {
+export async function PATCH(req: Request) {
 	try {
 		const session = await getSession();
 		const sessionUser = session?.user;
 
 		if (!session || !sessionUser) {
 			return NextResponse.json(
-				{
-					error: "unauthenticated",
-					success: false,
-				},
-				{
-					status: 401,
-				}
+				{ error: "unauthenticated", success: false },
+				{ status: 401 }
 			);
 		}
 
@@ -200,60 +137,36 @@ export async function PATCH(
 			body.userId &&
 			body.trainerId !== body.userId
 		) {
-			const user =
-				await prisma.user.findUnique({
-					where: {
-						id: body.userId as string,
-					},
-				});
+			const user = await prisma.user.findUnique({
+				where: { id: body.userId as string },
+			});
 
-			const trainer =
-				await prisma.user.findUnique({
-					where: {
-						id: body.trainerId as string,
-					},
-				});
+			const trainer = await prisma.user.findUnique({
+				where: { id: body.trainerId as string },
+			});
 
 			if (!user || !trainer) {
 				return NextResponse.json(
-					{
-						error:
-							"No user or trainer found in the list!!!",
-						success: false,
-					},
-					{
-						status: 400,
-					}
+					{ error: "No user or trainer found in the list!!!", success: false },
+					{ status: 400 }
 				);
 			}
 
-			const updateUser =
-				await prisma.user.update({
-					where: {
-						id: user.id,
-					},
-					data: {
-						trainer: trainer.id,
-					},
-				});
+			const updateUser = await prisma.user.update({
+				where: { id: user.id },
+				data: { trainer: trainer.id },
+			});
 
 			if (!updateUser) {
 				return NextResponse.json({
-					error:
-						"Something is wrong to update the trainer",
+					error: "Something is wrong to update the trainer",
 					success: false,
 				});
 			}
 
 			return NextResponse.json(
-				{
-					message:
-						"User updated successfully",
-					success: true,
-				},
-				{
-					status: 201,
-				}
+				{ message: "User updated successfully", success: true },
+				{ status: 201 }
 			);
 		} else if (
 			sessionUser?.role === "trainer" &&
@@ -262,14 +175,8 @@ export async function PATCH(
 			body.trainerId !== body.userId
 		) {
 			return NextResponse.json(
-				{
-					error:
-						"You can't update the trainer",
-					success: false,
-				},
-				{
-					status: 400,
-				}
+				{ error: "You can't update the trainer", success: false },
+				{ status: 400 }
 			);
 		} else if (
 			sessionUser?.role === "user" &&
@@ -278,135 +185,66 @@ export async function PATCH(
 			body.trainerId !== body.userId
 		) {
 			return NextResponse.json(
-				{
-					error:
-						"You can't update the trainer",
-					success: false,
-				},
-				{
-					status: 400,
-				}
+				{ error: "You can't update the trainer", success: false },
+				{ status: 400 }
 			);
 		} else {
 			if (body.email) {
 				return NextResponse.json(
-					{
-						error:
-							"You can't update the email",
-						success: false,
-					},
-					{
-						status: 400,
-					}
+					{ error: "You can't update the email", success: false },
+					{ status: 400 }
 				);
 			}
 
-			const user =
-				await prisma.user.findUnique({
-					where: {
-						id: sessionUser.id,
-					},
-				});
+			const user = await prisma.user.findUnique({
+				where: { id: sessionUser.id },
+			});
 
 			if (!user) {
 				return NextResponse.json(
-					{
-						error: "User not found",
-						success: false,
-					},
-					{
-						status: 400,
-					}
+					{ error: "User not found", success: false },
+					{ status: 400 }
 				);
 			}
 
-			let hashedPassword =
-				user.hashedPassword;
+			let hashedPassword = user.hashedPassword;
 
 			if (body.password) {
-				hashedPassword =
-					await bcrypt.hash(
-						body.password,
-						12
-					);
+				hashedPassword = await bcrypt.hash(body.password, 12);
 			}
 
-			const userUpdate =
-				await prisma.user.update({
-					where: {
-						id: sessionUser.id,
-					},
-					data: {
-						name:
-							body.name !== ""
-								? body.name
-								: user.name,
-						age:
-							body.age !== ""
-								? body.age
-								: user.age,
-						weight:
-							body.weight !== ""
-								? body.weight
-								: user.weight,
-						height:
-							body.height !== ""
-								? body.height
-								: user.height,
-						goal:
-							body.goal !== ""
-								? body.goal
-								: user.goal,
-						level:
-							body.level !== ""
-								? body.level
-								: user.level,
-						phone:
-							body.phone !== ""
-								? body.phone
-								: user.phone,
-						hashedPassword,
-						isActive: body.isActive,
-					},
-				});
+			const userUpdate = await prisma.user.update({
+				where: { id: sessionUser.id },
+				data: {
+					name: body.name !== "" ? body.name : user.name,
+					age: body.age !== "" ? body.age : user.age,
+					weight: body.weight !== "" ? body.weight : user.weight,
+					height: body.height !== "" ? body.height : user.height,
+					goal: body.goal !== "" ? body.goal : user.goal,
+					level: body.level !== "" ? body.level : user.level,
+					phone: body.phone !== "" ? body.phone : user.phone,
+					hashedPassword,
+					isActive: body.isActive,
+				},
+			});
 
 			if (!userUpdate) {
 				return NextResponse.json(
-					{
-						error: "Updating failed",
-						success: false,
-					},
-					{
-						status: 400,
-					}
+					{ error: "Updating failed", success: false },
+					{ status: 400 }
 				);
 			}
 
-			if (body.isActive) {
-				revalidatePath("/");
-			}
-
 			return NextResponse.json(
-				{
-					message:
-						"Updated successfully",
-					success: true,
-				},
-				{
-					status: 200,
-				}
+				{ message: "Updated successfully", success: true },
+				{ status: 200 }
 			);
 		}
 	} catch (err: Error | any) {
 		console.error(err);
 		return NextResponse.json(
-			{
-				error: err.message,
-				success: false,
-			},
-			{
-				status: 500,
-			}
+			{ error: err.message, success: false },
+			{ status: 500 }
 		);
 	}
 }

@@ -2,23 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/app/libs/prismadb";
 import { getServerSession } from "next-auth";
 import { options as authOptions } from "@/app/api/auth/[...nextauth]/options";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-// Ensure upload directory exists
-async function ensureUploadDir() {
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  try {
-    await mkdir(uploadDir, { recursive: true });
-  } catch (error) {
-    console.error("Error creating upload directory:", error);
-  }
-  return uploadDir;
-}
 
 // GET: Listar todos los productos con su stock
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
@@ -40,7 +28,7 @@ export async function GET(req: NextRequest) {
 // POST: Crear un nuevo producto
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id || !['admin', 'court_manager', 'receptionist'].includes(session.user.role as string)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
@@ -51,8 +39,7 @@ export async function POST(req: NextRequest) {
     const description = formData.get("description") as string;
     const priceStr = formData.get("price") as string;
     const categoryId = formData.get("categoryId") as string;
-    const file = formData.get("image") as File | null;
-    
+
     // Obtener valores de stock
     const mainWarehouseStock = parseInt(formData.get("mainWarehouseStock") as string) || 0;
     const post1Stock = parseInt(formData.get("post1Stock") as string) || 0;
@@ -81,15 +68,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Categoría no encontrada" }, { status: 404 });
     }
 
-    let imagePath: string | undefined;
-    if (file) {
-      const uploadDir = await ensureUploadDir();
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-      imagePath = `/uploads/${filename}`;
-      await writeFile(path.join(uploadDir, filename), buffer);
-    }
-
     // Use transaction for data integrity
     const result = await prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
@@ -98,13 +76,12 @@ export async function POST(req: NextRequest) {
           description,
           price,
           categoryId,
-          image: imagePath,
         },
       });
 
       // Crear stock en las ubicaciones con las cantidades especificadas
       const stockLocations = [];
-      
+
       if (mainWarehouseStock > 0) {
         const mainStock = await tx.stock.create({
           data: {
@@ -114,7 +91,7 @@ export async function POST(req: NextRequest) {
             minStock: 5
           }
         });
-        
+
         // Registrar el movimiento de stock inicial
         await tx.stockMovement.create({
           data: {
@@ -124,7 +101,7 @@ export async function POST(req: NextRequest) {
             userId: session.user.id
           }
         });
-        
+
         stockLocations.push(mainStock);
       } else {
         // Crear registro de stock con cantidad 0 para el almacén principal
@@ -138,7 +115,7 @@ export async function POST(req: NextRequest) {
         });
         stockLocations.push(mainStock);
       }
-      
+
       if (post1Stock > 0) {
         const post1StockRecord = await tx.stock.create({
           data: {
@@ -148,7 +125,7 @@ export async function POST(req: NextRequest) {
             minStock: 3
           }
         });
-        
+
         // Registrar el movimiento de stock inicial
         await tx.stockMovement.create({
           data: {
@@ -158,10 +135,10 @@ export async function POST(req: NextRequest) {
             userId: session.user.id
           }
         });
-        
+
         stockLocations.push(post1StockRecord);
       }
-      
+
       if (post2Stock > 0) {
         const post2StockRecord = await tx.stock.create({
           data: {
@@ -171,7 +148,7 @@ export async function POST(req: NextRequest) {
             minStock: 3
           }
         });
-        
+
         // Registrar el movimiento de stock inicial
         await tx.stockMovement.create({
           data: {
@@ -181,7 +158,7 @@ export async function POST(req: NextRequest) {
             userId: session.user.id
           }
         });
-        
+
         stockLocations.push(post2StockRecord);
       }
 
@@ -209,8 +186,7 @@ export async function PUT(req: NextRequest) {
     const description = formData.get("description") as string;
     const priceStr = formData.get("price") as string;
     const categoryId = formData.get("categoryId") as string | null;
-    const file = formData.get("image") as File | null;
-    
+
     // Obtener valores de stock
     const mainWarehouseStock = parseInt(formData.get("mainWarehouseStock") as string) || 0;
     const post1Stock = parseInt(formData.get("post1Stock") as string) || 0;
@@ -254,18 +230,8 @@ export async function PUT(req: NextRequest) {
       if (!categoryExists) {
         return NextResponse.json({ error: "Categoría no encontrada" }, { status: 404 });
       }
-      
-      updateData.categoryId = categoryId;
-    }
 
-    let imagePath: string | undefined;
-    if (file) {
-      const uploadDir = await ensureUploadDir();
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-      imagePath = `/uploads/${filename}`;
-      await writeFile(path.join(uploadDir, filename), buffer);
-      updateData.image = imagePath;
+      updateData.categoryId = categoryId;
     }
 
     // Actualizar el producto y su stock en una transacción
@@ -275,13 +241,13 @@ export async function PUT(req: NextRequest) {
         where: { id },
         data: updateData,
       });
-      
+
       // Actualizar cantidades de stock
       // Para cada ubicación, verificamos si existe el registro
       const mainWarehouseStockExists = productExists.stocks.find(
         s => s.location === "main_warehouse"
       );
-      
+
       if (mainWarehouseStockExists) {
         const oldQuantity = mainWarehouseStockExists.quantity;
         if (oldQuantity !== mainWarehouseStock) {
@@ -289,7 +255,7 @@ export async function PUT(req: NextRequest) {
             where: { id: mainWarehouseStockExists.id },
             data: { quantity: mainWarehouseStock },
           });
-          
+
           // Registrar el movimiento de stock si hay cambio
           await tx.stockMovement.create({
             data: {
@@ -302,14 +268,14 @@ export async function PUT(req: NextRequest) {
         }
       } else {
         const newStock = await tx.stock.create({
-          data: { 
-            productId: id, 
-            location: "main_warehouse", 
-            quantity: mainWarehouseStock, 
-            minStock: 5 
+          data: {
+            productId: id,
+            location: "main_warehouse",
+            quantity: mainWarehouseStock,
+            minStock: 5
           },
         });
-        
+
         if (mainWarehouseStock > 0) {
           await tx.stockMovement.create({
             data: {
@@ -321,11 +287,11 @@ export async function PUT(req: NextRequest) {
           });
         }
       }
-      
+
       const post1StockExists = productExists.stocks.find(
         s => s.location === "post_1"
       );
-      
+
       if (post1StockExists) {
         const oldQuantity = post1StockExists.quantity;
         if (oldQuantity !== post1Stock) {
@@ -333,7 +299,7 @@ export async function PUT(req: NextRequest) {
             where: { id: post1StockExists.id },
             data: { quantity: post1Stock },
           });
-          
+
           // Registrar el movimiento de stock si hay cambio
           await tx.stockMovement.create({
             data: {
@@ -346,14 +312,14 @@ export async function PUT(req: NextRequest) {
         }
       } else if (post1Stock > 0) {
         const newStock = await tx.stock.create({
-          data: { 
-            productId: id, 
-            location: "post_1", 
-            quantity: post1Stock, 
-            minStock: 3 
+          data: {
+            productId: id,
+            location: "post_1",
+            quantity: post1Stock,
+            minStock: 3
           },
         });
-        
+
         await tx.stockMovement.create({
           data: {
             stockId: newStock.id,
@@ -363,11 +329,11 @@ export async function PUT(req: NextRequest) {
           }
         });
       }
-      
+
       const post2StockExists = productExists.stocks.find(
         s => s.location === "post_2"
       );
-      
+
       if (post2StockExists) {
         const oldQuantity = post2StockExists.quantity;
         if (oldQuantity !== post2Stock) {
@@ -375,7 +341,7 @@ export async function PUT(req: NextRequest) {
             where: { id: post2StockExists.id },
             data: { quantity: post2Stock },
           });
-          
+
           // Registrar el movimiento de stock si hay cambio
           await tx.stockMovement.create({
             data: {
@@ -388,14 +354,14 @@ export async function PUT(req: NextRequest) {
         }
       } else if (post2Stock > 0) {
         const newStock = await tx.stock.create({
-          data: { 
-            productId: id, 
-            location: "post_2", 
-            quantity: post2Stock, 
-            minStock: 3 
+          data: {
+            productId: id,
+            location: "post_2",
+            quantity: post2Stock,
+            minStock: 3
           },
         });
-        
+
         await tx.stockMovement.create({
           data: {
             stockId: newStock.id,
@@ -405,7 +371,7 @@ export async function PUT(req: NextRequest) {
           }
         });
       }
-      
+
       return product;
     });
 
@@ -425,7 +391,7 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const { id } = await req.json();
-    
+
     if (!id) {
       return NextResponse.json({ error: "ID del producto es requerido" }, { status: 400 });
     }
@@ -436,24 +402,24 @@ export async function DELETE(req: NextRequest) {
       const stocks = await tx.stock.findMany({
         where: { productId: id }
       });
-      
+
       // Delete stock movements for each stock
       for (const stock of stocks) {
         await tx.stockMovement.deleteMany({
           where: { stockId: stock.id }
         });
       }
-      
+
       // Delete related stock records
       await tx.stock.deleteMany({
         where: { productId: id },
       });
-      
+
       // Delete related sales (if any)
       await tx.sale.deleteMany({
         where: { productId: id }
       });
-      
+
       // Finally delete the product
       await tx.product.delete({
         where: { id },

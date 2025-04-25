@@ -48,7 +48,7 @@ const PUBLIC_PATHS = ["/signin", "/signup", "/forgot-password", "/password-reset
 export async function middleware(request: NextRequest) {
   let path = request.nextUrl.pathname;
 
-  if (path.startsWith("/_next") || path.startsWith("/favicon.ico") || path.startsWith("/api/auth")) {
+  if (path.startsWith("/_next") || path.startsWith("/favicon.ico") || path.startsWith("/api/auth") || path.startsWith("/uploads/")) {
     return NextResponse.next();
   }
 
@@ -102,4 +102,4 @@ export async function middleware(request: NextRequest) {
   return NextResponse.redirect(new URL("/unauthorized", request.url));
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|sounds|favicon.ico).*)"] };
+export const config = { matcher: ["/((?!_next/static|_next/image|sounds|uploads|favicon.ico).*)"] };

@@ -21,6 +21,7 @@ import {
   IconButton,
   CircularProgress,
   Alert,
+  Grow,
 } from "@mui/material/";
 import { Person, Badge, Spa, SportsTennis, Visibility, VisibilityOff, CheckCircle, Store } from "@mui/icons-material";
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form";
@@ -65,14 +66,12 @@ const AddMemberPage: React.FC = () => {
     },
   });
 
-  // Watch the role field to update UI based on selection
   const roleValue = watch("role");
   const showPostSelector = roleValue === "receptionist" || roleValue === "court_manager";
 
   useEffect(() => {
     setSelectedRole(roleValue);
     
-    // Reset post value when role changes
     if (roleValue !== "receptionist" && roleValue !== "court_manager") {
       setValue("post", "");
     }
@@ -80,11 +79,14 @@ const AddMemberPage: React.FC = () => {
 
   useEffect(() => {
     if (userCreated) {
-      setUserCreated(false);
+      const timer = setTimeout(() => {
+        setUserCreated(false);
+        setSuccessMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-  }, [watch('name'), watch('email'), watch('password'), watch('confirmPassword'), watch('phone'), watch('gender'), watch('role'), watch('post')]);
+  }, [userCreated]);
 
-  // Clear email error when email changes
   useEffect(() => {
     if (emailError) {
       setEmailError(null);
@@ -107,7 +109,6 @@ const AddMemberPage: React.FC = () => {
         phone: parseInt(data.phone) || 0,
       };
 
-      // Add post field for receptionist and court_manager
       if ((data.role === "receptionist" || data.role === "court_manager") && data.post) {
         userData.post = data.post;
       } else if ((data.role === "receptionist" || data.role === "court_manager") && !data.post) {
@@ -151,7 +152,7 @@ const AddMemberPage: React.FC = () => {
         reset();
       }
     } catch (err: any) {
-      console.error("Error completo:", err);
+      console.error("Error:", err);
       
       if (err.response) {
         if (err.response.status === 409) {
@@ -165,55 +166,20 @@ const AddMemberPage: React.FC = () => {
           toast.error(errorMsg, {
             duration: 4000,
             icon: '❌',
-            style: {
-              background: '#FEE2E2',
-              color: '#DC2626',
-              border: '1px solid #DC2626'
-            }
           });
         } else {
           let errorMessage = "Error al crear usuario";
           
-          switch (err.response.status) {
-            case 400:
-              errorMessage = "Datos inválidos. Por favor verifica la información";
-              break;
-            case 403:
-              errorMessage = "No tienes permisos para realizar esta acción";
-              break;
-            case 500:
-              errorMessage = "Error del servidor. Por favor intenta más tarde";
-              break;
-            default:
-              if (err.response.data && err.response.data.error) {
-                errorMessage = err.response.data.error;
-              }
+          if (err.response.data && err.response.data.error) {
+            errorMessage = err.response.data.error;
           }
           
           setFormError(errorMessage);
-          
-          toast.error(errorMessage, {
-            duration: 4000,
-            icon: '❌',
-            style: {
-              background: '#FEE2E2',
-              color: '#DC2626',
-              border: '1px solid #DC2626'
-            }
-          });
+          toast.error(errorMessage, { duration: 4000 });
         }
       } else if (err.message) {
         setFormError(err.message);
-        
-        toast.error(err.message, {
-          duration: 4000,
-          icon: '❌',
-          style: {
-            background: '#FEE2E2',
-            color: '#DC2626',
-            border: '1px solid #DC2626'
-          }
-        });
+        toast.error(err.message, { duration: 4000 });
       }
     }
   };
@@ -227,6 +193,13 @@ const AddMemberPage: React.FC = () => {
     if (selectedRole === "receptionist") return <Badge fontSize="large" color="secondary" />;
     if (selectedRole === "court_manager") return <SportsTennis fontSize="large" style={{ color: "green" }} />;
     return <Person fontSize="large" color="primary" />;
+  };
+
+  const getRoleText = () => {
+    return selectedRole === "trainer" ? "entrenador" : 
+           selectedRole === "receptionist" ? "recepcionista" : 
+           selectedRole === "court_manager" ? "administrador de canchas" : 
+           capitalizeFirstLetter(selectedRole);
   };
 
   return (
@@ -252,32 +225,32 @@ const AddMemberPage: React.FC = () => {
           {getRoleIcon()}
         </Avatar>
         <Typography component="h1" variant="h4" sx={{ mb: 1, fontWeight: 500, textAlign: 'center' }}>
-          Añadir { 
-            selectedRole === "trainer" ? "entrenador" : 
-            selectedRole === "receptionist" ? "recepcionista" : 
-            selectedRole === "court_manager" ? "administrador de canchas" : capitalizeFirstLetter(selectedRole)
-          }
+          Añadir {getRoleText()}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Completa el formulario para crear una nueva cuenta de {
-            selectedRole === "trainer" ? "entrenador" : 
-            selectedRole === "receptionist" ? "recepcionista" : 
-            selectedRole === "court_manager" ? "administrador de canchas" : capitalizeFirstLetter(selectedRole)
-          }
+          Completa el formulario para crear una nueva cuenta de {getRoleText()}
         </Typography>
 
         <Divider sx={{ width: '100%', mb: 3 }} />
 
         {formError && (
-          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-            {formError}
-          </Alert>
+          <Grow in={!!formError}>
+            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+              {formError}
+            </Alert>
+          </Grow>
         )}
 
         {successMessage && userCreated && (
-          <Alert severity="success" sx={{ width: '100%', mb: 2 }}>
-            {successMessage}
-          </Alert>
+          <Grow in={!!successMessage}>
+            <Alert 
+              severity="success" 
+              sx={{ width: '100%', mb: 2 }}
+              icon={<CheckCircle fontSize="inherit" />}
+            >
+              {successMessage}
+            </Alert>
+          </Grow>
         )}
 
         <Box
@@ -300,11 +273,7 @@ const AddMemberPage: React.FC = () => {
                   startAdornment: <Person sx={{ color: 'text.secondary', mr: 1 }} fontSize="small" />,
                 }}
                 {...register("name", { required: "El nombre es requerido" })}
-                helperText={
-                  errors.name && typeof errors.name.message === "string"
-                    ? errors.name.message
-                    : null
-                }
+                helperText={errors.name?.message as string || null}
                 error={!!errors?.name?.message}
                 onChange={() => setFormError(null)}
               />
@@ -327,8 +296,8 @@ const AddMemberPage: React.FC = () => {
                   <MenuItem value="receptionist">Recepcionista</MenuItem>
                   <MenuItem value="court_manager">Administrador de canchas</MenuItem>
                 </Select>
-                {errors.role && typeof errors.role.message === "string" && (
-                  <FormHelperText>{errors.role.message}</FormHelperText>
+                {errors.role && (
+                  <FormHelperText>{errors.role.message as string}</FormHelperText>
                 )}
               </FormControl>
             </Grid>
@@ -355,8 +324,8 @@ const AddMemberPage: React.FC = () => {
                     <MenuItem value="post_1">Puesto 1</MenuItem>
                     <MenuItem value="post_2">Puesto 2</MenuItem>
                   </Select>
-                  {errors.post && typeof errors.post.message === "string" && (
-                    <FormHelperText>{errors.post.message}</FormHelperText>
+                  {errors.post && (
+                    <FormHelperText>{errors.post.message as string}</FormHelperText>
                   )}
                 </FormControl>
               </Grid>
@@ -371,11 +340,7 @@ const AddMemberPage: React.FC = () => {
                 id="email"
                 label="Correo electrónico"
                 error={!!errors?.email?.message || !!emailError}
-                helperText={
-                  (errors.email && typeof errors.email.message === "string")
-                    ? errors.email.message
-                    : emailError
-                }
+                helperText={(errors.email?.message as string) || emailError}
                 {...register("email", {
                   required: "El correo electrónico es requerido",
                   pattern: {
@@ -399,11 +364,7 @@ const AddMemberPage: React.FC = () => {
                 id="phone"
                 label="Número de teléfono"
                 error={!!errors?.phone?.message}
-                helperText={
-                  errors.phone && typeof errors.phone.message === "string"
-                    ? errors.phone.message
-                    : null
-                }
+                helperText={errors.phone?.message as string || null}
                 {...register("phone", {
                   required: "El número de teléfono es requerido",
                   pattern: {
@@ -423,11 +384,7 @@ const AddMemberPage: React.FC = () => {
                 id="password"
                 label="Contraseña"
                 error={!!errors?.password?.message}
-                helperText={
-                  errors.password && typeof errors.password.message === "string"
-                    ? errors.password.message
-                    : null
-                }
+                helperText={errors.password?.message as string || null}
                 InputProps={{
                   endAdornment: (
                     <IconButton
@@ -444,10 +401,6 @@ const AddMemberPage: React.FC = () => {
                   minLength: {
                     value: 8,
                     message: "La contraseña debe tener al menos 8 caracteres",
-                  },
-                  maxLength: {
-                    value: 20,
-                    message: "La contraseña debe tener máximo 20 caracteres",
                   },
                   pattern: {
                     value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,20}$/,
@@ -467,11 +420,7 @@ const AddMemberPage: React.FC = () => {
                 id="confirmPassword"
                 label="Confirmar Contraseña"
                 error={!!errors?.confirmPassword?.message}
-                helperText={
-                  errors.confirmPassword && typeof errors.confirmPassword.message === "string"
-                    ? errors.confirmPassword.message
-                    : null
-                }
+                helperText={errors.confirmPassword?.message as string || null}
                 InputProps={{
                   endAdornment: (
                     <IconButton
@@ -527,6 +476,8 @@ const AddMemberPage: React.FC = () => {
                 py: 1.5,
                 fontSize: '1rem',
                 backgroundColor: '#4caf50',
+                whiteSpace: 'nowrap',
+                minHeight: '56px'
               }}
             >
               Usuario creado exitosamente
@@ -538,7 +489,7 @@ const AddMemberPage: React.FC = () => {
               loadingIndicator={
                 <Box display="flex" alignItems="center">
                   <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
-                  <span>Creando {selectedRole === "trainer" ? "entrenador" : selectedRole === "receptionist" ? "recepcionista" : selectedRole === "court_manager" ? "administrador de canchas" : ""}...</span>
+                  <span>Creando {getRoleText()}...</span>
                 </Box>
               }
               variant="contained"
@@ -548,10 +499,12 @@ const AddMemberPage: React.FC = () => {
                 mt: 4, 
                 mb: 2, 
                 py: 1.5,
-                fontSize: '1rem'
+                fontSize: '1rem',
+                whiteSpace: 'nowrap',
+                minHeight: '56px'
               }}
             >
-              Crear {selectedRole === "trainer" ? "Entrenador" : selectedRole === "receptionist" ? "Recepcionista" : selectedRole === "court_manager" ? "Administrador de canchas" : ""}
+              Crear {capitalizeFirstLetter(getRoleText())}
             </LoadingButton>
           )}
         </Box>

@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Loader2, ShoppingCart, Package, BarChart3, LogOut, Plus, Minus, RefreshCw } from "lucide-react";
+import { Loader2, ShoppingCart, Package, BarChart3, Plus, Minus, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 
 // Product type definitions
 interface Product {
@@ -12,7 +11,6 @@ interface Product {
   name: string;
   description?: string;
   price: number;
-  image?: string;
   categoryId: string;
   category?: {
     id: string;
@@ -43,7 +41,7 @@ interface SaleSummary {
 export default function SimplifiedInventoryDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  
+
   // Main state
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -61,7 +59,7 @@ export default function SimplifiedInventoryDashboard() {
     start: new Date().toISOString().slice(0, 10),
     end: new Date().toISOString().slice(0, 10)
   });
-  
+
   // Product form state
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -70,12 +68,10 @@ export default function SimplifiedInventoryDashboard() {
     description: "",
     price: "",
     categoryId: "",
-    image: null as File | null,
-    mainWarehouseStock: "0", 
+    mainWarehouseStock: "0",
     post1Stock: "0",
     post2Stock: "0"
   });
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formProcessing, setFormProcessing] = useState(false);
 
   // Stock transfer state
@@ -86,7 +82,7 @@ export default function SimplifiedInventoryDashboard() {
     post2Quantity: "0"
   });
   const [transferringStock, setTransferringStock] = useState(false);
-  
+
   // User role checks
   const isAdmin = session?.user?.role === "admin";
   const isCourtManager = session?.user?.role === "court_manager";
@@ -98,7 +94,7 @@ export default function SimplifiedInventoryDashboard() {
   // Initial data loading
   useEffect(() => {
     if (status === "loading") return;
-    
+
     if (status === "unauthenticated") {
       router.push("/signin");
       return;
@@ -108,12 +104,12 @@ export default function SimplifiedInventoryDashboard() {
       setActiveTab("inventory");
       return;
     }
-    
+
     fetchProducts();
     if (canManageInventory) {
       fetchCategories();
     }
-    
+
     if (activeTab === "reports") {
       fetchSalesSummary();
     }
@@ -156,11 +152,11 @@ export default function SimplifiedInventoryDashboard() {
     try {
       setLoading(true);
       const res = await fetch(`/api/sales/summary?start=${dateRange.start}&end=${dateRange.end}`);
-      
+
       if (!res.ok) {
         throw new Error(`Error: ${res.status} - ${res.statusText}`);
       }
-      
+
       const data = await res.json();
       setSalesSummary(data);
     } catch (error) {
@@ -179,7 +175,7 @@ export default function SimplifiedInventoryDashboard() {
     }
 
     const stock = product.stocks.find((s) => s.location === session.user.post);
-    
+
     if (!stock) {
       setError(`No se encontró stock para ${product.name} en tu ubicación`);
       return;
@@ -203,7 +199,7 @@ export default function SimplifiedInventoryDashboard() {
       }
       return [...prev, { productId: product.id, name: product.name, quantity: 1, price: product.price }];
     });
-    
+
     setError(null);
   };
 
@@ -247,10 +243,10 @@ export default function SimplifiedInventoryDashboard() {
       }
 
       const saleData = await saleRes.json();
-      
+
       // Register the global transaction
       const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      
+
       await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -285,12 +281,10 @@ export default function SimplifiedInventoryDashboard() {
       description: "",
       price: "",
       categoryId: "",
-      image: null,
       mainWarehouseStock: "0",
       post1Stock: "0",
       post2Stock: "0"
     });
-    setImagePreview(null);
     setEditingProductId(null);
     setShowProductForm(false);
   };
@@ -300,39 +294,23 @@ export default function SimplifiedInventoryDashboard() {
     setProductFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setProductFormData(prev => ({ ...prev, image: file }));
-      
-      // Create image preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const startEditingProduct = (product: Product) => {
     setEditingProductId(product.id);
-    
+
     // Find stock quantities for each location
     const mainWarehouseStock = product.stocks.find(s => s.location === 'main_warehouse')?.quantity.toString() || '0';
     const post1Stock = product.stocks.find(s => s.location === 'post_1')?.quantity.toString() || '0';
     const post2Stock = product.stocks.find(s => s.location === 'post_2')?.quantity.toString() || '0';
-    
+
     setProductFormData({
       name: product.name,
       description: product.description || "",
       price: product.price.toString(),
       categoryId: product.categoryId,
-      image: null,
       mainWarehouseStock,
       post1Stock,
       post2Stock
     });
-    setImagePreview(product.image || null);
     setShowProductForm(true);
   };
 
@@ -343,13 +321,13 @@ export default function SimplifiedInventoryDashboard() {
     try {
       setFormProcessing(true);
       setError(null);
-      
+
       const data = new FormData();
-      
+
       if (editingProductId) {
         data.append("id", editingProductId);
       }
-      
+
       data.append("name", productFormData.name);
       data.append("description", productFormData.description);
       data.append("price", productFormData.price);
@@ -357,10 +335,6 @@ export default function SimplifiedInventoryDashboard() {
       data.append("mainWarehouseStock", productFormData.mainWarehouseStock);
       data.append("post1Stock", productFormData.post1Stock);
       data.append("post2Stock", productFormData.post2Stock);
-      
-      if (productFormData.image) {
-        data.append("image", productFormData.image);
-      }
 
       const res = await fetch("/api/sales/inventory/products", {
         method: editingProductId ? "PUT" : "POST",
@@ -384,14 +358,14 @@ export default function SimplifiedInventoryDashboard() {
 
   const handleDeleteProduct = async (productId: string) => {
     if (!canManageInventory) return;
-    
+
     if (!confirm("¿Estás seguro de que deseas eliminar este producto?")) {
       return;
     }
 
     try {
       setError(null);
-      
+
       const res = await fetch("/api/sales/inventory/products", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -500,7 +474,7 @@ export default function SimplifiedInventoryDashboard() {
     );
   }
 
-  const filteredProducts = selectedCategory 
+  const filteredProducts = selectedCategory
     ? products.filter(product => product.categoryId === selectedCategory)
     : products;
 
@@ -512,11 +486,11 @@ export default function SimplifiedInventoryDashboard() {
           <h1 className="text-xl font-bold text-gray-800">
             Sistema de Bebidas {session?.user.post && <span className="text-blue-500 ml-1">| {session.user.post.replace('post_', 'Puesto ')}</span>}
           </h1>
-          
+
           {/* Mobile cart button - only for non-admin users */}
           <div className="md:hidden flex items-center gap-2">
             {canViewSales && cart.length > 0 && (
-              <button 
+              <button
                 onClick={() => setShowCart(true)}
                 className="relative p-2 bg-blue-500 text-white rounded-full"
               >
@@ -534,11 +508,11 @@ export default function SimplifiedInventoryDashboard() {
               <RefreshCw size={20} />
             </button>
           </div>
-          
+
           {/* Desktop actions */}
           <div className="hidden md:flex items-center gap-3">
             {canViewSales && cart.length > 0 && (
-              <button 
+              <button
                 onClick={() => setShowCart(true)}
                 className="relative flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
               >
@@ -564,11 +538,10 @@ export default function SimplifiedInventoryDashboard() {
             {/* Only show sales tab for non-admin users */}
             {canViewSales && (
               <button
-                className={`py-3 px-4 font-medium text-sm transition-colors ${
-                  activeTab === "sales"
+                className={`py-3 px-4 font-medium text-sm transition-colors ${activeTab === "sales"
                     ? "border-b-2 border-blue-500 text-blue-600"
                     : "text-gray-600 hover:text-gray-900"
-                }`}
+                  }`}
                 onClick={() => setActiveTab("sales")}
               >
                 <div className="flex items-center gap-2">
@@ -578,11 +551,10 @@ export default function SimplifiedInventoryDashboard() {
               </button>
             )}
             <button
-              className={`py-3 px-4 font-medium text-sm transition-colors ${
-                activeTab === "inventory"
+              className={`py-3 px-4 font-medium text-sm transition-colors ${activeTab === "inventory"
                   ? "border-b-2 border-blue-500 text-blue-600"
                   : "text-gray-600 hover:text-gray-900"
-              }`}
+                }`}
               onClick={() => setActiveTab("inventory")}
             >
               <div className="flex items-center gap-2">
@@ -591,11 +563,10 @@ export default function SimplifiedInventoryDashboard() {
               </div>
             </button>
             <button
-              className={`py-3 px-4 font-medium text-sm transition-colors ${
-                activeTab === "reports"
+              className={`py-3 px-4 font-medium text-sm transition-colors ${activeTab === "reports"
                   ? "border-b-2 border-blue-500 text-blue-600"
                   : "text-gray-600 hover:text-gray-900"
-              }`}
+                }`}
               onClick={() => setActiveTab("reports")}
             >
               <div className="flex items-center gap-2">
@@ -606,7 +577,7 @@ export default function SimplifiedInventoryDashboard() {
           </div>
         </div>
       </div>
-      
+
       <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
@@ -623,11 +594,10 @@ export default function SimplifiedInventoryDashboard() {
                 <div className="flex space-x-2 pb-2">
                   <button
                     onClick={() => setSelectedCategory(null)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-                      selectedCategory === null 
-                        ? "bg-blue-500 text-white" 
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${selectedCategory === null
+                        ? "bg-blue-500 text-white"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
+                      }`}
                   >
                     Todos
                   </button>
@@ -635,11 +605,10 @@ export default function SimplifiedInventoryDashboard() {
                     <button
                       key={category.id}
                       onClick={() => setSelectedCategory(category.id)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-                        selectedCategory === category.id 
-                          ? "bg-blue-500 text-white" 
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${selectedCategory === category.id
+                          ? "bg-blue-500 text-white"
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
+                        }`}
                     >
                       {category.name}
                     </button>
@@ -660,51 +629,35 @@ export default function SimplifiedInventoryDashboard() {
                     const stock = product.stocks.find((s) => s.location === session?.user.post);
                     const isInCart = cart.some(item => item.productId === product.id);
                     return (
-                      <div 
-                        key={product.id} 
-                        className={`bg-white rounded-lg shadow-sm overflow-hidden transition-all ${
-                          isInCart ? 'border-2 border-blue-500' : 'border border-gray-200'
-                        }`}
+                      <div
+                        key={product.id}
+                        className={`bg-white rounded-lg shadow-sm overflow-hidden transition-all ${isInCart ? 'border-2 border-blue-500' : 'border border-gray-200'
+                          }`}
                       >
-                        {product.image ? (
-                          <div className="relative w-full h-36">
-                            <Image
-                              src={product.image}
-                              alt={product.name}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 768px) 50vw, 20vw"
-                              unoptimized
-                            />
-                          </div>
-                        ) : (
-                          <div className="h-36 bg-gray-100 flex items-center justify-center">
-                            <Package size={36} className="text-gray-400" />
-                          </div>
-                        )}
+                        <div className="h-36 bg-gray-100 flex items-center justify-center">
+                          <Package size={36} className="text-gray-400" />
+                        </div>
                         <div className="p-3">
                           <h3 className="font-semibold text-sm text-gray-800 truncate">{product.name}</h3>
                           <div className="flex justify-between items-center mt-2">
                             <span className="text-blue-600 font-bold">${product.price.toFixed(2)}</span>
-                            <span className={`text-xs rounded-full px-2 py-1 ${
-                              stock && stock.quantity > 5 
-                                ? 'bg-green-100 text-green-800' 
-                                : stock && stock.quantity > 0 
-                                  ? 'bg-yellow-100 text-yellow-800' 
+                            <span className={`text-xs rounded-full px-2 py-1 ${stock && stock.quantity > 5
+                                ? 'bg-green-100 text-green-800'
+                                : stock && stock.quantity > 0
+                                  ? 'bg-yellow-100 text-yellow-800'
                                   : 'bg-red-100 text-red-800'
-                            }`}>
+                              }`}>
                               Stock: {stock?.quantity || 0}
                             </span>
                           </div>
                           <button
                             onClick={() => addToCart(product)}
-                            className={`mt-2 w-full py-2 px-3 rounded text-sm font-medium ${
-                              !stock || stock.quantity <= 0
+                            className={`mt-2 w-full py-2 px-3 rounded text-sm font-medium ${!stock || stock.quantity <= 0
                                 ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                : isInCart 
+                                : isInCart
                                   ? 'bg-blue-500 hover:bg-blue-600 text-white'
                                   : 'bg-green-500 hover:bg-green-600 text-white'
-                            }`}
+                              }`}
                             disabled={!stock || stock.quantity <= 0}
                           >
                             {isInCart ? 'Agregar más' : 'Agregar'}
@@ -725,13 +678,12 @@ export default function SimplifiedInventoryDashboard() {
             {/* Inventory actions */}
             {canManageInventory && (
               <div className="mb-6 flex flex-wrap gap-2">
-                <button 
+                <button
                   onClick={() => setShowProductForm(!showProductForm)}
-                  className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    showProductForm
+                  className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showProductForm
                       ? 'bg-gray-200 text-gray-800'
                       : 'bg-green-500 text-white hover:bg-green-600'
-                  }`}
+                    }`}
                 >
                   {showProductForm ? (
                     <>Cancelar</>
@@ -741,16 +693,16 @@ export default function SimplifiedInventoryDashboard() {
                 </button>
               </div>
             )}
-            
+
             {/* Product Form */}
             {canManageInventory && showProductForm && (
               <div className="bg-white border rounded-lg p-4 mb-6 shadow-sm">
                 <h2 className="text-lg font-semibold mb-4 text-gray-800">
                   {editingProductId ? "Editar Producto" : "Nuevo Producto"}
                 </h2>
-                
+
                 <form onSubmit={handleSaveProduct} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
                       <input
@@ -786,33 +738,13 @@ export default function SimplifiedInventoryDashboard() {
                       >
                         <option value="">Seleccionar categoría</option>
                         {categories.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Imagen</label>
-                      <input
-                        type="file"
-                        name="image"
-                        onChange={handleFileChange}
-                        accept="image/*"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      {imagePreview && (
-                        <div className="mt-2 relative h-32 w-32 border rounded-md overflow-hidden">
-                          <Image
-                            src={imagePreview}
-                            alt="Vista previa"
-                            fill
-                            className="object-cover"
-                            sizes="128px"
-                            unoptimized
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                       <textarea
                         name="description"
@@ -822,9 +754,7 @@ export default function SimplifiedInventoryDashboard() {
                         rows={3}
                       />
                     </div>
-                    
-                    {/* Stock Fields */}
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-3">
                       <h3 className="text-md font-medium mb-2 text-gray-700">Stock Inicial por Ubicación</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
@@ -971,27 +901,11 @@ export default function SimplifiedInventoryDashboard() {
                         const mainWarehouseStock = product.stocks.find(s => s.location === 'main_warehouse')?.quantity || 0;
                         const post1Stock = product.stocks.find(s => s.location === 'post_1')?.quantity || 0;
                         const post2Stock = product.stocks.find(s => s.location === 'post_2')?.quantity || 0;
-                        
+
                         return (
                           <tr key={product.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center">
-                                {product.image ? (
-                                  <div className="flex-shrink-0 h-10 w-10 rounded overflow-hidden bg-gray-100">
-                                    <Image
-                                      src={product.image}
-                                      alt={product.name}
-                                      width={40}
-                                      height={40}
-                                      className="h-10 w-10 object-cover"
-                                      unoptimized
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="flex-shrink-0 h-10 w-10 rounded bg-gray-100 flex items-center justify-center">
-                                    <Package size={20} className="text-gray-400" />
-                                  </div>
-                                )}
                                 <div className="ml-3">
                                   <p className="text-sm font-medium text-gray-900">{product.name}</p>
                                   <p className="text-xs text-gray-500">{product.category?.name || "-"}</p>
@@ -1002,35 +916,32 @@ export default function SimplifiedInventoryDashboard() {
                               <span className="font-medium">${product.price.toFixed(2)}</span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-center">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                mainWarehouseStock > 10 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : mainWarehouseStock > 0 
-                                    ? 'bg-yellow-100 text-yellow-800' 
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${mainWarehouseStock > 10
+                                  ? 'bg-green-100 text-green-800'
+                                  : mainWarehouseStock > 0
+                                    ? 'bg-yellow-100 text-yellow-800'
                                     : 'bg-red-100 text-red-800'
-                              }`}>
+                                }`}>
                                 {mainWarehouseStock}
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-center">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                post1Stock > 5 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : post1Stock > 0 
-                                    ? 'bg-yellow-100 text-yellow-800' 
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${post1Stock > 5
+                                  ? 'bg-green-100 text-green-800'
+                                  : post1Stock > 0
+                                    ? 'bg-yellow-100 text-yellow-800'
                                     : 'bg-red-100 text-red-800'
-                              }`}>
+                                }`}>
                                 {post1Stock}
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-center">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                post2Stock > 5 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : post2Stock > 0 
-                                    ? 'bg-yellow-100 text-yellow-800' 
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${post2Stock > 5
+                                  ? 'bg-green-100 text-green-800'
+                                  : post2Stock > 0
+                                    ? 'bg-yellow-100 text-yellow-800'
                                     : 'bg-red-100 text-red-800'
-                              }`}>
+                                }`}>
                                 {post2Stock}
                               </span>
                             </td>
@@ -1076,7 +987,7 @@ export default function SimplifiedInventoryDashboard() {
         {activeTab === "reports" && (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden p-4">
             <h2 className="text-lg font-semibold mb-4 text-gray-800">Reportes de Ventas</h2>
-            
+
             <div className="flex flex-wrap gap-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
@@ -1175,14 +1086,14 @@ export default function SimplifiedInventoryDashboard() {
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] flex flex-col">
             <div className="p-4 border-b flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-800">Carrito de Compras</h2>
-              <button 
+              <button
                 onClick={() => setShowCart(false)}
                 className="text-gray-500 hover:text-gray-700"
               >
                 ✕
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4">
               {cart.length === 0 ? (
                 <div className="text-center py-8">
@@ -1216,14 +1127,14 @@ export default function SimplifiedInventoryDashboard() {
                 </div>
               )}
             </div>
-            
+
             {cart.length > 0 && (
               <div className="p-4 border-t">
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-medium">Total:</span>
                   <span className="text-xl font-bold text-blue-600">${total.toFixed(2)}</span>
                 </div>
-                
+
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Método de Pago:</label>
                   <select
@@ -1235,7 +1146,7 @@ export default function SimplifiedInventoryDashboard() {
                     <option value="mercado_pago">Mercado Pago</option>
                   </select>
                 </div>
-                
+
                 <button
                   onClick={handleSale}
                   disabled={processingPayment}
@@ -1243,7 +1154,7 @@ export default function SimplifiedInventoryDashboard() {
                 >
                   {processingPayment ? (
                     <span className="flex items-center justify-center">
-                      <Loader2 className="h-5 w-5 animate-spin mr-2" /> 
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
                       Procesando...
                     </span>
                   ) : (

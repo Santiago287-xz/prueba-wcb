@@ -1,10 +1,13 @@
 import { getServerSession } from "next-auth/next";
 import { options } from "./../api/auth/[...nextauth]/options";
-
 import prisma from "@/app/libs/prismadb";
 
 export async function getSession() {
-  return await getServerSession(options);
+  try {
+    return await getServerSession(options);
+  } catch (error) {
+    return null;
+  }
 }
 
 export default async function getCurrentUser() {
@@ -25,9 +28,9 @@ export default async function getCurrentUser() {
       return null;
     }
 
-    currentUser.hashedPassword = undefined as unknown as string
-
+    currentUser.hashedPassword = undefined as unknown as string;
     return currentUser;
-  } catch (error: any) {
+  } catch (error) {
+    return null;
   }
 }
