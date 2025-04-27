@@ -153,7 +153,7 @@ const ManageUser: React.FC = () => {
   const router = useRouter();
   const sessionData = useSession().data;
   const sessionUser = sessionData?.user;
-  
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [trainerLoading, setTrainerLoading] = useState<boolean>(false);
@@ -171,7 +171,7 @@ const ManageUser: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState<string>("");
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "info" | "warning">("success");
   const [filtersOpen, setFiltersOpen] = useState<boolean>(!isMobile); // Por defecto cerrado en móvil
-  
+
   // User details dialog
   const [detailsDialogOpen, setDetailsDialogOpen] = useState<boolean>(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
@@ -200,14 +200,14 @@ const ManageUser: React.FC = () => {
 
   // Usamos SWR con los filtros aplicados
   const { data, isLoading, mutate } = useSWR<UserApiResponse>(
-    `/api/members/assigned?page=${currentPage}&limit=${rowsPerPage}&role=${filterRole}&search=${searchTerm}`, 
+    `/api/members/assigned?page=${currentPage}&limit=${rowsPerPage}&role=${filterRole}&search=${searchTerm}`,
     fetcher
   )
 
   // Array de entrenadores extraído de trainersData
   const { data: trainersData, isLoading: isTrainersLoading, mutate: mutateTrainers } = useSWR<TrainerApiResponse>(
-    '/api/rfid/trainers', 
-    fetcher, 
+    '/api/rfid/trainers',
+    fetcher,
     {
       onSuccess: () => setTrainerLoading(false),
       onError: (err) => {
@@ -234,10 +234,10 @@ const ManageUser: React.FC = () => {
     try {
       // Obtener detalles del usuario
       const userResponse = await axios.get(`/api/members?memberId=${userId}`);
-      
+
       // Obtener ejercicios asignados al usuario
       const exercisesResponse = await axios.get(`/api/fitness/exercise/user-exercises/${userId}`);
-      
+
       setUserDetails({
         ...userResponse.data,
         exercises: exercisesResponse.data?.data || []
@@ -289,7 +289,7 @@ const ManageUser: React.FC = () => {
 
   // Eliminar ejercicio
   const handleDeleteExercise = (exerciseId: string) => {
-    setEditExerciseData({...editExerciseData, id: exerciseId});
+    setEditExerciseData({ ...editExerciseData, id: exerciseId });
     setDeleteExerciseDialogOpen(true);
   };
 
@@ -312,9 +312,16 @@ const ManageUser: React.FC = () => {
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
 
+    if (sessionUser && userToDelete === sessionUser.id) {
+      showSnackbar("No puedes eliminar tu propia cuenta", "error");
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+      return;
+    }
+
     try {
       await axios.delete(`/api/rfid/${userToDelete}`);
-      
+
       showSnackbar("Usuario eliminado correctamente", "success");
       await mutate();
     } catch (err) {
@@ -444,10 +451,10 @@ const ManageUser: React.FC = () => {
   const formatDate = (dateString: string): string => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
+    return date.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
     });
   };
 
@@ -485,7 +492,7 @@ const ManageUser: React.FC = () => {
 
       {/* Control Panel & Filters */}
       <Card elevation={2} sx={{ mb: 3, borderRadius: "16px", overflow: "hidden" }}>
-        <Filters 
+        <Filters
           searchTerm={searchTerm}
           handleSearchChange={handleSearchChange}
           toggleFilters={toggleFilters}
@@ -500,7 +507,7 @@ const ManageUser: React.FC = () => {
 
       {/* Table */}
       <Card elevation={2} sx={styles.tableContainer}>
-        <UserTable 
+        <UserTable
           data={data}
           isLoading={isLoading}
           filteredAndSortedData={filteredAndSortedData}
@@ -520,7 +527,7 @@ const ManageUser: React.FC = () => {
       </Card>
 
       {/* User Details Dialog */}
-      <UserDetails 
+      <UserDetails
         detailsDialogOpen={detailsDialogOpen}
         setDetailsDialogOpen={setDetailsDialogOpen}
         userDetails={userDetails}
@@ -540,7 +547,7 @@ const ManageUser: React.FC = () => {
       />
 
       {/* Edit Exercise Dialog */}
-      <EditExerciseDialog 
+      <EditExerciseDialog
         editExerciseDialogOpen={editExerciseDialogOpen}
         setEditExerciseDialogOpen={setEditExerciseDialogOpen}
         editExerciseData={editExerciseData}
@@ -550,7 +557,7 @@ const ManageUser: React.FC = () => {
       />
 
       {/* Delete Exercise Dialog */}
-      <DeleteExerciseDialog 
+      <DeleteExerciseDialog
         deleteExerciseDialogOpen={deleteExerciseDialogOpen}
         setDeleteExerciseDialogOpen={setDeleteExerciseDialogOpen}
         handleConfirmDeleteExercise={handleConfirmDeleteExercise}
@@ -558,14 +565,14 @@ const ManageUser: React.FC = () => {
       />
 
       {/* Delete User Dialog */}
-      <DeleteUserDialog 
+      <DeleteUserDialog
         deleteDialogOpen={deleteDialogOpen}
         setDeleteDialogOpen={setDeleteDialogOpen}
         handleDeleteUser={handleDeleteUser}
       />
 
       {/* Notification Snackbar */}
-      <NotificationSnackbar 
+      <NotificationSnackbar
         snackbarOpen={snackbarOpen}
         setSnackbarOpen={setSnackbarOpen}
         snackbarMessage={snackbarMessage}

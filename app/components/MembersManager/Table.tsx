@@ -138,8 +138,8 @@ const UserTable: React.FC<UserTableProps> = ({
                       <Chip
                         label="Recepcionista"
                         size="small"
-                        sx={{ 
-                          fontWeight: 500, 
+                        sx={{
+                          fontWeight: 500,
                           borderRadius: "6px",
                           fontSize: "0.75rem",
                           height: "24px",
@@ -152,8 +152,8 @@ const UserTable: React.FC<UserTableProps> = ({
                         label={getRoleName(user?.role || '')}
                         size="small"
                         color={getRoleColor(user?.role || '')}
-                        sx={{ 
-                          fontWeight: 500, 
+                        sx={{
+                          fontWeight: 500,
                           borderRadius: "6px",
                           fontSize: "0.75rem",
                           height: "24px"
@@ -179,7 +179,7 @@ const UserTable: React.FC<UserTableProps> = ({
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      
+
                       {sessionUser?.role === 'trainer' ? (
                         <Tooltip title="Asignar ejercicios" arrow>
                           <IconButton
@@ -198,26 +198,28 @@ const UserTable: React.FC<UserTableProps> = ({
                           </IconButton>
                         </Tooltip>
                       ) : (
-                        <>                          
-                          <Tooltip title="Eliminar usuario" arrow>
-                            <IconButton
-                              color="error"
-                              size="small"
-                              onClick={() => {
-                                setUserToDelete(user.id);
-                                setDeleteDialogOpen(true);
-                              }}
-                              sx={{
-                                transition: "all 0.2s",
-                                "&:hover": {
-                                  transform: "scale(1.1)",
-                                  backgroundColor: "rgba(244, 67, 54, 0.08)"
-                                },
-                              }}
-                            >
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                        <>
+                          {sessionUser?.id !== user.id && (
+                            <Tooltip title="Eliminar usuario" arrow>
+                              <IconButton
+                                color="error"
+                                size="small"
+                                onClick={() => {
+                                  setUserToDelete(user.id);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                sx={{
+                                  transition: "all 0.2s",
+                                  "&:hover": {
+                                    transform: "scale(1.1)",
+                                    backgroundColor: "rgba(244, 67, 54, 0.08)"
+                                  },
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </>
                       )}
                     </Stack>
@@ -246,8 +248,8 @@ const UserTable: React.FC<UserTableProps> = ({
           count={data?.count ?? 0}
           rowsPerPage={25} // changed: always show 25 rows
           page={0}
-          onPageChange={() => {}}
-          onRowsPerPageChange={() => {}}
+          onPageChange={() => { }}
+          onRowsPerPageChange={() => { }}
           labelDisplayedRows={({ from, to, count }) => `${from}-${to === -1 ? count : to} de ${count}`}
         />
       </Box>

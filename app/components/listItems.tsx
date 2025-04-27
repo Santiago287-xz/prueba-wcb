@@ -101,9 +101,12 @@ export default function ListItems({ isMobile = false, onItemClick }: ListItemsPr
         </>
       )}
       {isReceptionist && (
-        <MenuItem href="/rfid-management" title="RFID Management" icon={FaCreditCard} onItemClick={onItemClick} />
+        <>
+          <MenuItem href="/rfid-management" title="RFID Management" icon={FaCreditCard} onItemClick={onItemClick} />
+          <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />
+        </>
       )}
-      {(isCourtManager || isReceptionist) && (
+      {isCourtManager && (
         <>
           <MenuItem href="/booking" title="Canchas" icon={FaCalendarAlt} onItemClick={onItemClick} />
           <MenuItem href="/sales" title="Sales" icon={FaMoneyBillWave} onItemClick={onItemClick} />

@@ -10,6 +10,7 @@ export default function SignInPage() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [showPassword, setShowPassword] = useState<boolean>(false)
   const [greeting, setGreeting] = useState<string>("Welcome")
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   const { status } = useSession()
   const router = useRouter()
@@ -37,30 +38,37 @@ export default function SignInPage() {
     }
   }, [])
 
-  const handleSignIn: SubmitHandler<FieldValues> = (data) => {
-    setIsSubmitting(true)
-    signIn("credentials", {
-      ...data,
-      redirect: false,
-    })
-      .then((callback) => {
-        if (callback?.ok && callback?.error === undefined) {
-          toast.success("¡Inicio de sesión exitoso!")
-          router.refresh()
-        }
+  // Redirección manual cuando el estatus cambia a authenticated
+  useEffect(() => {
+    if (status === 'authenticated') {
+      window.location.href = '/'; // Redirección manual
+    }
+  }, [status]);
 
-        if (callback?.error) {
-          toast.error("Correo o contraseña incorrectos")
-          // Establecer errores manualmente en los campos
-          if (callback.error.includes("credentials")) {
-            errors.email = { type: "manual", message: "Verifica tus credenciales" }
-            errors.password = { type: "manual", message: "Verifica tus credenciales" }
-          }
-        }
+  const handleSignIn: SubmitHandler<FieldValues> = async (data) => {
+    setIsSubmitting(true)
+    setLoginError(null)
+    
+    try {
+      const result = await signIn("credentials", {
+        ...data,
+        redirect: false,
       })
-      .finally(() => {
-        setIsSubmitting(false)
-      })
+
+      if (result?.ok) {
+        toast.success("¡Inicio de sesión exitoso!")
+        // No usamos router.push, esperamos a que el useEffect detecte el cambio de estado
+      } else {
+        setLoginError(result?.error || "Error de autenticación")
+        toast.error("Credenciales incorrectas")
+      }
+    } catch (error) {
+      console.error("Error de inicio de sesión:", error)
+      setLoginError("Error inesperado durante el inicio de sesión")
+      toast.error("Ocurrió un error al iniciar sesión")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (status === "loading") {
@@ -71,13 +79,8 @@ export default function SignInPage() {
     )
   }
 
-  if (status === "authenticated") {
-    return redirect("/")
-  }
-
   return (
     <div className="flex h-[100dvh] flex-col items-center justify-center md:flex-row">
-      {/* Left side - Sign In Form */}
       <div className="flex w-full md:w-[600px] flex-col justify-center items-center p-4 md:p-10">
         <div className="w-full max-w-lg">
           <div className="mb-10">
@@ -86,6 +89,12 @@ export default function SignInPage() {
           </div>
 
           <div className="rounded-xl border bg-white p-4 md:p-8 shadow-lg">
+            {loginError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
+                {loginError}
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit(handleSignIn)} className="space-y-6">
               <div className="space-y-3">
                 <label htmlFor="email" className="block text-base font-medium text-gray-700">

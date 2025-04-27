@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Loader2, ShoppingCart, Package, BarChart3, Plus, Minus, RefreshCw } from "lucide-react";
+import { 
+  Loader2, ShoppingCart, Package, BarChart3, Plus, Minus, RefreshCw, 
+  Edit, Trash2, ArrowRightLeft, PlusCircle 
+} from "lucide-react";
 import { useRouter } from "next/navigation";
+import Modal from "@/app/components/modal";
 
 // Product type definitions
 interface Product {
@@ -38,6 +42,8 @@ interface SaleSummary {
   topProducts: { name: string; total: number }[];
 }
 
+type ModalType = "none" | "edit" | "transfer" | "add";
+
 export default function SimplifiedInventoryDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -50,19 +56,23 @@ export default function SimplifiedInventoryDashboard() {
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
   // Set default tab - for admins, default to inventory
   const [activeTab, setActiveTab] = useState<"sales" | "inventory" | "reports">(
     session?.user?.role === "admin" ? "inventory" : "sales"
-  );
+  )
+  
   const [salesSummary, setSalesSummary] = useState<SaleSummary | null>(null);
   const [dateRange, setDateRange] = useState({
     start: new Date().toISOString().slice(0, 10),
     end: new Date().toISOString().slice(0, 10)
   });
+  // Modal state
+  const [activeModal, setActiveModal] = useState<ModalType>("none");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Product form state
-  const [showProductForm, setShowProductForm] = useState(false);
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productFormData, setProductFormData] = useState({
     name: "",
     description: "",
@@ -72,21 +82,24 @@ export default function SimplifiedInventoryDashboard() {
     post1Stock: "0",
     post2Stock: "0"
   });
-  const [formProcessing, setFormProcessing] = useState(false);
 
   // Stock transfer state
-  const [showStockTransferForm, setShowStockTransferForm] = useState(false);
   const [stockTransferData, setStockTransferData] = useState({
     productId: "",
     post1Quantity: "0",
     post2Quantity: "0"
   });
-  const [transferringStock, setTransferringStock] = useState(false);
+
+  // Stock addition state
+  const [stockAddData, setStockAddData] = useState({
+    productId: "",
+    quantity: "0"
+  });
 
   // User role checks
   const isAdmin = session?.user?.role === "admin";
-  const isCourtManager = session?.user?.role === "court_manager";
-  const canManageInventory = isAdmin || isCourtManager;
+  const isInventoryManager = session?.user?.role === "court_manager" || session?.user?.role === "receptionist";
+  const canManageInventory = isAdmin || isInventoryManager;
   const canViewSales = !isAdmin; // Admins cannot view sales
   const [showCart, setShowCart] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -169,6 +182,7 @@ export default function SimplifiedInventoryDashboard() {
 
   // Cart management functions
   const addToCart = (product: Product) => {
+    console.log("User post:", session?.user?.post);  // Nuevo log para ver el "post" del usuario
     if (!session?.user?.post) {
       setError("No tienes un puesto asignado");
       return;
@@ -274,29 +288,10 @@ export default function SimplifiedInventoryDashboard() {
     }
   };
 
-  // Product form handlers
-  const resetProductForm = () => {
-    setProductFormData({
-      name: "",
-      description: "",
-      price: "",
-      categoryId: "",
-      mainWarehouseStock: "0",
-      post1Stock: "0",
-      post2Stock: "0"
-    });
-    setEditingProductId(null);
-    setShowProductForm(false);
-  };
-
-  const handleProductInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setProductFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const startEditingProduct = (product: Product) => {
-    setEditingProductId(product.id);
-
+  // Modal handlers
+  const openEditModal = (product: Product) => {
+    setSelectedProduct(product);
+    
     // Find stock quantities for each location
     const mainWarehouseStock = product.stocks.find(s => s.location === 'main_warehouse')?.quantity.toString() || '0';
     const post1Stock = product.stocks.find(s => s.location === 'post_1')?.quantity.toString() || '0';
@@ -311,23 +306,50 @@ export default function SimplifiedInventoryDashboard() {
       post1Stock,
       post2Stock
     });
-    setShowProductForm(true);
+    
+    setActiveModal("edit");
+  };
+
+  const openTransferModal = (product: Product) => {
+    setSelectedProduct(product);
+    setStockTransferData({
+      productId: product.id,
+      post1Quantity: "0",
+      post2Quantity: "0"
+    });
+    setActiveModal("transfer");
+  };
+
+  const openAddStockModal = (product: Product) => {
+    setSelectedProduct(product);
+    setStockAddData({
+      productId: product.id,
+      quantity: "0"
+    });
+    setActiveModal("add");
+  };
+
+  const closeModal = () => {
+    setActiveModal("none");
+    setSelectedProduct(null);
+  };
+
+  // Product form handlers
+  const handleProductInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setProductFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManageInventory) return;
+    if (!canManageInventory || !selectedProduct) return;
 
     try {
-      setFormProcessing(true);
+      setIsProcessing(true);
       setError(null);
 
       const data = new FormData();
-
-      if (editingProductId) {
-        data.append("id", editingProductId);
-      }
-
+      data.append("id", selectedProduct.id);
       data.append("name", productFormData.name);
       data.append("description", productFormData.description);
       data.append("price", productFormData.price);
@@ -337,39 +359,40 @@ export default function SimplifiedInventoryDashboard() {
       data.append("post2Stock", productFormData.post2Stock);
 
       const res = await fetch("/api/sales/inventory/products", {
-        method: editingProductId ? "PUT" : "POST",
+        method: "PUT",
         body: data,
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || `Error al ${editingProductId ? "actualizar" : "crear"} producto`);
+        throw new Error(errorData.error || "Error al actualizar producto");
       }
 
-      fetchProducts();
-      resetProductForm();
+      await fetchProducts();
+      closeModal();
     } catch (err) {
-      console.error(`Error ${editingProductId ? "updating" : "creating"} product:`, err);
-      setError(err instanceof Error ? err.message : `Error al ${editingProductId ? "actualizar" : "crear"} producto`);
+      console.error("Error updating product:", err);
+      setError(err instanceof Error ? err.message : "Error al actualizar producto");
     } finally {
-      setFormProcessing(false);
+      setIsProcessing(false);
     }
   };
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!canManageInventory) return;
+  const handleDeleteProduct = async () => {
+    if (!canManageInventory || !selectedProduct) return;
 
     if (!confirm("¿Estás seguro de que deseas eliminar este producto?")) {
       return;
     }
 
     try {
+      setIsProcessing(true);
       setError(null);
 
       const res = await fetch("/api/sales/inventory/products", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: productId }),
+        body: JSON.stringify({ id: selectedProduct.id }),
       });
 
       if (!res.ok) {
@@ -377,23 +400,17 @@ export default function SimplifiedInventoryDashboard() {
         throw new Error(errorData.error || "Error al eliminar producto");
       }
 
-      fetchProducts();
+      await fetchProducts();
+      closeModal();
     } catch (err) {
       console.error("Error deleting product:", err);
       setError(err instanceof Error ? err.message : "Error al eliminar producto");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   // Stock transfer handlers
-  const openStockTransferForm = (product: Product) => {
-    setStockTransferData({
-      productId: product.id,
-      post1Quantity: "0",
-      post2Quantity: "0"
-    });
-    setShowStockTransferForm(true);
-  };
-
   const handleStockTransferChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setStockTransferData(prev => ({ ...prev, [name]: value }));
@@ -401,10 +418,10 @@ export default function SimplifiedInventoryDashboard() {
 
   const handleStockTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManageInventory) return;
+    if (!canManageInventory || !selectedProduct) return;
 
     try {
-      setTransferringStock(true);
+      setIsProcessing(true);
       setError(null);
 
       const post1Quantity = parseInt(stockTransferData.post1Quantity) || 0;
@@ -412,21 +429,20 @@ export default function SimplifiedInventoryDashboard() {
 
       if (post1Quantity < 0 || post2Quantity < 0) {
         setError("Las cantidades deben ser números positivos");
-        setTransferringStock(false);
+        setIsProcessing(false);
         return;
       }
 
-      const product = products.find(p => p.id === stockTransferData.productId);
-      if (!product) {
-        setError("Producto no encontrado");
-        setTransferringStock(false);
+      if (post1Quantity + post2Quantity <= 0) {
+        setError("Debe transferir al menos un producto");
+        setIsProcessing(false);
         return;
       }
 
-      const mainWarehouseStock = product.stocks.find(s => s.location === 'main_warehouse')?.quantity || 0;
+      const mainWarehouseStock = selectedProduct.stocks.find(s => s.location === 'main_warehouse')?.quantity || 0;
       if (mainWarehouseStock < post1Quantity + post2Quantity) {
-        setError("Stock insuficiente en el almacén principal");
-        setTransferringStock(false);
+        setError(`Stock insuficiente en el almacén principal. Disponible: ${mainWarehouseStock}`);
+        setIsProcessing(false);
         return;
       }
 
@@ -434,7 +450,7 @@ export default function SimplifiedInventoryDashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          productId: stockTransferData.productId,
+          productId: selectedProduct.id,
           post1Quantity,
           post2Quantity
         }),
@@ -445,13 +461,59 @@ export default function SimplifiedInventoryDashboard() {
         throw new Error(errorData.error || "Error al transferir stock");
       }
 
-      fetchProducts();
-      setShowStockTransferForm(false);
+      await fetchProducts();
+      closeModal();
     } catch (err) {
       console.error("Error transferring stock:", err);
       setError(err instanceof Error ? err.message : "Error al transferir stock");
     } finally {
-      setTransferringStock(false);
+      setIsProcessing(false);
+    }
+  };
+
+  // Stock addition handlers
+  const handleStockAddChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setStockAddData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleStockAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canManageInventory || !selectedProduct) return;
+
+    try {
+      setIsProcessing(true);
+      setError(null);
+
+      const quantity = parseInt(stockAddData.quantity) || 0;
+
+      if (quantity <= 0) {
+        setError("La cantidad debe ser un número positivo");
+        setIsProcessing(false);
+        return;
+      }
+
+      const res = await fetch("/api/sales/inventory/stock-add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: selectedProduct.id,
+          quantity
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error al agregar stock");
+      }
+
+      await fetchProducts();
+      closeModal();
+    } catch (err) {
+      console.error("Error adding stock:", err);
+      setError(err instanceof Error ? err.message : "Error al agregar stock");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -588,7 +650,6 @@ export default function SimplifiedInventoryDashboard() {
         {/* Sales Tab - only visible to non-admin users */}
         {activeTab === "sales" && canViewSales && (
           <div>
-            {/* Category filter */}
             {categories.length > 0 && (
               <div className="mb-6 overflow-x-auto">
                 <div className="flex space-x-2 pb-2">
@@ -674,312 +735,108 @@ export default function SimplifiedInventoryDashboard() {
 
         {/* Inventory Tab Content */}
         {activeTab === "inventory" && (
-          <div>
-            {/* Inventory actions */}
-            {canManageInventory && (
-              <div className="mb-6 flex flex-wrap gap-2">
-                <button
-                  onClick={() => setShowProductForm(!showProductForm)}
-                  className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showProductForm
-                      ? 'bg-gray-200 text-gray-800'
-                      : 'bg-green-500 text-white hover:bg-green-600'
-                    }`}
-                >
-                  {showProductForm ? (
-                    <>Cancelar</>
-                  ) : (
-                    <>Nuevo Producto</>
-                  )}
-                </button>
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <h2 className="sr-only">Inventario de Productos</h2>
+            {products.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No hay productos disponibles.</p>
               </div>
-            )}
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 border-b">Producto</th>
+                      <th className="px-4 py-3 border-b text-center">Precio</th>
+                      <th className="px-4 py-3 border-b text-center">Almacén</th>
+                      <th className="px-4 py-3 border-b text-center">Puesto 1</th>
+                      <th className="px-4 py-3 border-b text-center">Puesto 2</th>
+                      {canManageInventory && <th className="px-4 py-3 border-b text-center">Acciones</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {products.map((product) => {
+                      const mainWarehouseStock = product.stocks.find(s => s.location === 'main_warehouse')?.quantity || 0;
+                      const post1Stock = product.stocks.find(s => s.location === 'post_1')?.quantity || 0;
+                      const post2Stock = product.stocks.find(s => s.location === 'post_2')?.quantity || 0;
 
-            {/* Product Form */}
-            {canManageInventory && showProductForm && (
-              <div className="bg-white border rounded-lg p-4 mb-6 shadow-sm">
-                <h2 className="text-lg font-semibold mb-4 text-gray-800">
-                  {editingProductId ? "Editar Producto" : "Nuevo Producto"}
-                </h2>
-
-                <form onSubmit={handleSaveProduct} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={productFormData.name}
-                        onChange={handleProductInputChange}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
-                      <input
-                        type="number"
-                        name="price"
-                        value={productFormData.price}
-                        onChange={handleProductInputChange}
-                        step="0.01"
-                        min="0"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                      <select
-                        name="categoryId"
-                        value={productFormData.categoryId}
-                        onChange={handleProductInputChange}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      >
-                        <option value="">Seleccionar categoría</option>
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="md:col-span-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                      <textarea
-                        name="description"
-                        value={productFormData.description}
-                        onChange={handleProductInputChange}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows={3}
-                      />
-                    </div>
-                    <div className="md:col-span-3">
-                      <h3 className="text-md font-medium mb-2 text-gray-700">Stock Inicial por Ubicación</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Almacén Principal</label>
-                          <input
-                            type="number"
-                            name="mainWarehouseStock"
-                            value={productFormData.mainWarehouseStock}
-                            onChange={handleProductInputChange}
-                            min="0"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Puesto 1</label>
-                          <input
-                            type="number"
-                            name="post1Stock"
-                            value={productFormData.post1Stock}
-                            onChange={handleProductInputChange}
-                            min="0"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Puesto 2</label>
-                          <input
-                            type="number"
-                            name="post2Stock"
-                            value={productFormData.post2Stock}
-                            onChange={handleProductInputChange}
-                            min="0"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={resetProductForm}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium text-sm"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={formProcessing}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium text-sm flex items-center"
-                    >
-                      {formProcessing ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Procesando...
-                        </>
-                      ) : (
-                        <>{editingProductId ? "Actualizar" : "Guardar"}</>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Stock Transfer Form */}
-            {canManageInventory && showStockTransferForm && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 shadow-sm">
-                <h2 className="text-lg font-semibold mb-4 text-gray-800">Transferir Stock a Puestos</h2>
-                <form onSubmit={handleStockTransfer} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad para Puesto 1</label>
-                      <input
-                        type="number"
-                        name="post1Quantity"
-                        value={stockTransferData.post1Quantity}
-                        onChange={handleStockTransferChange}
-                        min="0"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad para Puesto 2</label>
-                      <input
-                        type="number"
-                        name="post2Quantity"
-                        value={stockTransferData.post2Quantity}
-                        onChange={handleStockTransferChange}
-                        min="0"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowStockTransferForm(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium text-sm"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={transferringStock}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium text-sm flex items-center"
-                    >
-                      {transferringStock ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Procesando...
-                        </>
-                      ) : (
-                        "Transferir Stock"
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Products inventory table */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <h2 className="sr-only">Inventario de Productos</h2>
-              {products.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No hay productos disponibles.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <th className="px-4 py-3 border-b">Producto</th>
-                        <th className="px-4 py-3 border-b text-center">Precio</th>
-                        <th className="px-4 py-3 border-b text-center">Almacén</th>
-                        <th className="px-4 py-3 border-b text-center">Puesto 1</th>
-                        <th className="px-4 py-3 border-b text-center">Puesto 2</th>
-                        {canManageInventory && <th className="px-4 py-3 border-b text-center">Acciones</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {products.map((product) => {
-                        const mainWarehouseStock = product.stocks.find(s => s.location === 'main_warehouse')?.quantity || 0;
-                        const post1Stock = product.stocks.find(s => s.location === 'post_1')?.quantity || 0;
-                        const post2Stock = product.stocks.find(s => s.location === 'post_2')?.quantity || 0;
-
-                        return (
-                          <tr key={product.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="ml-3">
-                                  <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                                  <p className="text-xs text-gray-500">{product.category?.name || "-"}</p>
-                                </div>
+                      return (
+                        <tr key={product.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{product.name}</p>
+                                <p className="text-xs text-gray-500">{product.category?.name || "-"}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-center text-sm">
+                            <span className="font-medium">${product.price.toFixed(2)}</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${mainWarehouseStock > 10
+                                ? 'bg-green-100 text-green-800'
+                                : mainWarehouseStock > 0
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                              {mainWarehouseStock}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${post1Stock > 5
+                                ? 'bg-green-100 text-green-800'
+                                : post1Stock > 0
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                              {post1Stock}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${post2Stock > 5
+                                ? 'bg-green-100 text-green-800'
+                                : post2Stock > 0
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                              {post2Stock}
+                            </span>
+                          </td>
+                          {canManageInventory && (
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              <div className="flex justify-center gap-3">
+                                <button
+                                  onClick={() => openEditModal(product)}
+                                  className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-full transition-colors"
+                                  title="Editar producto"
+                                >
+                                  <Edit size={18} />
+                                </button>
+                                <button
+                                  onClick={() => openAddStockModal(product)}
+                                  className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-full transition-colors"
+                                  title="Agregar stock"
+                                >
+                                  <PlusCircle size={18} />
+                                </button>
+                                <button
+                                  onClick={() => openTransferModal(product)}
+                                  className="p-2 bg-indigo-100 text-indigo-600 hover:bg-indigo-200 rounded-full transition-colors"
+                                  title="Transferir stock"
+                                >
+                                  <ArrowRightLeft size={18} />
+                                </button>
                               </div>
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-center text-sm">
-                              <span className="font-medium">${product.price.toFixed(2)}</span>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-center">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${mainWarehouseStock > 10
-                                  ? 'bg-green-100 text-green-800'
-                                  : mainWarehouseStock > 0
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                {mainWarehouseStock}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-center">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${post1Stock > 5
-                                  ? 'bg-green-100 text-green-800'
-                                  : post1Stock > 0
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                {post1Stock}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-center">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${post2Stock > 5
-                                  ? 'bg-green-100 text-green-800'
-                                  : post2Stock > 0
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                {post2Stock}
-                              </span>
-                            </td>
-                            {canManageInventory && (
-                              <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                                <div className="flex justify-center space-x-2">
-                                  <button
-                                    onClick={() => startEditingProduct(product)}
-                                    className="text-blue-600 hover:text-blue-900 focus:outline-none focus:underline"
-                                    title="Editar"
-                                  >
-                                    Editar
-                                  </button>
-                                  <button
-                                    onClick={() => openStockTransferForm(product)}
-                                    className="text-green-600 hover:text-green-900 focus:outline-none focus:underline"
-                                    title="Transferir"
-                                  >
-                                    Transferir
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteProduct(product.id)}
-                                    className="text-red-600 hover:text-red-900 focus:outline-none focus:underline"
-                                    title="Eliminar"
-                                  >
-                                    Eliminar
-                                  </button>
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -1080,92 +937,315 @@ export default function SimplifiedInventoryDashboard() {
         )}
       </main>
 
-      {/* Shopping Cart Modal (Mobile) - only for non-admin users */}
+      {/* Shopping Cart Modal - only for non-admin users */}
       {showCart && canViewSales && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-gray-800">Carrito de Compras</h2>
+        <Modal
+          isOpen={showCart}
+          onClose={() => setShowCart(false)}
+          title="Carrito de Compras"
+          isProcessing={processingPayment}
+          footer={
+            <>
+              {cart.length > 0 && (
+                <>
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="font-medium">Total:</span>
+                    <span className="text-xl font-bold text-blue-600">${total.toFixed(2)}</span>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Método de Pago:</label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value as "cash" | "mercado_pago")}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="cash">Efectivo</option>
+                      <option value="mercado_pago">Mercado Pago</option>
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={handleSale}
+                    disabled={processingPayment}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Confirmar Venta
+                  </button>
+                </>
+              )}
+            </>
+          }
+        >
+          {cart.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">El carrito está vacío</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {cart.map((item) => (
+                <div key={item.productId} className="flex items-center justify-between border-b pb-3">
+                  <div className="flex-1">
+                    <p className="font-medium">{item.name}</p>
+                    <p className="text-gray-500">${item.price.toFixed(2)} x {item.quantity}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => decreaseQuantity(item.productId)}
+                      className="p-1 rounded-full bg-gray-200 text-gray-700"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span className="w-8 text-center">{item.quantity}</span>
+                    <button
+                      onClick={() => addToCart(products.find(p => p.id === item.productId)!)}
+                      className="p-1 rounded-full bg-blue-500 text-white"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* Edit Product Modal */}
+      <Modal
+        isOpen={activeModal === "edit"}
+        onClose={closeModal}
+        title={`Editar Producto: ${selectedProduct?.name || ""}`}
+        isProcessing={isProcessing}
+        footer={
+          <div className="flex justify-between">
+            <button
+              onClick={handleDeleteProduct}
+              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 font-medium text-sm flex items-center"
+            >
+              <Trash2 size={16} className="mr-1" />
+              Eliminar
+            </button>
+            <div className="flex gap-2">
               <button
-                onClick={() => setShowCart(false)}
-                className="text-gray-500 hover:text-gray-700"
+                onClick={closeModal}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium text-sm"
               >
-                ✕
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveProduct}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium text-sm"
+              >
+                Guardar
               </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto p-4">
-              {cart.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">El carrito está vacío</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {cart.map((item) => (
-                    <div key={item.productId} className="flex items-center justify-between border-b pb-3">
-                      <div className="flex-1">
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-gray-500">${item.price.toFixed(2)} x {item.quantity}</p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => decreaseQuantity(item.productId)}
-                          className="p-1 rounded-full bg-gray-200 text-gray-700"
-                        >
-                          <Minus size={16} />
-                        </button>
-                        <span className="w-8 text-center">{item.quantity}</span>
-                        <button
-                          onClick={() => addToCart(products.find(p => p.id === item.productId)!)}
-                          className="p-1 rounded-full bg-blue-500 text-white"
-                        >
-                          <Plus size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {cart.length > 0 && (
-              <div className="p-4 border-t">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="font-medium">Total:</span>
-                  <span className="text-xl font-bold text-blue-600">${total.toFixed(2)}</span>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Método de Pago:</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as "cash" | "mercado_pago")}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="cash">Efectivo</option>
-                    <option value="mercado_pago">Mercado Pago</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={handleSale}
-                  disabled={processingPayment}
-                  className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium transition-colors"
-                >
-                  {processingPayment ? (
-                    <span className="flex items-center justify-center">
-                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                      Procesando...
-                    </span>
-                  ) : (
-                    "Confirmar Venta"
-                  )}
-                </button>
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        }
+      >
+        {selectedProduct && (
+          <form className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={productFormData.name}
+                  onChange={handleProductInputChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
+                <input
+                  type="number"
+                  name="price"
+                  value={productFormData.price}
+                  onChange={handleProductInputChange}
+                  step="0.01"
+                  min="0"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+              <select
+                name="categoryId"
+                value={productFormData.categoryId}
+                onChange={handleProductInputChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Seleccionar categoría</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+              <textarea
+                name="description"
+                value={productFormData.description}
+                onChange={handleProductInputChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={3}
+              />
+            </div>
+            
+            <div className="border-t pt-4">
+              <h3 className="text-md font-medium mb-3 text-gray-700">Stock por Ubicación</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Almacén Principal</label>
+                  <input
+                    type="number"
+                    name="mainWarehouseStock"
+                    value={productFormData.mainWarehouseStock}
+                    onChange={handleProductInputChange}
+                    min="0"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Puesto 1</label>
+                  <input
+                    type="number"
+                    name="post1Stock"
+                    value={productFormData.post1Stock}
+                    onChange={handleProductInputChange}
+                    min="0"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Puesto 2</label>
+                  <input
+                    type="number"
+                    name="post2Stock"
+                    value={productFormData.post2Stock}
+                    onChange={handleProductInputChange}
+                    min="0"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Transfer Stock Modal */}
+      <Modal
+        isOpen={activeModal === "transfer"}
+        onClose={closeModal}
+        title={`Transferir Stock: ${selectedProduct?.name || ""}`}
+        isProcessing={isProcessing}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={closeModal}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium text-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleStockTransfer}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium text-sm"
+            >
+              Transferir
+            </button>
+          </div>
+        }
+      >
+        {selectedProduct && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Stock disponible en almacén principal: <span className="font-semibold">
+                {selectedProduct.stocks.find(s => s.location === 'main_warehouse')?.quantity || 0}
+              </span>
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad para Puesto 1</label>
+                <input
+                  type="number"
+                  name="post1Quantity"
+                  value={stockTransferData.post1Quantity}
+                  onChange={handleStockTransferChange}
+                  min="0"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad para Puesto 2</label>
+                <input
+                  type="number"
+                  name="post2Quantity"
+                  value={stockTransferData.post2Quantity}
+                  onChange={handleStockTransferChange}
+                  min="0"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Add Stock Modal */}
+      <Modal
+        isOpen={activeModal === "add"}
+        onClose={closeModal}
+        title={`Agregar Stock: ${selectedProduct?.name || ""}`}
+        isProcessing={isProcessing}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={closeModal}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium text-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleStockAdd}
+              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 font-medium text-sm"
+            >
+              Agregar
+            </button>
+          </div>
+        }
+      >
+        {selectedProduct && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Stock actual en almacén principal: <span className="font-semibold">
+                {selectedProduct.stocks.find(s => s.location === 'main_warehouse')?.quantity || 0}
+              </span>
+            </p>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad a Agregar</label>
+              <input
+                type="number"
+                name="quantity"
+                value={stockAddData.quantity}
+                onChange={handleStockAddChange}
+                min="1"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

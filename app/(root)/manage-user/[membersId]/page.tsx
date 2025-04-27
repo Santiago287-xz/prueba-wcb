@@ -3,16 +3,16 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Paper, 
-  Grid, 
-  TextField, 
-  Button, 
-  Checkbox, 
-  FormControlLabel, 
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  Grid,
+  TextField,
+  Button,
+  Checkbox,
+  FormControlLabel,
   CircularProgress,
   Alert,
   Divider,
@@ -40,12 +40,12 @@ import {
   StepLabel,
   Snackbar
 } from "@mui/material";
-import { 
-  Delete, 
-  Search, 
-  FitnessCenter, 
-  ArrowBackIos, 
-  Add, 
+import {
+  Delete,
+  Search,
+  FitnessCenter,
+  ArrowBackIos,
+  Add,
   Remove,
   ExpandMore,
   KeyboardArrowUp,
@@ -129,7 +129,7 @@ export default function AssignExercisePage() {
   const membersId = typeof params.membersId === 'string' ? params.membersId : (Array.isArray(params.membersId) ? params.membersId[0] : '');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  
+
   // Estados principales
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -143,33 +143,30 @@ export default function AssignExercisePage() {
     toDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
   const [error, setError] = useState<string | null>(null);
-  
-  // Estados para móvil
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [successSnackbar, setSuccessSnackbar] = useState(false);
 
   // Pasos del proceso
   const steps = ['Seleccionar periodo', 'Elegir ejercicios', 'Configurar ejercicios'];
-  
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/signin");
       return;
     }
-    
+
     if (status === "authenticated" && session.user.role !== "trainer" && session.user.role !== "admin") {
       router.push("/unauthorized");
       return;
     }
-    
+
     fetchData();
-    
+
     // Detectar scroll para mostrar botón "volver arriba"
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 300);
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [status, session, router, membersId]);
@@ -180,10 +177,10 @@ export default function AssignExercisePage() {
       // Obtener detalles del usuario
       const userResponse = await axios.get(`/api/members?memberId=${membersId}`);
       setUser(userResponse.data);
-      
+
       // Obtener la lista de ejercicios disponibles
       const exercisesResponse = await axios.get('/api/fitness/exercise/manage-exercise');
-      
+
       // Asignar categorías a los ejercicios si no tienen
       const exercisesWithCategories = (exercisesResponse.data.data || []).map((exercise: Exercise) => {
         // Si no tiene categoría, asignar "Otros"
@@ -191,32 +188,32 @@ export default function AssignExercisePage() {
           // Inferir categoría basado en el nombre
           let inferredCategory = "Otros";
           const nameLower = exercise.name.toLowerCase();
-          
+
           if (nameLower.includes("pecho") || nameLower.includes("press") || nameLower.includes("bench")) {
             inferredCategory = "Pecho";
-          } else if (nameLower.includes("pierna") || nameLower.includes("sentadilla") || nameLower.includes("squat") || 
-                    nameLower.includes("cuadriceps") || nameLower.includes("femoral") || nameLower.includes("gemelo") || 
-                    nameLower.includes("calf")) {
+          } else if (nameLower.includes("pierna") || nameLower.includes("sentadilla") || nameLower.includes("squat") ||
+            nameLower.includes("cuadriceps") || nameLower.includes("femoral") || nameLower.includes("gemelo") ||
+            nameLower.includes("calf")) {
             inferredCategory = "Piernas";
-          } else if (nameLower.includes("bicep") || nameLower.includes("tricep") || nameLower.includes("curl") || 
-                    nameLower.includes("brazo")) {
+          } else if (nameLower.includes("bicep") || nameLower.includes("tricep") || nameLower.includes("curl") ||
+            nameLower.includes("brazo")) {
             inferredCategory = "Brazos";
-          } else if (nameLower.includes("espalda") || nameLower.includes("pull") || nameLower.includes("remo") || 
-                    nameLower.includes("dominada") || nameLower.includes("row")) {
+          } else if (nameLower.includes("espalda") || nameLower.includes("pull") || nameLower.includes("remo") ||
+            nameLower.includes("dominada") || nameLower.includes("row")) {
             inferredCategory = "Espalda";
-          } else if (nameLower.includes("abdom") || nameLower.includes("core") || nameLower.includes("plank") || 
-                    nameLower.includes("crunch")) {
+          } else if (nameLower.includes("abdom") || nameLower.includes("core") || nameLower.includes("plank") ||
+            nameLower.includes("crunch")) {
             inferredCategory = "Core";
-          } else if (nameLower.includes("cardio") || nameLower.includes("correr") || nameLower.includes("running") || 
-                    nameLower.includes("eliptica") || nameLower.includes("bicicleta") || nameLower.includes("bike")) {
+          } else if (nameLower.includes("cardio") || nameLower.includes("correr") || nameLower.includes("running") ||
+            nameLower.includes("eliptica") || nameLower.includes("bicicleta") || nameLower.includes("bike")) {
             inferredCategory = "Cardio";
           }
-          
+
           return { ...exercise, category: inferredCategory };
         }
         return exercise;
       });
-      
+
       setAvailableExercises(exercisesWithCategories);
       setError(null);
     } catch (err) {
@@ -268,22 +265,22 @@ export default function AssignExercisePage() {
       toast.error("Por favor, selecciona al menos un ejercicio");
       return;
     }
-    
+
     const requestBody = {
       selectedStudents: [membersId],
-      workOutArray: selectedExercises, 
+      workOutArray: selectedExercises,
       fromDate: formData.fromDate,
       toDate: formData.toDate
     };
-    
+
     setSubmitting(true);
-    
+
     try {
       await axios.post('/api/fitness/exercise/assign-exercise', requestBody);
-      
+
       // Mostrar snackbar de éxito
       setSuccessSnackbar(true);
-      
+
       // Esperar un momento antes de redirigir
       setTimeout(() => {
         router.push('/manage-user');
@@ -314,8 +311,8 @@ export default function AssignExercisePage() {
   };
 
   // Filtrar ejercicios por término de búsqueda
-  const filteredExercises = useMemo(() => 
-    availableExercises.filter(ex => 
+  const filteredExercises = useMemo(() =>
+    availableExercises.filter(ex =>
       searchTerm === "" || ex.name.toLowerCase().includes(searchTerm.toLowerCase())
     ), [availableExercises, searchTerm]
   );
@@ -323,39 +320,39 @@ export default function AssignExercisePage() {
   // Agrupar ejercicios por categoría
   const exercisesByCategory = useMemo<ExercisesGroupedByCategory>(() => {
     const groupedExercises: ExercisesGroupedByCategory = {};
-    
+
     // Inicializar todas las categorías primero
     Object.keys(EXERCISE_CATEGORIES).forEach(category => {
       groupedExercises[category] = [];
     });
-    
+
     // Agrupar ejercicios por categoría
     availableExercises.forEach(exercise => {
       const category = exercise.category || "Otros";
       if (!groupedExercises[category]) {
         groupedExercises[category] = [];
       }
-      
+
       // Solo agregar si coincide con la búsqueda
       if (searchTerm === "" || exercise.name.toLowerCase().includes(searchTerm.toLowerCase())) {
         groupedExercises[category].push(exercise);
       }
     });
-    
+
     return groupedExercises;
   }, [availableExercises, searchTerm]);
-  
+
   // Obtener categorías con ejercicios
   const categoriesWithExercises = useMemo(() => {
     return Object.keys(exercisesByCategory).filter(
       category => exercisesByCategory[category].length > 0
     );
   }, [exercisesByCategory]);
-  
+
   // Organizar ejercicios seleccionados por categoría para la vista previa
   const selectedExercisesByCategory = useMemo<SelectedExercisesByCategory>(() => {
     const grouped: SelectedExercisesByCategory = {};
-    
+
     selectedExercises.forEach(exercise => {
       const category = exercise.category || "Otros";
       if (!grouped[category]) {
@@ -363,7 +360,7 @@ export default function AssignExercisePage() {
       }
       grouped[category].push(exercise);
     });
-    
+
     return grouped;
   }, [selectedExercises]);
 
@@ -394,43 +391,43 @@ export default function AssignExercisePage() {
         p: { xs: 2, md: 3 }, 
         borderRadius: '16px', 
         mb: 2,
-        background: "linear-gradient(145deg, #2a3f54 0%, #1a2a3a 100%)",
-        color: "white"
+        background: "linear-gradient(145deg, #f5f7fa 0%, #e4e8f0 100%)", // Cambiado a fondo claro
+        color: "#1a2a3a" // Cambiado a texto oscuro
       }}>
         <Button 
           variant="outlined" 
           startIcon={<ArrowBackIos />} 
           onClick={() => router.push('/manage-user')}
           sx={{ 
-            color: 'white', 
-            borderColor: 'rgba(255,255,255,0.3)', 
+            color: '#2a3f54', // Cambiado para fondo claro
+            borderColor: 'rgba(42, 63, 84, 0.5)', 
             mb: 2,
             '&:hover': { 
-              borderColor: 'white', 
-              backgroundColor: 'rgba(255,255,255,0.1)' 
+              borderColor: '#2a3f54', 
+              backgroundColor: 'rgba(42, 63, 84, 0.1)' 
             } 
           }}
         >
           Volver
         </Button>
-        
+
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Avatar sx={{ 
+          <Avatar sx={{
             width: 50,
             height: 50,
-            bgcolor: 'white',
-            color: '#2a3f54',
+            bgcolor: '#2a3f54',
+            color: 'white',
             fontWeight: 'bold',
             mr: 2
           }}>
             {user ? getInitials(user.name) : ''}
           </Avatar>
-          
+
           <Box>
             <Typography variant="h6" fontWeight="bold">
               {user?.name}
             </Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+            <Typography variant="body2" sx={{ color: '#2a3f54' }}>
               {user?.email}
             </Typography>
           </Box>
@@ -444,20 +441,26 @@ export default function AssignExercisePage() {
           sx={{ 
             mt: 3,
             '& .MuiStepLabel-label': { 
-              color: 'rgba(255, 255, 255, 0.7)', // Color de texto para etapas no activas
+              color: 'rgba(0, 0, 0, 0.6)', // Cambiado a gris oscuro
             },
             '& .MuiStepLabel-label.Mui-active': { 
-              color: 'white', // Color de texto para la etapa activa
-              fontWeight: 'bold', // Opcional: resaltar la etapa activa
+              color: '#1a2a3a', // Cambiado a azul oscuro
+              fontWeight: 'bold',
+            },
+            '& .MuiStepLabel-label.Mui-completed': { 
+              color: '#1a2a3a', // Etapas completadas en azul oscuro
             },
             '& .MuiStepIcon-root': {
-              color: 'rgba(255, 255, 255, 0.5)', // Color de iconos no activos
+              color: 'rgba(0, 0, 0, 0.4)', // Iconos inactivos en gris
             },
             '& .MuiStepIcon-root.Mui-active': {
-              color: 'white', // Color del icono activo
+              color: '#2a3f54', // Icono activo en azul
+            },
+            '& .MuiStepIcon-root.Mui-completed': {
+              color: '#2a3f54', // Iconos completados en azul
             },
             '& .MuiStepIcon-text': {
-              fill: 'black', // Color del número dentro del icono
+              fill: 'white', // Número dentro del icono en blanco
             },
           }}
         >
@@ -468,7 +471,7 @@ export default function AssignExercisePage() {
           ))}
         </Stepper>
       </Paper>
-      
+
       {/* Contenido según el paso actual */}
       {activeStep === 0 && (
         <Paper elevation={3} sx={{ p: { xs: 2, md: 3 }, borderRadius: '16px', mb: 2 }}>
@@ -476,26 +479,26 @@ export default function AssignExercisePage() {
             Periodo de asignación
           </Typography>
           <Divider sx={{ mb: 3 }} />
-          
+
           <Grid container spacing={3}>
             <Grid item xs={12} sm={6}>
               <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
                 Fecha de inicio
               </Typography>
               <TextField
-                  fullWidth
-                  type="date"
-                  name="fromDate"
-                  value={formData.fromDate}
-                  onChange={handleChange}
-                  size={isMobile ? "small" : "medium"}
-                  sx={{ 
-                    '& .MuiOutlinedInput-root': { 
-                      borderRadius: '10px',
-                      height: isMobile ? 48 : 56,
-                    } 
-                  }}
-                />
+                fullWidth
+                type="date"
+                name="fromDate"
+                value={formData.fromDate}
+                onChange={handleChange}
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '10px',
+                    height: isMobile ? 48 : 56,
+                  }
+                }}
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
@@ -508,18 +511,18 @@ export default function AssignExercisePage() {
                 value={formData.toDate}
                 onChange={handleChange}
                 size={isMobile ? "small" : "medium"}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
+                sx={{
+                  '& .MuiOutlinedInput-root': {
                     borderRadius: '10px',
                     height: isMobile ? 48 : 56
-                  } 
+                  }
                 }}
               />
             </Grid>
           </Grid>
-          
+
           <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
+            <Button
               variant="contained"
               onClick={handleNext}
               size={isMobile ? "large" : "medium"}
@@ -534,7 +537,7 @@ export default function AssignExercisePage() {
           </Box>
         </Paper>
       )}
-      
+
       {activeStep === 1 && (
         <Paper elevation={3} sx={{ p: { xs: 2, md: 3 }, borderRadius: '16px', mb: 2 }}>
           {isMobile ? (
@@ -592,13 +595,13 @@ export default function AssignExercisePage() {
             </Box>
           )}
           <Divider sx={{ mb: 3 }} />
-          { searchTerm !== "" ? (
+          {searchTerm !== "" ? (
             // Mostrar lista plana al buscar
             <Box sx={{ mb: 3 }}>
               {filteredExercises.length > 0 ? (
                 filteredExercises.map((exercise, index) => (
-                  <Box 
-                    key={exercise.id} 
+                  <Box
+                    key={exercise.id}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -622,7 +625,7 @@ export default function AssignExercisePage() {
                           </Typography>
                           {exercise.description && (
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              {exercise.description.substring(0,60)}
+                              {exercise.description.substring(0, 60)}
                               {exercise.description.length > 60 ? '...' : ''}
                             </Typography>
                           )}
@@ -638,9 +641,9 @@ export default function AssignExercisePage() {
                   <Typography color="text.secondary">
                     No se encontraron ejercicios con esa búsqueda
                   </Typography>
-                  <Button 
-                    variant="outlined" 
-                    size="small" 
+                  <Button
+                    variant="outlined"
+                    size="small"
                     onClick={() => setSearchTerm("")}
                     sx={{ mt: 2 }}
                   >
@@ -654,19 +657,19 @@ export default function AssignExercisePage() {
             <>
               {categoriesWithExercises.length > 0 ? (
                 categoriesWithExercises.map((category) => (
-                  <Accordion 
-                    key={category} 
-                    defaultExpanded={false} 
-                    sx={{ 
-                      mb: 1, 
-                      borderRadius: '12px', 
+                  <Accordion
+                    key={category}
+                    defaultExpanded={false}
+                    sx={{
+                      mb: 1,
+                      borderRadius: '12px',
                       overflow: 'hidden',
                       '&:before': { display: 'none' }
                     }}
                   >
                     <AccordionSummary
                       expandIcon={<ExpandMore />}
-                      sx={{ 
+                      sx={{
                         backgroundColor: 'rgba(0, 0, 0, 0.02)',
                         '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
                       }}
@@ -682,10 +685,10 @@ export default function AssignExercisePage() {
                       <Grid container spacing={1}>
                         {exercisesByCategory[category].map((exercise: Exercise) => (
                           <Grid item xs={12} key={exercise.id}>
-                            <Card 
+                            <Card
                               variant={selectedExercises.some(ex => ex.id === exercise.id) ? "elevation" : "outlined"}
                               elevation={selectedExercises.some(ex => ex.id === exercise.id) ? 3 : 0}
-                              sx={{ 
+                              sx={{
                                 borderColor: selectedExercises.some(ex => ex.id === exercise.id) ? 'primary.main' : 'divider',
                                 borderRadius: '10px',
                                 backgroundColor: selectedExercises.some(ex => ex.id === exercise.id) ? 'rgba(25, 118, 210, 0.08)' : 'inherit'
@@ -729,9 +732,9 @@ export default function AssignExercisePage() {
                   <Typography color="text.secondary">
                     No se encontraron ejercicios con esa búsqueda
                   </Typography>
-                  <Button 
-                    variant="outlined" 
-                    size="small" 
+                  <Button
+                    variant="outlined"
+                    size="small"
                     onClick={() => setSearchTerm("")}
                     sx={{ mt: 2 }}
                   >
@@ -741,7 +744,7 @@ export default function AssignExercisePage() {
               )}
             </>
           )}
-          
+
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
             <Button
               variant="outlined"
@@ -750,7 +753,7 @@ export default function AssignExercisePage() {
             >
               Atrás
             </Button>
-            
+
             <Button
               variant="contained"
               onClick={handleNext}
@@ -762,7 +765,7 @@ export default function AssignExercisePage() {
           </Box>
         </Paper>
       )}
-      
+
       {activeStep === 2 && (
         <>
           <Paper elevation={3} sx={{ p: { xs: 2, md: 3 }, borderRadius: '16px', mb: 2 }}>
@@ -773,7 +776,7 @@ export default function AssignExercisePage() {
               Ajusta los detalles para cada ejercicio seleccionado
             </Typography>
             <Divider sx={{ mb: 3 }} />
-            
+
             {Object.keys(selectedExercisesByCategory).length > 0 ? (
               <>
                 {Object.keys(selectedExercisesByCategory).map(category => (
@@ -784,14 +787,14 @@ export default function AssignExercisePage() {
                         {category}
                       </Typography>
                     </Box>
-                    
+
                     {selectedExercisesByCategory[category].map((exercise, index) => (
-                      <Card 
-                        key={exercise.id} 
-                        variant="outlined" 
-                        sx={{ 
-                          mb: 2, 
-                          borderRadius: '10px', 
+                      <Card
+                        key={exercise.id}
+                        variant="outlined"
+                        sx={{
+                          mb: 2,
+                          borderRadius: '10px',
                           borderColor: 'primary.light',
                           bgcolor: 'rgba(25, 118, 210, 0.04)'
                         }}
@@ -801,16 +804,16 @@ export default function AssignExercisePage() {
                             <Typography fontWeight="bold">
                               {exercise.exerciseName}
                             </Typography>
-                            
-                            <IconButton 
-                              color="error" 
+
+                            <IconButton
+                              color="error"
                               onClick={() => handleExerciseSelection(exercise.id)}
                               size="small"
                             >
                               <Delete fontSize="small" />
                             </IconButton>
                           </Box>
-                          
+
                           <Grid container spacing={2}>
                             <Grid item xs={6} sm={3}>
                               <Typography variant="body2" fontWeight="medium" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -820,14 +823,14 @@ export default function AssignExercisePage() {
                                 <IconButton
                                   size="small"
                                   onClick={() => handleExerciseDataChange(
-                                    exercise.id, 
-                                    'sets', 
+                                    exercise.id,
+                                    'sets',
                                     Math.max(1, (exercise.sets || 0) - 1)
                                   )}
                                 >
                                   <Remove fontSize="small" />
                                 </IconButton>
-                                
+
                                 <TextField
                                   type="number"
                                   size="small"
@@ -836,12 +839,12 @@ export default function AssignExercisePage() {
                                   InputProps={{ inputProps: { min: 1 } }}
                                   sx={{ width: '70px' }}
                                 />
-                                
+
                                 <IconButton
                                   size="small"
                                   onClick={() => handleExerciseDataChange(
-                                    exercise.id, 
-                                    'sets', 
+                                    exercise.id,
+                                    'sets',
                                     (exercise.sets || 0) + 1
                                   )}
                                 >
@@ -849,7 +852,7 @@ export default function AssignExercisePage() {
                                 </IconButton>
                               </Stack>
                             </Grid>
-                            
+
                             <Grid item xs={6} sm={3}>
                               <Typography variant="body2" fontWeight="medium" color="text.secondary" sx={{ mb: 0.5 }}>
                                 Repeticiones
@@ -858,14 +861,14 @@ export default function AssignExercisePage() {
                                 <IconButton
                                   size="small"
                                   onClick={() => handleExerciseDataChange(
-                                    exercise.id, 
-                                    'steps', 
+                                    exercise.id,
+                                    'steps',
                                     Math.max(1, (exercise.steps || 0) - 1)
                                   )}
                                 >
                                   <Remove fontSize="small" />
                                 </IconButton>
-                                
+
                                 <TextField
                                   type="number"
                                   size="small"
@@ -874,12 +877,12 @@ export default function AssignExercisePage() {
                                   InputProps={{ inputProps: { min: 1 } }}
                                   sx={{ width: '70px' }}
                                 />
-                                
+
                                 <IconButton
                                   size="small"
                                   onClick={() => handleExerciseDataChange(
-                                    exercise.id, 
-                                    'steps', 
+                                    exercise.id,
+                                    'steps',
                                     (exercise.steps || 0) + 1
                                   )}
                                 >
@@ -887,7 +890,7 @@ export default function AssignExercisePage() {
                                 </IconButton>
                               </Stack>
                             </Grid>
-                            
+
                             <Grid item xs={6} sm={3}>
                               <Typography variant="body2" fontWeight="medium" color="text.secondary" sx={{ mb: 0.5 }}>
                                 Peso (kg)
@@ -896,14 +899,14 @@ export default function AssignExercisePage() {
                                 <IconButton
                                   size="small"
                                   onClick={() => handleExerciseDataChange(
-                                    exercise.id, 
-                                    'kg', 
+                                    exercise.id,
+                                    'kg',
                                     Math.max(0, (exercise.kg || 0) - 2.5)
                                   )}
                                 >
                                   <Remove fontSize="small" />
                                 </IconButton>
-                                
+
                                 <TextField
                                   type="number"
                                   size="small"
@@ -912,12 +915,12 @@ export default function AssignExercisePage() {
                                   InputProps={{ inputProps: { min: 0, step: 2.5 } }}
                                   sx={{ width: '70px' }}
                                 />
-                                
+
                                 <IconButton
                                   size="small"
                                   onClick={() => handleExerciseDataChange(
-                                    exercise.id, 
-                                    'kg', 
+                                    exercise.id,
+                                    'kg',
                                     (exercise.kg || 0) + 2.5
                                   )}
                                 >
@@ -925,7 +928,7 @@ export default function AssignExercisePage() {
                                 </IconButton>
                               </Stack>
                             </Grid>
-                            
+
                             <Grid item xs={6} sm={3}>
                               <Typography variant="body2" fontWeight="medium" color="text.secondary" sx={{ mb: 0.5 }}>
                                 Descanso (seg)
@@ -934,14 +937,14 @@ export default function AssignExercisePage() {
                                 <IconButton
                                   size="small"
                                   onClick={() => handleExerciseDataChange(
-                                    exercise.id, 
-                                    'rest', 
+                                    exercise.id,
+                                    'rest',
                                     Math.max(0, (exercise.rest || 0) - 10)
                                   )}
                                 >
                                   <Remove fontSize="small" />
                                 </IconButton>
-                                
+
                                 <TextField
                                   type="number"
                                   size="small"
@@ -950,12 +953,12 @@ export default function AssignExercisePage() {
                                   InputProps={{ inputProps: { min: 0, step: 10 } }}
                                   sx={{ width: '70px' }}
                                 />
-                                
+
                                 <IconButton
                                   size="small"
                                   onClick={() => handleExerciseDataChange(
-                                    exercise.id, 
-                                    'rest', 
+                                    exercise.id,
+                                    'rest',
                                     (exercise.rest || 0) + 10
                                   )}
                                 >
@@ -986,7 +989,7 @@ export default function AssignExercisePage() {
                 </Button>
               </Box>
             )}
-            
+
             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
               <Button
                 variant="outlined"
@@ -995,14 +998,14 @@ export default function AssignExercisePage() {
               >
                 Atrás
               </Button>
-              
+
               <Button
                 variant="contained"
                 color="primary"
                 onClick={handleSubmit}
                 disabled={submitting || selectedExercises.length === 0}
                 startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : <SaveAlt />}
-                sx={{ 
+                sx={{
                   borderRadius: '10px',
                   px: { xs: 3, sm: 4 },
                   py: { xs: 1.5, sm: 1 }
@@ -1014,7 +1017,7 @@ export default function AssignExercisePage() {
           </Paper>
         </>
       )}
-      
+
       {/* Botón flotante para volver arriba */}
       {showScrollTop && (
         <Fab
@@ -1032,7 +1035,7 @@ export default function AssignExercisePage() {
           <KeyboardArrowUp />
         </Fab>
       )}
-      
+
       {/* Snackbar de éxito */}
       <Snackbar
         open={successSnackbar}
@@ -1040,9 +1043,9 @@ export default function AssignExercisePage() {
         onClose={() => setSuccessSnackbar(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert 
-          variant="filled" 
-          severity="success" 
+        <Alert
+          variant="filled"
+          severity="success"
           icon={<CheckCircle />}
           sx={{ width: '100%' }}
         >

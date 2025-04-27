@@ -65,17 +65,17 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({ assignment, onToggleComplet
               {sets != null && (
                 <div className="flex items-center" title="Series">
                   <SetsIcon />
-                  <span className={`ml-1 font-medium ${
-                    completed ? 'text-green-700' : 'text-gray-700'
-                  }`}>{sets}</span>
+                  <span className={`ml-1 font-medium ${completed ? 'text-green-700' : 'text-gray-700'}`}>
+                    Series: {sets}
+                  </span>
                 </div>
               )}
               {reps != null && (
                 <div className="flex items-center" title="Repeticiones">
                   <RepsIcon />
-                  <span className={`ml-1 font-medium ${
-                    completed ? 'text-green-700' : 'text-gray-700'
-                  }`}>{reps}</span>
+                  <span className={`ml-1 font-medium ${completed ? 'text-green-700' : 'text-gray-700'}`}>
+                    Repeticiones: {reps}
+                  </span>
                 </div>
               )}
               {weight != null && weight > 0 && (
